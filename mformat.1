@@ -1,4 +1,4 @@
-.TH mformat 1 "03Mar03" mtools-3.9.9
+.TH mformat 1 "28Feb05" mtools-3.9.10
 .SH Name
 mformat - add an MSDOS filesystem to a low-level formatted floppy disk
 '\" t
@@ -39,6 +39,7 @@ low-level formatted diskette. Its syntax is:
   [\fR\&\f(CW-C\fR] [\fR\&\f(CW-H\fR \fIhidden_sectors\fR] [\fR\&\f(CW-I\fR \fIfsVersion\fR]
   [\fR\&\f(CW-r\fR \fIroot_sectors\fR] [\fR\&\f(CW-L\fR \fIfat_len\fR] 
   [\fR\&\f(CW-B\fR \fIboot_sector\fR] [\fR\&\f(CW-k\fR]
+  [\fR\&\f(CW-m\fR \fImedia_descriptor\fR]
   \fIdrive:\fR
 .fi
 .ft R
@@ -181,9 +182,14 @@ Sets the size of a cluster (in sectors).  If this cluster size would
 generate a FAT that too big for its number of bits, mtools automatically
 increases the cluster size, until the FAT is small enough.
 .TP
+\&\fR\&\f(CWd\fR\ 
+Sets the number of FAT copies. Default is 2. This setting can also be
+specified using the \fR\&\f(CWMTOOLS_NFATS\fR environment variable.
+.TP
 \&\fR\&\f(CWr\fR\ 
 Sets the size of the root directory (in sectors).  Only applicable to 12
-and 16 bit FATs.
+and 16 bit FATs. This setting can also be specified using the
+\&\fR\&\f(CWMTOOLS_DIR_LEN\fR environment variable.
 .TP
 \&\fR\&\f(CWL\fR\ 
 Sets the length of the FAT.
@@ -197,6 +203,13 @@ parameters.
 Keep the existing boot sector as much as possible.  Only the geometry
 fields and other similar filesystem data are updated to match the target
 disks parameters.
+.TP
+\&\fR\&\f(CWm\fR\ 
+Use a non-standard media descriptor byte for this disk. The media
+descriptor is stored at position 21 of the boot sector, and as first
+byte in each FAT copy. Using this option may confuse DOS or older mtools
+version, and may make the disk unreadable. Only use if you know what you
+are doing.
 .PP
 To format a diskette at a density other than the default, you must supply
 (at least) those command line parameters that are different from the

@@ -17,6 +17,9 @@
 #include "partition.h"
 #include "llong.h"
 
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
 
 typedef struct SimpleFile_t {
     Class_t *Class;
@@ -38,69 +41,14 @@ typedef struct SimpleFile_t {
 } SimpleFile_t;
 
 
-/*
- * Create an advisory lock on the device to prevent concurrent writes.
- * Uses either lockf, flock, or fcntl locking methods.  See the Makefile
- * and the Configure files for how to specify the proper method.
- */
-
-int lock_dev(int fd, int mode, struct device *dev)
-{
-#if (defined(HAVE_FLOCK) && defined (LOCK_EX) && defined(LOCK_NB))
-	/**/
-#else /* FLOCK */
-
-#if (defined(HAVE_LOCKF) && defined(F_TLOCK))
-	/**/
-#else /* LOCKF */
-
-#if (defined(F_SETLK) && defined(F_WRLCK))
-	struct flock flk;
-
-#endif /* FCNTL */
-#endif /* LOCKF */
-#endif /* FLOCK */
-
-	if(IS_NOLOCK(dev))
-		return 0;
-
-#if (defined(HAVE_FLOCK) && defined (LOCK_EX) && defined(LOCK_NB))
-	if (flock(fd, (mode ? LOCK_EX : LOCK_SH)|LOCK_NB) < 0)
-#else /* FLOCK */
-
-#if (defined(HAVE_LOCKF) && defined(F_TLOCK))
-	if (mode && lockf(fd, F_TLOCK, 0) < 0)
-#else /* LOCKF */
-
-#if (defined(F_SETLK) && defined(F_WRLCK))
-	flk.l_type = mode ? F_WRLCK : F_RDLCK;
-	flk.l_whence = 0;
-	flk.l_start = 0L;
-	flk.l_len = 0L;
-
-	if (fcntl(fd, F_SETLK, &flk) < 0)
-#endif /* FCNTL */
-#endif /* LOCKF */
-#endif /* FLOCK */
-	{
-		if(errno == EINVAL
-#ifdef  EOPNOTSUPP 
-		   || errno ==  EOPNOTSUPP
-#endif
-		  )
-			return 0;
-		else
-			return 1;
-	}
-	return 0;
-}
+#include "lockdev.h"
 
 typedef int (*iofn) (int, char *, int);
 
 
 static void swap_buffer(char *buf, size_t len)
 {
-	int i;
+	unsigned int i;
 	for (i=0; i<len; i+=2) {
 		char temp = buf[i];
 		buf[i] = buf[i+1];
@@ -358,7 +306,8 @@ static void scsi_init(SimpleFile_t *This)
 int scsi_io(Stream_t *Stream, char *buf,  mt_off_t where, size_t len, int rwcmd)
 {
 	unsigned int firstblock, nsect;
-	int clen,r,max;
+	int clen,r;
+	size_t max;
 	off_t offset;
 	unsigned char cdb[10];
 	DeclareThis(SimpleFile_t);
@@ -598,7 +547,7 @@ APIRET rc;
 		    This->fd = scsi_open(name, mode, IS_NOLOCK(dev)?0444:0666,
 					 &This->extra_data);
 		else
-		    This->fd = open(name, mode | O_LARGEFILE, 
+		    This->fd = open(name, mode | O_LARGEFILE | O_BINARY, 
 				    IS_NOLOCK(dev)?0444:0666);
 	    }
 
@@ -643,6 +592,7 @@ APIRET rc;
 		return NULL;
 	}
 #ifndef __EMX__
+#ifndef __CYGWIN__
 	/* lock the device on writes */
 	if (locked && lock_dev(This->fd, mode == O_RDWR, dev)) {
 		if(errmsg)
@@ -662,9 +612,10 @@ APIRET rc;
 		return NULL;
 	}
 #endif
+#endif
 	/* set default parameters, if needed */
 	if (dev){		
-		if ((IS_MFORMAT_ONLY(dev) || !dev->tracks) &&
+		if ((!IS_MFORMAT_ONLY(dev) && dev->tracks) &&
 			init_geom(This->fd, dev, orig_dev, &This->statbuf)){
 			close(This->fd);
 			Free(This);

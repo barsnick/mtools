@@ -13,13 +13,14 @@
 static char buffer[MAX_LINE_LEN+1]; /* buffer for the whole line */
 static char *pos; /* position in line */
 static char *token; /* last scanned token */
-static int token_length; /* length of the token */
+static size_t token_length; /* length of the token */
 static FILE *fp; /* file pointer for configuration file */
 static int linenumber; /* current line number. Only used for printing
 						* error messages */
 static int lastTokenLinenumber; /* line numnber for last token */
-static const char *filename; /* current file name. Only used for printing
-			      * error messages */
+static const char *filename=NULL; /* current file name. Used for printing
+				   * error messages, and for storing in
+				   * the device definition (mtoolstest) */
 static int file_nr=0;
 
 
@@ -168,7 +169,7 @@ static void syntax(const char *msg, int thisLine)
 static void get_env_conf(void)
 {
     char *s;
-    int i;
+    unsigned int i;
 
     for(i=0; i< sizeof(switches) / sizeof(*switches); i++) {
 	s = getenv(switches[i].name);
@@ -407,7 +408,7 @@ static int set_var(struct switches_l *switches, int nr,
 
 static int set_openflags(struct device *dev)
 {
-    int i;
+    unsigned int i;
 
     for(i=0; i < sizeof(openflags) / sizeof(*openflags); i++) {
 	if(match_token(openflags[i].name)) {
@@ -420,7 +421,7 @@ static int set_openflags(struct device *dev)
 
 static int set_misc_flags(struct device *dev)
 {
-    int i;
+    unsigned int i;
 
     for(i=0; i < sizeof(misc_flags) / sizeof(*misc_flags); i++) {
 	if(match_token(misc_flags[i].name)) {
@@ -446,7 +447,7 @@ static int set_misc_flags(struct device *dev)
 
 static int set_def_format(struct device *dev)
 {
-    int i;
+    unsigned int i;
 
     for(i=0; i < sizeof(default_formats)/sizeof(*default_formats); i++) {
 	if(match_token(default_formats[i].name)) {
@@ -629,11 +630,21 @@ static int parse_one(int privilege)
 
 static int parse(const char *name, int privilege)
 {
+    if(fp) {
+	fprintf(stderr, "File descriptor already set (%p)!\n", fp);
+	exit(1);
+    }
     fp = fopen(name, "r");
     if(!fp)
 	return 0;
     file_nr++;
-    filename = strdup(name);
+    filename = name; /* no strdup needed: although lifetime of variable
+			exceeds this function (due to dev->cfg_filename),
+			we know that the name is always either
+			1. a constant
+			2. a statically allocate buffer
+			3. an environment variable that stays unchanged
+		     */
     linenumber = 0;
     lastTokenLinenumber = 0;
     pos = 0;
@@ -643,6 +654,8 @@ static int parse(const char *name, int privilege)
     while(parse_one(privilege));
     finish_drive_clause();
     fclose(fp);
+    filename = NULL;
+    fp = NULL;
     return 1;
 }
 
@@ -650,7 +663,7 @@ void read_config(void)
 {
     char *homedir;
     char *envConfFile;
-    char conf_file[MAXPATHLEN+sizeof(CFG_FILE1)];
+    static char conf_file[MAXPATHLEN+sizeof(CFG_FILE1)];
 
 	
     /* copy compiled-in devices */

@@ -72,7 +72,7 @@ static FatMap_t *GetFatMap(Fs_t *Stream)
 	return map;
 }
 
-static __inline__ int locate(Fs_t *Stream, int offset, int *slot, int *bit)
+static __inline__ int locate(Fs_t *Stream, size_t offset, int *slot, int *bit)
 {
 	if(offset >= Stream->fat_len)
 		return -1;
@@ -98,20 +98,20 @@ static __inline__ int fatReadSector(Fs_t *This, int sector, int slot,
 
 	/* first, read as much as the buffer can give us */
 	ret = readSector(This,
-					 (char *)(This->FatMap[slot].data+(bit<<This->sectorShift)),
-					 fat_start+sector,
-					 nr_sectors);
+			 (char *)(This->FatMap[slot].data+(bit<<This->sectorShift)),
+			 fat_start+sector,
+			 nr_sectors);
 	if(ret < 0)
 		return 0;
 
-	if(ret < This->sector_size) {
+	if((unsigned int) ret < This->sector_size) {
 		/* if we got less than one sector's worth, insist to get at
 		 * least one sector */
 		ret = forceReadSector(This,
-							  (char *) (This->FatMap[slot].data + 
-										(bit << This->sectorShift)),
-							  fat_start+sector, 1);
-		if(ret < This->sector_size)
+				      (char *) (This->FatMap[slot].data + 
+						(bit << This->sectorShift)),
+				      fat_start+sector, 1);
+		if(ret < (int) This->sector_size)
 			return 0;
 		return 1;
 	}
@@ -131,16 +131,16 @@ static int fatWriteSector(Fs_t *This, int sector, int slot, int bit, int dupe)
 	fat_start = This->fat_start + This->fat_len * dupe;
 
 	return forceWriteSector(This,
-							(char *) 
-							(This->FatMap[slot].data + bit * This->sector_size),
-							fat_start+sector, 1);
+				(char *) 
+				(This->FatMap[slot].data + bit * This->sector_size),
+				fat_start+sector, 1);
 }
 
 static unsigned char *loadSector(Fs_t *This,
 				 unsigned int sector, fatAccessMode_t mode,
 				 int recurs)
 {
-	int slot, bit, i, ret;
+	int slot, bit, ret;
 
 	if(locate(This,sector, &slot, &bit) < 0)
 		return 0;
@@ -167,6 +167,7 @@ static unsigned char *loadSector(Fs_t *This,
 	}
 
 	if(! (This->FatMap[slot].valid & (ONE << bit))) {
+		unsigned int i;
 		ret = -1;
 		for(i=0; i< This->num_fat; i++) {
 			/* read the sector */
@@ -190,7 +191,7 @@ static unsigned char *loadSector(Fs_t *This,
 		if(ret == 0)
 			return 0;
 
-		for(i=0; i < ret; i++)
+		for(i=0; (int) i < ret; i++)
 			This->FatMap[slot].valid |= ONE << (bit + i);
 
 		if(!recurs && ret == 1)
@@ -315,6 +316,8 @@ static void fat12_encode(Fs_t *Stream, unsigned int num, unsigned int code)
 static unsigned int fat16_decode(Fs_t *Stream, unsigned int num)
 {
 	unsigned char *address = getAddress(Stream, num << 1, FAT_ACCESS_READ);
+	if(!address)
+		return 1;
 	return _WORD(address);
 }
 
@@ -330,6 +333,8 @@ static unsigned int fast_fat16_decode(Fs_t *Stream, unsigned int num)
 	unsigned short *address = 
 		(unsigned short *) getAddress(Stream, num << 1, 
 					      FAT_ACCESS_READ);
+	if(!address)
+		return 1;
 	return *address;
 }
 
@@ -353,6 +358,8 @@ static void fast_fat16_encode(Fs_t *Stream, unsigned int num, unsigned int code)
 static unsigned int fat32_decode(Fs_t *Stream, unsigned int num)
 {
 	unsigned char *address = getAddress(Stream, num << 2, FAT_ACCESS_READ);
+	if(!address)
+		return 1;
 	return _DWORD(address) & FAT32_ADDR;
 }
 
@@ -368,6 +375,8 @@ static unsigned int fast_fat32_decode(Fs_t *Stream, unsigned int num)
 	unsigned int *address = 
 		(unsigned int *) getAddress(Stream, num << 2, 
 					    FAT_ACCESS_READ);
+	if(!address)
+		return 1;
 	return (*address) & FAT32_ADDR;
 }
 
@@ -388,7 +397,8 @@ static void fast_fat32_encode(Fs_t *Stream, unsigned int num, unsigned int code)
 
 void fat_write(Fs_t *This)
 {
-	int i, j, dups, ret, bit, slot;
+	unsigned int i, j, dups, bit, slot;
+	int ret;
 	int fat_start;
 
 	/*fprintf(stderr, "Fat write\n");*/
@@ -415,7 +425,7 @@ void fat_write(Fs_t *This)
 				if(!(This->FatMap[slot].dirty & (ONE << bit)))
 					continue;
 				ret = fatWriteSector(This,j,slot, bit, i);
-				if (ret < This->sector_size){
+				if (ret < (int) This->sector_size){
 					if (ret < 0 ){
 						perror("error in fat_write");
 						exit(1);
@@ -427,9 +437,9 @@ void fat_write(Fs_t *This)
 				}
 				/* if last dupe, zero it out */
 				if(i==dups-1)
-					This->FatMap[slot].dirty &= ~(1<<bit);
+					This->FatMap[slot].dirty &= ~(ONE<<bit);
 			}
-		}	 
+		}
 	}
 	/* write the info sector, if any */
 	if(This->infoSectorLoc && This->infoSectorLoc != MAX32) {
@@ -444,7 +454,7 @@ void fat_write(Fs_t *This)
 		set_dword(infoSector->count, This->freeSpace);
 		set_dword(infoSector->signature3, 0xaa55);
 		if(forceWriteSector(This, (char *)infoSector, This->infoSectorLoc, 1) !=
-		   This->sector_size)
+		   (signed int) This->sector_size)
 			fprintf(stderr,"Trouble writing the info sector\n");
 		free(infoSector);
 	}
@@ -460,8 +470,8 @@ void fat_write(Fs_t *This)
  */
 int zero_fat(Fs_t *Stream, int media_descriptor)
 {
-	int i, j;
-	int fat_start;
+	unsigned int i, j;
+	unsigned int fat_start;
 	unsigned char *buf;
 
 	buf = malloc(Stream->sector_size);
@@ -488,10 +498,10 @@ int zero_fat(Fs_t *Stream, int media_descriptor)
 			}
 
 			if(forceWriteSector(Stream, (char *)buf,
-								fat_start + j, 1) !=
-			   Stream->sector_size) {
+					    fat_start + j, 1) !=
+			   (signed int) Stream->sector_size) {
 				fprintf(stderr,
-						"Trouble initializing a FAT sector\n");
+					"Trouble initializing a FAT sector\n");
 				free(buf);
 				return -1;
 			}
@@ -561,7 +571,8 @@ static int check_fat(Fs_t *This)
 	 * there is no point in checking the whole FAT.
 	 */
 
-	int i, f, tocheck;
+	unsigned int i, f;
+	unsigned int tocheck;
 	if(mtools_skip_check)
 		return 0;
 
@@ -573,7 +584,7 @@ static int check_fat(Fs_t *This)
 	 * other occurrences */
 	
 	tocheck = This->num_clus;
-	if (tocheck < 0 || tocheck + 1 >= This->last_fat) {
+	if (tocheck + 1 >= This->last_fat) {
 		fprintf(stderr, "Too many clusters in FAT\n");
 		return -1;
 	}
@@ -663,7 +674,8 @@ static int fat_32_read(Fs_t *This, struct bootsector *boot,
 		InfoSector_t *infoSector;
 		infoSector = (InfoSector_t *) safe_malloc(size);
 		if(forceReadSector(This, (char *)infoSector,
-						   This->infoSectorLoc, 1) == This->sector_size &&
+				   This->infoSectorLoc, 1) == 
+		   (signed int) This->sector_size &&
 		   _DWORD(infoSector->signature1) == INFOSECT_SIGNATURE1 &&
 		   _DWORD(infoSector->signature2) == INFOSECT_SIGNATURE2) {
 			This->freeSpace = _DWORD(infoSector->count);
@@ -728,7 +740,7 @@ int fat_read(Fs_t *This, struct bootsector *boot, int fat_bits,
 
 unsigned int fatDecode(Fs_t *This, unsigned int pos)
 {
-	int ret;
+	unsigned int ret;
 
 	ret = This->fat_decode(This, pos);
 	if(ret && (ret < 2 || ret > This->num_clus+1) && ret < This->last_fat) {
@@ -777,7 +789,7 @@ void fatEncode(Fs_t *This, unsigned int pos, unsigned int value)
 
 unsigned int get_next_free_cluster(Fs_t *This, unsigned int last)
 {
-	int i;
+	unsigned int i;
 
 	if(This->last != MAX32)
 		last = This->last;
@@ -787,14 +799,20 @@ unsigned int get_next_free_cluster(Fs_t *This, unsigned int last)
 		last = 1;
 
 	for (i=last+1; i< This->num_clus+2; i++) {
-		if (!fatDecode(This, i)) {
+		unsigned int r = fatDecode(This, i);
+		if(r == 1)
+			goto exit_0;
+		if (!r) {
 			This->last = i;
 			return i;
 		}
 	}
 
 	for(i=2; i < last+1; i++) {
-		if (!fatDecode(This, i)) {
+		unsigned int r = fatDecode(This, i);
+		if(r == 1)
+			goto exit_0;
+		if (!r) {
 			This->last = i;
 			return i;
 		}
@@ -803,6 +821,9 @@ unsigned int get_next_free_cluster(Fs_t *This, unsigned int last)
 
 	fprintf(stderr,"No free cluster %d %d\n", This->preallocatedClusters,
 		This->last);
+	return 1;
+ exit_0:
+	fprintf(stderr, "FAT error\n");
 	return 1;
 }
 
@@ -843,9 +864,14 @@ mt_size_t getfree(Stream_t *Dir)
 		size_t total;
 
 		total = 0L;
-		for (i = 2; i < This->num_clus + 2; i++)
-			if (!fatDecode(This,i))
+		for (i = 2; i < This->num_clus + 2; i++) {
+			unsigned int r = fatDecode(This,i);
+			if(r == 1) {
+				return -1;
+			}
+			if (!r)
 				total++;
+		}
 		This->freeSpace = total;
 	}
 	return sectorsToBytes((Stream_t*)This, 
@@ -887,19 +913,30 @@ int getfreeMinClusters(Stream_t *Dir, size_t size)
 	if ( last < 2 || last >= This->num_clus + 2)
 		last = 1;
 	for (i=last+1; i< This->num_clus+2; i++){
-		if (!fatDecode(This, i))
+		unsigned int r = fatDecode(This, i);
+		if(r == 1) {
+			goto exit_0;
+		}
+		if (!r)
 			total++;
 		if(total >= size)
 			return 1;				
 	}
 	for(i=2; i < last+1; i++){
-		if (!fatDecode(This, i))
+		unsigned int r = fatDecode(This, i);		
+		if(r == 1) {
+			goto exit_0;
+		}
+		if (!r)
 			total++;
 		if(total >= size)
 			return 1;
 	}
 	fprintf(stderr, "Disk full\n");
 	got_signal = 1;
+	return 0;
+ exit_0:
+	fprintf(stderr, "FAT error\n");
 	return 0;
 }
 

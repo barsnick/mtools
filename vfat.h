@@ -60,11 +60,11 @@ struct scan_state {
 	int match_free;
 	int shortmatch;
 	int longmatch;
-	int free_start;
-	int free_end;
+	unsigned int free_start;
+	unsigned int free_end;
 	int slot;
 	int got_slots;
-	int size_needed;
+	unsigned int size_needed;
 	int max_entry;
 };
 
@@ -76,14 +76,6 @@ int unicode_write(char *, struct unicode_char *, int num, int *end);
 int clear_vses(Stream_t *, int, size_t);
 void autorename_short(char *, int);
 void autorename_long(char *, int);
-
-int lookupForInsert(Stream_t *Dir,
-					char *dosname,
-					char *longname,
-					struct scan_state *ssp, 
-					int ignore_entry,
-					int source_entry,
-					int pessimisticShortRename);
 
 #define DO_OPEN 1 /* open all files that are found */
 #define ACCEPT_LABEL 0x08

@@ -15,6 +15,7 @@ static const struct dispatch {
 	{"mbadblocks",mbadblocks, 0},
 	{"mcat",mcat, 0},
 	{"mcd",mcd, 0},
+	{"mclasserase",mclasserase, 0},
 	{"mcopy",mcopy, 0},
 	{"mdel",mdel, 0},
 	{"mdeltree",mdel, 2},
@@ -42,7 +43,7 @@ static const struct dispatch {
 int main(int argc,char **argv)
 {
 	const char *name;
-	int i;
+	unsigned int i;
 
 	init_privs();
 #ifdef __EMX__
