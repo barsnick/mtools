@@ -1,4 +1,4 @@
-.TH mcopy 1 "03Mar03" mtools-3.9.9
+.TH mcopy 1 "28Feb05" mtools-3.9.10
 .SH Name
 mcopy - copy MSDOS files to/from Unix
 '\" t
@@ -94,14 +94,13 @@ untranslatable characters are replaced by '\fR\&\f(CW.\fR'.
 .TP
 \&\fR\&\f(CWn\fR\ 
 No confirmation when overwriting Unix files.  \fR\&\f(CWMcopy\fR doesn't warn
-the user when overwriting an existing Unix file.  In order to switch off
-confirmation for DOS files, use \fR\&\f(CW-o\fR.
-.TP
-\&\fR\&\f(CWm\fR\ 
-Preserve the file modification time. If the target file already exists,
+the user when overwriting an existing Unix file. If the target file already exists,
 and the \fR\&\f(CW-n\fR option is not in effect, \fR\&\f(CWmcopy\fR asks whether to
 overwrite the file or to rename the new file (\(ifname clashes\(is) for
-details).
+details).  In order to switch off confirmation for DOS files, use \fR\&\f(CW-o\fR.
+.TP
+\&\fR\&\f(CWm\fR\ 
+Preserve the file modification time.
 .TP
 \&\fR\&\f(CWv\fR\ 
 Verbose. Displays the name of each file as it is copied.

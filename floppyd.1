@@ -1,4 +1,4 @@
-.TH floppyd 1 "03Mar03" mtools-3.9.9
+.TH floppyd 1 "28Feb05" mtools-3.9.10
 .SH Name
 floppyd - floppy daemon for remote access to floppy drive
 floppyd_installtest - tests whether floppyd is installed and running
@@ -28,7 +28,7 @@ to clients running on a remote machine, just as an X server grants
 access to the display to remote clients.  It has the following syntax:
 .PP
 \&\fR\&\f(CWfloppyd\fR [\fR\&\f(CW-d\fR] [\fR\&\f(CW-l\fR] [\fR\&\f(CW-s\fR \fIport\fR] [\fR\&\f(CW-r\fR
-\&\fIuser\fR] [\fR\&\f(CW-b\fR \fIipaddr\fR] \fIdevicename\fR [\fIdisplaynames\fR]
+\&\fIuser\fR] [\fR\&\f(CW-b\fR \fIipaddr\fR] [\fR\&\f(CW-x\fR \fIdisplay\fR] \fIdevicenames\fR
 .PP
 \&\fR\&\f(CWfloppyd\fR is always associated with an X server.  It runs on the
 same machine as its X server, and listens on port 5703 and above.
@@ -41,7 +41,9 @@ associated with an X server.  When a remote client attempts to connect
 to floppyd, it sends floppyd the X authority record corresponding to
 floppyd's X server.  Floppyd in turn then tries to open up a connection
 to the X server in order to verify the authenticity of the xauth record.
-If the connection to the X server succeeds, the client is granted access
+If the connection to the X server succeeds, the client is granted
+access.
+\&\fR\&\f(CWDISPLAY\fR.
 .PP
 \&\fBCaution\fR: In order to make authentication work correctly, the
 local host should \fBnot\fR be listed in the \fR\&\f(CWxhost\fR list of
@@ -72,35 +74,14 @@ Bind address (for multihomed hosts). This flag implies daemon mode
 \&\fR\&\f(CWr\ \fIuser\fR\&\f(CW\fR\ 
 Run the server under as the given user
 .TP
-\&\fR\&\f(CWl\fR\ 
-Do not generate local default display names
+\&\fR\&\f(CWx\ \fIdisplay\fR\&\f(CW\fR\ 
+X display to use for authentication. By default, this is taken from the
+\&\fR\&\f(CWDISPLAY\fR variable. If neither the \fR\&\f(CWx\fR attribute is present
+nor \fR\&\f(CWDISPLAY\fR is set, floppyd uses \fR\&\f(CW:0.0\fR.
 .PP
-\&\fIdevicename\fR is the name of the device node to be opened.  Default
-is \fR\&\f(CW/dev/fd0\fR.
-.PP
-\&\fIdisplaynames\fR is a list of display names to connect to for
-authentication.  All displays in the list are tried until one is found
-that grants access or until the list is exhausted.  If no list is
-supplied, the a display name list based on the ip address supplied using
-the \fR\&\f(CW-b\fR flag is constructed: 
-\&\fR\&\f(CW\fIipaddr\fR\&\f(CW:\fIn\fR\&\f(CW.0\fR.
-.TP
-* \ \fR\&\f(CW:\fR\fIn\fR\fR\&\f(CW.0\fR\ 
- If \fR\&\f(CWfloppyd\fR is started from inetd, the address of the socket used
-for stdin is used as a bind address.
-.PP
- If no bind address is supplied, a list containing the following 3 items
-is constructed:
-.TP
-* \ \fIhostname\fR\fR\&\f(CW:\fR\fIn\fR\fR\&\f(CW.0\fR\ 
-.TP
-* \ \fR\&\f(CWlocalhost:\fR\fIn\fR\fR\&\f(CW.0\fR\ 
-.TP
-* \ \fR\&\f(CW:\fR\fIn\fR\fR\&\f(CW.0\fR\ 
-.PP
- \fIn\fR is the display number derived from the port number (\fIport\fR
-- 5703 modulo 10). The local items (\fR\&\f(CWlocalhost:0\fR and \fR\&\f(CW:0\fR)
-are not constructed if the \fR\&\f(CW-l\fR flag is given.
+\&\fIdevicenames\fR is a list of device nodes to be opened.  Default
+is \fR\&\f(CW/dev/fd0\fR. Multiple devices are only supported on mtools
+versions newer than February 28th 2005
 .PP
 .SH Connecting\ to\ floppyd
 .PP
@@ -108,10 +89,12 @@ are not constructed if the \fR\&\f(CW-l\fR flag is given.
 description in your \fR\&\f(CW\(if~/.mtoolsrc\(is\fR file.  If the flag \fR\&\f(CWremote\fR
 is given, the \fR\&\f(CWfile\fR parameter of the device description is taken
 to be a remote address.  It's format is the following:
-\&\fIhostname\fR\fR\&\f(CW:\fR\fIdisplaynumber\fR[\fR\&\f(CW/\fR\fIbaseport\fR]. When
+\&\fIhostname\fR\fR\&\f(CW:\fR\fIdisplaynumber\fR[\fR\&\f(CW/\fR[\fIbaseport\fR][\fR\&\f(CW/\fR\fIdrive\fR]]. When
 using this entry, mtools connects to port
 \&\fIbaseport\fR+\fIdisplaynumber\fR at \fIhostname\fR. By default
-\&\fIbaseport\fR is 5703.
+\&\fIbaseport\fR is 5703. The drive parameter is to distinguish among
+multiple drives associated with a single display (only mtools versions
+more recent than February 28th 2005)
 .PP
 .SH Examples:
 .PP
@@ -138,8 +121,8 @@ floppyd -d /dev/fd0
 .nf
 .ft 3
 .in +0.3i
-floppyd -d /dev/fd0 localhost:1 hitchhiker:1 :1
-floppyd -p 5704 /dev/fd0 
+floppyd -d /dev/fd0
+floppyd -d -x :1 -p 5704 /dev/fd0 
 .fi
 .in -0.3i
 .ft R
@@ -171,8 +154,8 @@ have defined a user named floppy in your \fR\&\f(CW\(if/etc/passwd\(is\fR):
 .ft 3
 .in +0.3i
 # floppy daemon
-floppyd-0   stream  tcp  wait  floppy  /usr/sbin/floppyd floppyd /dev/fd0 
-floppyd-1   stream  tcp  wait  floppy  /usr/sbin/floppyd floppyd /dev/fd1
+floppyd-0 stream  tcp  wait  floppy  /usr/sbin/floppyd floppyd /dev/fd0 
+floppyd-1 stream  tcp  wait  floppy  /usr/sbin/floppyd floppyd -x :1 /dev/fd0 
 .fi
 .in -0.3i
 .ft R
@@ -184,13 +167,28 @@ floppyd-1   stream  tcp  wait  floppy  /usr/sbin/floppyd floppyd /dev/fd1
 floppyd.  This is because the port is opened by inetd.conf, and hence
 floppyd cannot know its number to interfere the display number.
 .PP
- On the client side, insert the following into your \fR\&\f(CW\(if~/.mtoolsrc\(is\fR
+On the client side, insert the following into your \fR\&\f(CW\(if~/.mtoolsrc\(is\fR
 to define a drive letter accessing floppy drive in your X terminal:
  
 .nf
 .ft 3
 .in +0.3i
 drive x: file="$DISPLAY" remote
+.fi
+.in -0.3i
+.ft R
+.lp
+ 
+\&\fR
+.PP
+If your X terminal has more than one drive, you may access the
+additional drives as follows:
+ 
+.nf
+.ft 3
+.in +0.3i
+drive y: file="$DISPLAY//1" remote
+drive z: file="$DISPLAY//2" remote
 .fi
 .in -0.3i
 .ft R

@@ -55,7 +55,7 @@ typedef struct device {
 
 	/* internal variables */
 	int file_nr;		/* used during parsing */
-	int blocksize;	        /* size of disk block in bytes */
+	unsigned int blocksize;	  /* size of disk block in bytes */
 
 	const char *cfg_filename; /* used for debugging purposes */
 } device_t;
@@ -162,7 +162,7 @@ extern struct device *devices;
 extern struct device const_devices[];
 extern const int nr_const_devices;
 
-#define New(type) ((type*)(malloc(sizeof(type))))
+#define New(type) ((type*)(calloc(1,sizeof(type))))
 #define Grow(adr,n,type) ((type*)(realloc((char *)adr,n*sizeof(type))))
 #define Free(adr) (free((char *)adr));
 #define NewArray(size,type) ((type*)(calloc((size),sizeof(type))))
@@ -171,6 +171,7 @@ void mattrib(int argc, char **argv, int type);
 void mbadblocks(int argc, char **argv, int type);
 void mcat(int argc, char **argv, int type);
 void mcd(int argc, char **argv, int type);
+void mclasserase(int argc, char **argv, int type);
 void mcopy(int argc, char **argv, int type);
 void mdel(int argc, char **argv, int type);
 void mdir(int argc, char **argv, int type);

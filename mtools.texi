@@ -17,9 +17,9 @@ mtools - utilities to access DOS disks in Unix.
 @end ignore
 
 
-@set EDITION 3.9.9
-@set VERSION 3.9.9
-@set UPDATED March 2003
+@set EDITION 3.9.10
+@set VERSION 3.9.10
+@set UPDATED March 2005
 
 @iftex
 @finalout
@@ -163,9 +163,9 @@ click "Cancel" to refuse the cookie and protect your privacy.
 
 Mtools can be found at the following places (and their mirrors):
 @example
-http://mtools.linux.lu/mtools-3.9.9.tar.gz
-ftp://www.tux.org/pub/knaff/mtools/mtools-3.9.9.tar.gz
-ftp://ibiblio.unc.edu/pub/Linux/utils/disk-management/mtools-3.9.9.tar.gz
+http://mtools.linux.lu/mtools-3.9.10.tar.gz
+ftp://www.tux.org/pub/knaff/mtools/mtools-3.9.10.tar.gz
+ftp://ibiblio.unc.edu/pub/Linux/utils/disk-management/mtools-3.9.10.tar.gz
 @end example
 
 Before reporting a bug, make sure that it has not yet been fixed in the
@@ -1405,6 +1405,7 @@ description of those.
 * mbadblocks::        tests a floppy disk, and marks the bad blocks in the FAT
 * mcat::              same as cat. Only usefull with floppyd.
 * mcd::               change MS-DOS directory
+* mclasserase::       erase memory card
 * mcopy::             copy MS-DOS files to/from Unix
 * mdel::              delete an MS-DOS file
 * mdeltree::          recursively delete an MS-DOS directory
@@ -1437,7 +1438,7 @@ to clients running on a remote machine, just as an X server grants
 access to the display to remote clients.  It has the following syntax:
 
 @code{floppyd} [@code{-d}] [@code{-l}] [@code{-s} @var{port}] [@code{-r}
-@var{user}] [@code{-b} @var{ipaddr}] @var{devicename} [@var{displaynames}]
+@var{user}] [@code{-b} @var{ipaddr}] [@code{-x} @var{display}] @var{devicenames}
 
 
 @code{floppyd} is always associated with an X server.  It runs on the
@@ -1451,7 +1452,9 @@ associated with an X server.  When a remote client attempts to connect
 to floppyd, it sends floppyd the X authority record corresponding to
 floppyd's X server.  Floppyd in turn then tries to open up a connection
 to the X server in order to verify the authenticity of the xauth record.
-If the connection to the X server succeeds, the client is granted access
+If the connection to the X server succeeds, the client is granted
+access.
+@code{DISPLAY}.
 
 @strong{Caution}: In order to make authentication work correctly, the
 local host should @strong{not} be listed in the @code{xhost} list of
@@ -1479,36 +1482,16 @@ This flag implies daemon mode.  For example, for display
 Bind address (for multihomed hosts). This flag implies daemon mode
 @item r @var{user}
 Run the server under as the given user
-@item l
-Do not generate local default display names
+@item x @var{display}
+X display to use for authentication. By default, this is taken from the
+@code{DISPLAY} variable. If neither the @code{x} attribute is present
+nor @code{DISPLAY} is set, floppyd uses @code{:0.0}.
 @end table
 
-@var{devicename} is the name of the device node to be opened.  Default
-is @code{/dev/fd0}.
+@var{devicenames} is a list of device nodes to be opened.  Default
+is @code{/dev/fd0}. Multiple devices are only supported on mtools
+versions newer than 3.9.10.
 
-@var{displaynames} is a list of display names to connect to for
-authentication.  All displays in the list are tried until one is found
-that grants access or until the list is exhausted.  If no list is
-supplied, the a display name list based on the ip address supplied using
-the @code{-b} flag is constructed: 
-@itemize @bullet
-@code{@var{ipaddr}:@var{n}.0}.
-@item @code{:}@var{n}@code{.0}
-@end itemize
- If @code{floppyd} is started from inetd, the address of the socket used
-for stdin is used as a bind address.
-
- If no bind address is supplied, a list containing the following 3 items
-is constructed:
-@itemize @bullet
-@item @var{hostname}@code{:}@var{n}@code{.0}
-@item @code{localhost:}@var{n}@code{.0}
-@item @code{:}@var{n}@code{.0}
-@end itemize
-
- @var{n} is the display number derived from the port number (@var{port}
-- 5703 modulo 10). The local items (@code{localhost:0} and @code{:0})
-are not constructed if the @code{-l} flag is given.
 
 @subsection Connecting to floppyd
 
@@ -1516,10 +1499,12 @@ are not constructed if the @code{-l} flag is given.
 description in your @file{~/.mtoolsrc} file.  If the flag @code{remote}
 is given, the @code{file} parameter of the device description is taken
 to be a remote address.  It's format is the following:
-@var{hostname}@code{:}@var{displaynumber}[@code{/}@var{baseport}]. When
+@var{hostname}@code{:}@var{displaynumber}[@code{/}[@var{baseport}][@code{/}@var{drive}]]. When
 using this entry, mtools connects to port
 @var{baseport}+@var{displaynumber} at @var{hostname}. By default
-@var{baseport} is 5703.
+@var{baseport} is 5703. The drive parameter is to distinguish among
+multiple drives associated with a single display (only mtools versions
+more recent than 3.9.10)
 
 @subsection Examples:
 
@@ -1535,8 +1520,8 @@ floppyd -d /dev/fd0
 5704. We assume that the local host is named @code{hitchhiker}.
 
 @example
-floppyd -d /dev/fd0 localhost:1 hitchhiker:1 :1
-floppyd -p 5704 /dev/fd0 
+floppyd -d /dev/fd0
+floppyd -d -x :1 -p 5704 /dev/fd0 
 @end example
 
  If you want to start floppyd by @code{inetd} instead of running it as a 
@@ -1552,8 +1537,8 @@ have defined a user named floppy in your @file{/etc/passwd}):
 
 @example
 # floppy daemon
-floppyd-0   stream  tcp  wait  floppy  /usr/sbin/floppyd floppyd /dev/fd0 
-floppyd-1   stream  tcp  wait  floppy  /usr/sbin/floppyd floppyd /dev/fd1
+floppyd-0 stream  tcp  wait  floppy  /usr/sbin/floppyd floppyd /dev/fd0 
+floppyd-1 stream  tcp  wait  floppy  /usr/sbin/floppyd floppyd -x :1 /dev/fd0 
 @end example
 
  Note that you need to supply the X display names for the second
@@ -1561,10 +1546,17 @@ floppyd.  This is because the port is opened by inetd.conf, and hence
 floppyd cannot know its number to interfere the display number.
 
 
- On the client side, insert the following into your @file{~/.mtoolsrc}
+On the client side, insert the following into your @file{~/.mtoolsrc}
 to define a drive letter accessing floppy drive in your X terminal:
 @example
 drive x: file="$DISPLAY" remote
+@end example
+
+If your X terminal has more than one drive, you may access the
+additional drives as follows:
+@example
+drive y: file="$DISPLAY//1" remote
+drive z: file="$DISPLAY//2" remote
 @end example
 
 @node floppyd_installtest, mattrib, floppyd, Commands
@@ -1683,7 +1675,7 @@ stdin and writes it to the given device.
 command, it will happily destroy any data written before on the
 disk without warning!
 
-@node mcd, mcopy, mcat, Commands
+@node mcd, mclasserase, mcat, Commands
 @section Mcd
 @pindex mcd
 @cindex Directory (changing)
@@ -1713,7 +1705,38 @@ if the file is more than 6 hours old.
 Unlike MS-DOS versions of @code{CD}, @code{mcd} can be used to change to
 another device. It may be wise to remove old @file{.mcwd} files at logout.
 
-@node mcopy, mdel, mcd, Commands
+@node mclasserase, mcopy, mcd, Commands
+@section Mclasserase
+@pindex mclasserase
+@cindex Memory Card
+@cindex Physically erase
+
+The @code{mclasserase} command is used to wipe memory cards by
+overwriting it three times: first with @code{0xff}, then with
+@code{0x00}, then with @code{0xff} again. The command uses the following
+syntax:
+
+@example
+@code{mclasserase} [@code{-d}] @var{msdosdrive}
+@end example
+
+Dos drive is optional, if none is specified, use @code{A:}. If more than
+one drive are specified, all but the last are ignored.
+
+@code{Mclasserase} accepts the following command line options:
+
+@table @code
+@item d
+Stop after each erase cycle, for testing purposes
+@item p
+Not yet implemented
+@end table
+
+
+@code{Mclasserase} returns 0 on success or -1 on failure.
+
+
+@node mcopy, mdel, mclasserase, Commands
 @section Mcopy
 @pindex mcopy
 @cindex Reading MS-DOS files
@@ -1779,13 +1802,12 @@ untranslatable characters are replaced by '@code{#}'; when writing DOS files,
 untranslatable characters are replaced by '@code{.}'.
 @item n
 No confirmation when overwriting Unix files.  @code{Mcopy} doesn't warn
-the user when overwriting an existing Unix file.  In order to switch off
-confirmation for DOS files, use @code{-o}.
-@item m
-Preserve the file modification time. If the target file already exists,
+the user when overwriting an existing Unix file. If the target file already exists,
 and the @code{-n} option is not in effect, @code{mcopy} asks whether to
 overwrite the file or to rename the new file (@ref{name clashes}) for
-details).
+details).  In order to switch off confirmation for DOS files, use @code{-o}.
+@item m
+Preserve the file modification time.
 @item v
 Verbose. Displays the name of each file as it is copied.
 @end table
@@ -1923,6 +1945,7 @@ low-level formatted diskette. Its syntax is:
   [@code{-C}] [@code{-H} @var{hidden_sectors}] [@code{-I} @var{fsVersion}]
   [@code{-r} @var{root_sectors}] [@code{-L} @var{fat_len}] 
   [@code{-B} @var{boot_sector}] [@code{-k}]
+  [@code{-m} @var{media_descriptor}]
   @var{drive:}
 @end display
 
@@ -2044,9 +2067,13 @@ I can include the correct value in future versions of mtools.
 Sets the size of a cluster (in sectors).  If this cluster size would
 generate a FAT that too big for its number of bits, mtools automatically
 increases the cluster size, until the FAT is small enough.
+@item d
+Sets the number of FAT copies. Default is 2. This setting can also be
+specified using the @code{MTOOLS_NFATS} environment variable.
 @item r
 Sets the size of the root directory (in sectors).  Only applicable to 12
-and 16 bit FATs.
+and 16 bit FATs. This setting can also be specified using the
+@code{MTOOLS_DIR_LEN} environment variable.
 @item L
 Sets the length of the FAT.
 @item B
@@ -2057,6 +2084,14 @@ parameters.
 Keep the existing boot sector as much as possible.  Only the geometry
 fields and other similar filesystem data are updated to match the target
 disks parameters.
+
+@item m
+Use a non-standard media descriptor byte for this disk. The media
+descriptor is stored at position 21 of the boot sector, and as first
+byte in each FAT copy. Using this option may confuse DOS or older mtools
+version, and may make the disk unreadable. Only use if you know what you
+are doing.
+
 @end table
 
 To format a diskette at a density other than the default, you must supply
