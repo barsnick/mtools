@@ -178,6 +178,14 @@ dvi: mtools.dvi
 %.dvi: %.texi
 	$(TEXI2DVI) $<
 
+ps: mtools.ps
+%.ps: %.dvi
+	dvips -f < $< > $@
+
+pdf: mtools.pdf
+%.pdf: %.ps
+	ps2pdf $< $@
+
 
 html: mtools.html mtools_toc.html
 %.html %_toc.html: %.texi
@@ -213,7 +221,7 @@ install:	$(bindir)/mtools @BINFLOPPYD@ install-man install-links \
 uninstall:	uninstall-bin uninstall-man uninstall-links \
 		uninstall-scripts
 
-distclean: clean
+distclean: clean texclean
 	rm -f config.cache config.h config.status config.log Makefile
 maintainer-clean: distclean
 

@@ -22,10 +22,6 @@
 
 typedef struct Arg_t {
 	char *target;
-	int nowarn;
-	int interactive;
-	int verbose;
-	int silent;
 	MainParam_t mp;
 
 	Stream_t *SrcDir;
@@ -73,6 +69,9 @@ int makeit(char *dosname,
 
 	subEntry.entry = 1;
 	GET_DATA(targetEntry->Dir, 0, 0, 0, &fat);
+	if (fat == fat32RootCluster(targetEntry->Dir)) {
+	    fat = 0;
+	}
 	mk_entry("..         ", ATTR_DIR, fat, 0, arg->mtime, &subEntry.dir);
 	dir_write(&subEntry);
 
@@ -94,9 +93,9 @@ static void usage(void)
 	fprintf(stderr,
 		"Mtools version %s, dated %s\n", mversion, mdate);
 	fprintf(stderr,
-		"Usage: %s [-itnmvV] file targetfile\n", progname);
+		"Usage: %s [-D clash_option] file targetfile\n", progname);
 	fprintf(stderr,
-		"       %s [-itnmvV] file [files...] target_directory\n", 
+		"       %s [-D clash_option] file [files...] target_directory\n", 
 		progname);
 	exit(1);
 }
@@ -147,28 +146,18 @@ void mmd(int argc, char **argv, int type)
 	init_clash_handling(& arg.ch);
 
 	/* get command line options */
-	arg.nowarn = 0;
-	arg.interactive = 0;
-	arg.silent = 0;
-	while ((c = getopt(argc, argv, "XinvorsamORSAM")) != EOF) {
+	while ((c = getopt(argc, argv, "D:o")) != EOF) {
 		switch (c) {
-			case 'i':
-				arg.interactive = 1;
-				break;
-			case 'n':
-				arg.nowarn = 1;
-				break;
-			case 'v':
-				arg.verbose = 1;
-				break;
-			case 'X':
-				arg.silent = 1;
-				break;
 			case '?':
 				usage();
-			default:
-				if(handle_clash_options(&arg.ch, c))
+			case 'o':
+				handle_clash_options(&arg.ch, c);
+				break;
+			case 'D':
+				if(handle_clash_options(&arg.ch, *optarg))
 					usage();
+				break;
+			default:
 				break;
 		}
 	}

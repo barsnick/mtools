@@ -54,7 +54,7 @@ static int replay_attrib(direntry_t *entry, MainParam_t *mp)
 			printf("+h ");
 		}
 
-		fprintPwd(stdout, entry);
+		fprintPwd(stdout, entry, 1);
 		printf("\n");
 	}
 	return GOT_ONE;
@@ -83,7 +83,7 @@ static int view_attrib(direntry_t *entry, MainParam_t *mp)
 	else
 		putchar(' ');
 	printf("     ");
-	fprintPwd(stdout, entry);
+	fprintPwd(stdout, entry, 0);
 	printf("\n");
 	return GOT_ONE;
 }
@@ -105,7 +105,7 @@ static int concise_view_attrib(direntry_t *entry, MainParam_t *mp)
 		putchar('R');
 	if(arg->doPrintName) {
 		putchar(' ');
-		fprintPwd(stdout, entry);
+		fprintPwd(stdout, entry, 0);
 	}
 	putchar('\n');
 	return GOT_ONE;

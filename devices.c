@@ -20,7 +20,7 @@
 
 #define MDEF_ARG 0L,DEF_ARG0(MFORMAT_ONLY_FLAG)
 #define FDEF_ARG 0L,DEF_ARG0(0)
-#define VOLD_DEF_ARG 0L,DEF_ARG0(VOLD_FLAG)
+#define VOLD_DEF_ARG 0L,DEF_ARG0(VOLD_FLAG|MFORMAT_ONLY_FLAG)
 
 #define MED312	12,0,80,2,36,0,MDEF_ARG /* 3 1/2 extra density */
 #define MHD312	12,0,80,2,18,0,MDEF_ARG /* 3 1/2 high density */
@@ -42,7 +42,7 @@
 
 #define GENHD	16,0, 0,0, 0,0,MDEF_ARG /* Generic 16 bit FAT fs */
 #define GENFD	12,0,80,2,18,0,MDEF_ARG /* Generic 12 bit FAT fs */
-#define VOLDFD	12,0, 0,0, 0,0,VOLD_DEF_ARG /* Generic 12 bit FAT fs with vold */
+#define VOLDFD	12,0,80,2,18,0,VOLD_DEF_ARG /* Generic 12 bit FAT fs with vold */
 #define GEN    	 0,0, 0,0, 0,0,MDEF_ARG /* Generic fs of any FAT bits */
 
 #define ZIPJAZ(x,c,h,s,y) 16,(x),(c),(h),(s),(s),0L, 4, \
@@ -709,7 +709,7 @@ int analyze_one_reply(RawRequest_t *raw_cmd, int *bytes, int do_print)
 
 #define predefined_devices
 struct device devices[] = {
-	{"/dev/fd0", 'A', 0, O_EXCL, 0,0, 0,0, FDEF_ARG},
+	{"/dev/fd0", 'A', 0, O_EXCL, 80,2, 18,0, MDEF_ARG},
 	{"/dev/fd1", 'B', 0, O_EXCL, 0,0, 0,0, FDEF_ARG},
 	/* we assume that the Zip or Jaz drive is the second on the SCSI bus */
 	{"/dev/sdb4",'J', GENHD },
@@ -798,7 +798,7 @@ struct device devices[] = {
 #endif /* __FreeBSD__ */
  
 /*** /jes -- for ALR 486 DX4/100 ***/
-#ifdef OS_netbsd
+#if defined(OS_netbsd)
 #define predefined_devices
 struct device devices[] = {
 	{"/dev/rfd0a", 'A', FHD312},
@@ -811,6 +811,20 @@ struct device devices[] = {
 	REMOTE
 };
 #endif /* OS_NetBSD */
+
+/* fgsch@openbsd.org 2000/05/19 */
+#if defined(OS_openbsd)
+#define predefined_devices
+struct device devices[] = {
+	{"/dev/rfd0Bc", 'A', FHD312},
+	{"/dev/rfd0Fc", 'A', FDD312},
+	{"/dev/rfd1Cc", 'B', FHD514},
+	{"/dev/rfd1Dc", 'B', FDD514},
+	{"/dev/rwd0c", 'C', 16, 0, 0, 0, 0, 0, 63L*512L, DEF_ARG0(0)},
+	REMOTE
+};
+#endif /* OS_openbsd */
+
 
 
 #if (!defined(predefined_devices) && defined (CPU_m68000) && defined (OS_sysv))

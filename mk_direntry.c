@@ -79,11 +79,9 @@ static inline clash_action ask_namematch(char *name, int isprimary,
 
 	a = ch->action[isprimary];
 
-	if(!opentty(1)) {
+	if(a == NAMEMATCH_NONE && !opentty(1)) {
 		/* no default, and no tty either . Skip the troublesome file */
-		if(a == NAMEMATCH_NONE)
-			a = NAMEMATCH_SKIP;
-		return a;
+		return NAMEMATCH_SKIP;
 	}
 
 	perm = 0;
@@ -270,6 +268,7 @@ static inline clash_action get_slots(Stream_t *Dir,
 				     struct scan_state *ssp,
 				     ClashHandling_t *ch)
 {
+	int error;
 	clash_action ret;
 	int match=0;
 	direntry_t entry;
@@ -353,7 +352,9 @@ static inline clash_action get_slots(Stream_t *Dir,
 
 		if(match > -1) {
 			entry.entry = match;
-			dir_read(&entry);
+			dir_read(&entry, &error);
+			if (error)
+			    return NAMEMATCH_ERROR;
 			/* if we can't overwrite, don't propose it */
 			no_overwrite = (match == ch->source || IS_DIR(&entry));
 		}
@@ -410,7 +411,8 @@ static inline int write_slots(Stream_t *Dir,
 
 	entry.Dir = Dir;
 	entry.entry = ssp->slot;
-	strcpy(entry.name, longname);
+	strncpy(entry.name, longname, sizeof(entry.name)-1);
+	entry.name[sizeof(entry.name)-1]='\0';
 	entry.dir.Case = Case & (EXTCASE | BASECASE);
 	if (cb(dosname, longname, arg, &entry) >= 0) {
 		if ((ssp->size_needed > 1) &&

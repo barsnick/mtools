@@ -180,10 +180,11 @@ static inline void check_vfat(struct vfat_state *v, struct directory *dir)
 }
 
 
-void clear_vses(Stream_t *Dir, int entrySlot, size_t last)
+int clear_vses(Stream_t *Dir, int entrySlot, size_t last)
 {
 	direntry_t entry;
 	dirCache_t *cache;
+	int error;
 
 	entry.Dir = Dir;
 	entry.entry = entrySlot;
@@ -199,7 +200,9 @@ void clear_vses(Stream_t *Dir, int entrySlot, size_t last)
 #ifdef DEBUG
 		fprintf(stderr,"Clearing entry %d.\n", entry.entry);
 #endif
-		dir_read(&entry);
+		dir_read(&entry, &error);
+		if(error)
+		    return error;
 		if(!entry.dir.name[0] || entry.dir.name[0] == DELMARK)
 			break;
 		entry.dir.name[0] = DELMARK;
@@ -207,6 +210,7 @@ void clear_vses(Stream_t *Dir, int entrySlot, size_t last)
 			entry.dir.attr = '\0';
 		low_level_dir_write(&entry);
 	}
+	return 0;
 }
 
 int write_vfat(Stream_t *Dir, char *shortname, char *longname, int start,
@@ -370,18 +374,25 @@ static inline void parse_vses(direntry_t *entry,
 
 static dirCacheEntry_t *vfat_lookup_loop_common(direntry_t *direntry,
 						dirCache_t *cache,
-						int lookForFreeSpace)
+						int lookForFreeSpace,
+						int *io_error)
 {
 	char newfile[13];
 	int initpos = direntry->entry + 1;
 	struct vfat_state vfat;
 	char *longname;
+	int error;
 
 	/* not yet cached */
+	*io_error = 0;
 	clear_vfat(&vfat);
 	while(1) {
 		++direntry->entry;
-		if(!dir_read(direntry)){
+		if(!dir_read(direntry, &error)){
+			if(error) {
+			    *io_error = error;
+			    return NULL;
+			}
 			addFreeEntry(cache, initpos, direntry->entry);
 			return addEndEntry(cache, direntry->entry);
 		}
@@ -440,17 +451,19 @@ static dirCacheEntry_t *vfat_lookup_loop_common(direntry_t *direntry,
 }
 
 static inline dirCacheEntry_t *vfat_lookup_loop_for_read(direntry_t *direntry,
-							 dirCache_t *cache)
+							 dirCache_t *cache,
+							 int *io_error)
 {
 	int initpos = direntry->entry + 1;
 	dirCacheEntry_t *dce;
 
+	*io_error = 0;
 	dce = cache->entries[initpos];
 	if(dce) {
 		direntry->entry = dce->endSlot - 1;
 		return dce;
 	} else {
-		return vfat_lookup_loop_common(direntry, cache, 0);
+		return vfat_lookup_loop_common(direntry, cache, 0, io_error);
 	}
 }
 
@@ -540,6 +553,7 @@ int vfat_lookup(direntry_t *direntry, const char *filename, int length,
 	dirCacheEntry_t *dce;
 	result_t result;
 	dirCache_t *cache;
+	int io_error;
 
 	if(length == -1 && filename)
 		length = strlen(filename);
@@ -554,8 +568,10 @@ int vfat_lookup(direntry_t *direntry, const char *filename, int length,
 	}
 
 	do {
-		dce = vfat_lookup_loop_for_read(direntry, cache);
+		dce = vfat_lookup_loop_for_read(direntry, cache, &io_error);
 		if(!dce) {
+			if (io_error)
+				return -2;
 			fprintf(stderr, "Out of memory error in vfat_lookup\n");
 			exit(1);
 		}
@@ -574,7 +590,8 @@ int vfat_lookup(direntry_t *direntry, const char *filename, int length,
 		}
 		if(shortname)
 			strcpy(shortname, dce->shortName);
-			
+		direntry->beginSlot = dce->beginSlot;
+		direntry->endSlot = dce->endSlot-1;
 		return 0; /* file found */
 	} else {
 		direntry->entry = -2;
@@ -587,14 +604,18 @@ static inline dirCacheEntry_t *vfat_lookup_loop_for_insert(direntry_t *direntry,
 							   dirCache_t *cache)
 {
 	dirCacheEntry_t *dce;
+	int io_error;
 
 	dce = cache->entries[initpos];
 	if(dce && dce->type != DCET_END) {
 		return dce;
 	} else {
 		direntry->entry = initpos - 1;
-		dce = vfat_lookup_loop_common(direntry, cache, 1);
+		dce = vfat_lookup_loop_common(direntry, cache, 1, &io_error);
 		if(!dce) {
+			if (io_error) {
+				return NULL;
+			}
 			fprintf(stderr, 
 				"Out of memory error in vfat_lookup_loop\n");
 			exit(1);
@@ -613,7 +634,7 @@ static void accountFreeSlots(struct scan_state *ssp, dirCacheEntry_t *dce)
 	}
 	ssp->free_end = dce->endSlot;
 
-	if(ssp->free_end - ssp->free_start > ssp->size_needed) {
+	if(ssp->free_end - ssp->free_start >= ssp->size_needed) {
 		ssp->got_slots = 1;
 		ssp->slot = ssp->free_start + ssp->size_needed - 1;
 	}

@@ -21,7 +21,7 @@
 
 /* ######################################################################## */
 
-typedef unsigned long   ipaddr_t;
+
 typedef unsigned char Byte;
 typedef unsigned long Dword;
 
@@ -324,8 +324,8 @@ static int floppyd_geom(Stream_t *Stream, struct device *dev,
 	dev->use_2m = 0x80; /* disable 2m mode to begin */
 
 	if(media == 0xf0 || media >= 0x100){		
-		dev->heads = CHAR(nheads);
-		dev->sectors = CHAR(nsect);
+		dev->heads = WORD(nheads);
+		dev->sectors = WORD(nsect);
 		tot_sectors = DWORD(bigsect);
 		SET_INT(tot_sectors, WORD(psect));
 		sect_per_track = dev->heads * dev->sectors;
@@ -421,11 +421,11 @@ int get_host_and_port(const char* name, char** hostname, char **display,
 /*
  *  * Return the IP address of the specified host.
  *  */
-static ipaddr_t getipaddress(char *ipaddr)
+static IPaddr_t getipaddress(char *ipaddr)
 {
 	
 	struct hostent  *host;
-	ipaddr_t        ip;
+	IPaddr_t        ip;
 
 	if (((ip = inet_addr(ipaddr)) == INADDR_NONE) &&
 	    (strcmp(ipaddr, "255.255.255.255") != 0)) {
@@ -447,7 +447,7 @@ static ipaddr_t getipaddress(char *ipaddr)
 /*
  *  * Connect to the floppyd server.
  *  */
-static int connect_to_server(ipaddr_t ip, short port)
+static int connect_to_server(IPaddr_t ip, short port)
 {
 	
 	struct sockaddr_in      addr;

@@ -297,7 +297,11 @@ void mzip(int argc, char **argv, int type)
 
 		if(IS_PRIVILEGED(dev))
 			reclaim_privs();
-		fd = scsi_open(name, O_RDONLY | O_NDELAY, 0644,
+		fd = scsi_open(name, O_RDONLY | 
+#ifdef O_NDELAY
+			       O_NDELAY
+#endif
+			       , 0644,
 			       &extra_data);
 		if(IS_PRIVILEGED(dev))
 			drop_privs();

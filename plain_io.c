@@ -186,13 +186,14 @@ static int file_geom(Stream_t *Stream, struct device *dev,
 	int sectors, j;
 	unsigned char sum;
 	int sect_per_track;
+	struct label_blk_t *labelBlock;
 
 	dev->ssize = 2; /* allow for init_geom to change it */
 	dev->use_2m = 0x80; /* disable 2m mode to begin */
 
 	if(media == 0xf0 || media >= 0x100){		
-		dev->heads = CHAR(nheads);
-		dev->sectors = CHAR(nsect);
+		dev->heads = WORD(nheads);
+		dev->sectors = WORD(nsect);
 		tot_sectors = DWORD(bigsect);
 		SET_INT(tot_sectors, WORD(psect));
 		sect_per_track = dev->heads * dev->sectors;
@@ -204,9 +205,14 @@ static int file_geom(Stream_t *Stream, struct device *dev,
 		InfpX = WORD(ext.old.InfpX);
 		InfTm = WORD(ext.old.InfTm);
 		
+		if(WORD(fatlen)) {
+			labelBlock = &boot->ext.old.labelBlock;
+		} else {
+			labelBlock = &boot->ext.fat32.labelBlock;
+		}
+
 		if (boot->descr >= 0xf0 &&
-		    boot->ext.old.dos4 == 0x29 &&
-		    WORD(fatlen) &&
+		    labelBlock->dos4 == 0x29 &&
 		    strncmp( boot->banner,"2M", 2 ) == 0 &&
 		    BootP < 512 && Infp0 < 512 && InfpX < 512 && InfTm < 512 &&
 		    BootP >= InfTm + 2 && InfTm >= InfpX && InfpX >= Infp0 && 
@@ -485,6 +491,19 @@ APIRET rc;
 		This->refs = 1;
 		This->Next = 0;
 		This->Buffer = 0;
+		if (fstat(This->fd, &This->stat) < 0) {
+		    Free(This);
+		    if(errmsg)
+#ifdef HAVE_SNPRINTF
+			snprintf(errmsg,199,"Can't stat -: %s", 
+				strerror(errno));   
+#else
+			sprintf(errmsg,"Can't stat -: %s", 
+				strerror(errno));
+#endif
+		    return NULL;
+		}
+
 		return (Stream_t *) This;
 	}
 
@@ -540,8 +559,13 @@ APIRET rc;
 	if (This->fd < 0) {
 		Free(This);
 		if(errmsg)
+#ifdef HAVE_SNPRINTF
+			snprintf(errmsg, 199, "Can't open %s: %s",
+				name, strerror(errno));
+#else
 			sprintf(errmsg, "Can't open %s: %s",
 				name, strerror(errno));
+#endif
 		return NULL;
 	}
 
@@ -553,19 +577,37 @@ APIRET rc;
 #endif
 	if (fstat(This->fd, &This->stat) < 0){
 		Free(This);
-		if(errmsg)
-			sprintf(errmsg,"Can't stat %s: %s", 
+		if(errmsg) {
+#ifdef HAVE_SNPRINTF
+			snprintf(errmsg,199,"Can't stat %s: %s", 
 				name, strerror(errno));
-
+#else
+			if(strlen(name) > 50) {
+			    sprintf(errmsg,"Can't stat file: %s", 
+				    strerror(errno));
+			} else {
+			    sprintf(errmsg,"Can't stat %s: %s", 
+				name, strerror(errno));
+			}
+#endif
+		}
 		return NULL;
 	}
 #ifndef __EMX__
 	/* lock the device on writes */
 	if (locked && lock_dev(This->fd, mode == O_RDWR, dev)) {
 		if(errmsg)
-			sprintf(errmsg,
+#ifdef HAVE_SNPRINTF
+			snprintf(errmsg,199,
 				"plain floppy: device \"%s\" busy (%s):",
 				dev ? dev->name : "unknown", strerror(errno));
+#else
+			sprintf(errmsg,
+				"plain floppy: device \"%s\" busy (%s):",
+				(dev && strlen(dev->name) < 50) ? 
+				 dev->name : "unknown", strerror(errno));
+#endif
+
 		close(This->fd);
 		Free(This);
 		return NULL;

@@ -1,4 +1,4 @@
-.TH mcopy 1 "28Jun99" mtools-3.9.6
+.TH mcopy 1 "01jun00" mtools-3.9.7
 .SH Name
 mcopy - copy MSDOS files to/from Unix
 '\" t
@@ -33,8 +33,8 @@ Unix. It uses the following syntax:
 .nf
 .ft 3
 .in +0.3i
-\&\fR\&\f(CWmcopy [\fR\&\f(CW-b/ptnvmoQOsSrRA] \fIsourcefile\fR\&\f(CW \fItargetfile\fR\&\f(CW
-\&\fR\&\f(CWmcopy [\fR\&\f(CW-b/ptnvmoQOsSrRA] \fIsourcefile\fR\&\f(CW [ \fIsourcefiles\fR\&\f(CW\&... ] \fItargetdirectory\fR\&\f(CW
+\&\fR\&\f(CWmcopy [\fR\&\f(CW-bspanvmQ] [\fR\&\f(CW-D \fIclash_option\fR\&\f(CW] \fIsourcefile\fR\&\f(CW \fItargetfile\fR\&\f(CW
+\&\fR\&\f(CWmcopy [\fR\&\f(CW-bspanvmQ] [\fR\&\f(CW-D \fIclash_option\fR\&\f(CW] \fIsourcefile\fR\&\f(CW [ \fIsourcefiles\fR\&\f(CW\&... ] \fItargetdirectory\fR\&\f(CW
 \&\fR\&\f(CWmcopy [\fR\&\f(CW-tnvm] \fIMSDOSsourcefile\fR\&\f(CW
 .fi
 .in -0.3i
@@ -66,7 +66,7 @@ on its position on the command line.
 Batch mode. Optimized for huge recursive copies, but less secure if a
 crash happens during the copy.
 .TP
-\&\fR\&\f(CW/\fR\ 
+\&\fR\&\f(CWs\fR\ 
 Recursive copy.  Also copies directories and their contents
 .TP
 \&\fR\&\f(CWp\fR\ 
@@ -76,8 +76,8 @@ Preserves the attributes of the copied files
 When mcopying multiple files, quits as soon as one copy fails (for
 example due to lacking storage space on the target disk)
 .TP
-\&\fR\&\f(CWt\fR\ 
-Text file transfer.  \fR\&\f(CWMcopy\fR translates incoming carriage
+\&\fR\&\f(CWa\fR\ 
+Text (Ascii) file transfer.  \fR\&\f(CWMcopy\fR translates incoming carriage
 return/line feeds to line feeds.
 .TP
 \&\fR\&\f(CWn\fR\ 
@@ -90,6 +90,9 @@ Preserve the file modification time. If the target file already exists,
 and the \fR\&\f(CW-n\fR option is not in effect, \fR\&\f(CWmcopy\fR asks whether to
 overwrite the file or to rename the new file (\(ifname clashes\(is) for
 details).
+.TP
+\&\fR\&\f(CWv\fR\ 
+Verbose. Displays the name of each file as it is copied.
 .PP
 .SH Bugs
 Unlike MS-DOS, the '+' operator (append) from MS-DOS is not

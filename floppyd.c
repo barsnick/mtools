@@ -21,9 +21,11 @@
 #define FLOPPYD_DEFAULT_PORT     5703
 
 #include "sysincludes.h"
+#include "grp.h"
 #include <X11/Xlib.h>
 #include <X11/Xauth.h>
 
+#include "floppyd_io.h"
 
 #ifndef SIGCLD
 #define SIGCLD SIGCHLD
@@ -85,24 +87,7 @@ extern int errno;
 
 typedef unsigned char Byte;
 typedef unsigned long Dword;
-typedef unsigned long ipaddr_t;
 
-enum Opcodes {
-	OP_READ,
-	OP_WRITE,
-	OP_SEEK,
-	OP_FLUSH,
-	OP_CLOSE,
-	OP_IOCTL
-};
-
-enum AuthErrors {
-	AUTH_SUCCESS,
-	AUTH_PACKETOVERSIZE,
-	AUTH_AUTHFAILED,
-	AUTH_WRONGVERSION,
-	AUTH_LOCKED
-};
 
 #define MAX_XAUTHORITY_LENGTH    3000
 #define MAX_DATA_REQUEST         3000000
@@ -110,7 +95,7 @@ enum AuthErrors {
 #define BUFFERED_IO_SIZE         16348
 
 
-void serve_client(int sock, char* device_name, char** local_names);
+void serve_client(int sock, char* device_name);
 
 
 
@@ -391,14 +376,28 @@ Dword get_length(Packet packet) {
 	return packet->len;
 }
 
+int eat(char **ptr, int *len, unsigned char c) {
+    /* remove length + size code + terminating 0 */
+    if (*len < c + 3)
+	return -1;
+    (*ptr) += c + 2;
+    (*len) -= c + 2;
+    return 0;
+}
 
 
-char do_auth(io_buffer sock, char** local_names) 
+char do_auth(io_buffer sock) 
 {
-	FILE* fp;
+	int fd;
 	Display* displ;
 	Packet proto_version = newPacket();
 	Packet mit_cookie;
+	char *ptr;
+	int len;
+
+	char template[4096];
+	/*= { 0, 0, 0, 4, 127, 0, 0, 1, 0, 1, '0', 0 };*/
+
 	Packet reply = newPacket();
 
 	make_new(reply, 4);
@@ -433,34 +432,55 @@ char do_auth(io_buffer sock, char** local_names)
 		return 0;
 	}
 
-	fp = fopen(XauFileName(), "r");
+	/* CPhipps 2000/02/11 - Do the open and test in one call, to avoid
+	 * race condition. Open with safe permissions. */
+	fd = open(XauFileName(), O_WRONLY | O_CREAT | O_EXCL, 0600);
 	
 	/* Locked! */
-	if (fp) {
-		put_dword(reply, 0, AUTH_LOCKED);
+	if (fd == -1) {
+		put_dword(reply, 0, AUTH_DEVLOCKED);
 		send_packet(reply, sock);
-		fclose(fp);
-		fp = 0;
+		close(fd);
 		destroyPacket(reply);
 		destroyPacket(mit_cookie);
 		return 0;
 	}
 
-	fp = fopen(XauFileName(), "w");
-	write_packet(mit_cookie, fp);
-	fclose(fp);
-	fp = 0;
+	ptr = template;
+	ptr[4095] = 0;
+	*ptr++ = 1;
+	*ptr++ = 0;
+	*ptr++ = 0;
+	gethostname(ptr+1, 4088);
+	len = strlen(ptr+1);
+	*ptr++ = len;
+	ptr += len;
+	*ptr++ = 0;
+	*ptr++ = 1;
+	*ptr++ = '0'; /* Display number */
+	*ptr++ = '\0';
+
+	write(fd, template, len+8);
+	ptr = mit_cookie->data;
+	len = mit_cookie->len;
+
+	if (eat(&ptr,&len,1) ||    /* the "type"    */
+	    eat(&ptr,&len,*ptr) || /* the hostname  */
+	    eat(&ptr,&len,*ptr)) { /* the display number */
+	    destroyPacket(mit_cookie);
+	    unlink(XauFileName());
+	    put_dword(reply, 0, AUTH_BADPACKET);
+	    send_packet(reply, sock);
+	    destroyPacket(reply);
+	    return 0;
+	}
+
+	write(fd, ptr, len);
+	close(fd);
 
 	destroyPacket(mit_cookie);
 
-	displ = NULL;
-
-	while (!displ && *local_names) {
-		displ = XOpenDisplay(*local_names++);
-		if (displ) {
-			break;
-		}
-	}
+	displ = XOpenDisplay(":0");
 	if (!displ) {
 		unlink(XauFileName());
 		put_dword(reply, 0, AUTH_AUTHFAILED);
@@ -468,7 +488,6 @@ char do_auth(io_buffer sock, char** local_names)
 		destroyPacket(reply);
 		return 0;
 	}
-
 	XCloseDisplay(displ);
 
 	put_dword(reply, 0, AUTH_SUCCESS);
@@ -514,10 +533,10 @@ static short getportnum(char *portnum)
 /*
  * Return the IP address of the specified host.
  */
-static ipaddr_t getipaddress(char *ipaddr)
+static IPaddr_t getipaddress(char *ipaddr)
 {
 	struct hostent	*host;
-	ipaddr_t		ip;
+	IPaddr_t ip;
 
 	if (((ip = inet_addr(ipaddr)) == INADDR_NONE)
 	    &&
@@ -596,7 +615,7 @@ static uid_t getgroupid(uid_t uid)
 /*
  * Bind to the specified ip and port.
  */
-static int bind_to_port(ipaddr_t bind_ip, short bind_port)
+static int bind_to_port(IPaddr_t bind_ip, short bind_port)
 {
 	struct sockaddr_in	addr;
 	int					sock;
@@ -654,7 +673,7 @@ static int sockethandle_now = -1;
  */
 static void alarm_signal(int a)
 {
-	printf("timeout");
+	printf("timeout %d\n", a);
 	if (sockethandle_now != -1) {
 		close(sockethandle_now);
 		sockethandle_now = -1;
@@ -667,7 +686,7 @@ static void alarm_signal(int a)
 /*
  * This is the main loop when running as a server.
  */
-static void server_main_loop(int sock, char* device_name, char** local_names)
+static void server_main_loop(int sock, char* device_name)
 {
 	struct sockaddr_in	addr;
 	int					len;
@@ -701,7 +720,7 @@ static void server_main_loop(int sock, char* device_name, char** local_names)
 				 * Start the proxy work in the new socket.
 				 */
 #endif
-				serve_client(new_sock,device_name,local_names);
+				serve_client(new_sock,device_name);
 				exit(0);
 #ifndef DEBUG
 		}
@@ -753,20 +772,19 @@ char *makeDisplayName(char *base, int port)
 int main (int argc, char** argv) 
 {
 	FILE* sockfp = stdin;
-	int local_namep = 0;
 	int			arg;
 	int			run_as_server = 0;
-	ipaddr_t		bind_ip = INADDR_ANY;
+	IPaddr_t		bind_ip = INADDR_ANY;
 	short			bind_port = FLOPPYD_DEFAULT_PORT;
 	uid_t			run_uid = 65535;
 	gid_t			run_gid = 65535;
+	char*			username = strdup("nobody");
 	int			sock;
 	int			port_is_supplied = 0;
 	int			no_local = 0;
 
 	char *server_hostname=NULL;
 	char* device_name = NULL; 
-	char** local_names = NULL;
 	char *authFile=0;
 	char *p, *q;
 	const char *authKey = "XAUTHORITY";
@@ -789,6 +807,7 @@ int main (int argc, char** argv)
 						break;
 
 					case 'r':
+						free(username); username = strdup(optarg);
 						run_uid = getuserid(optarg);
 						run_gid = getgroupid(run_uid);
 						break;
@@ -808,6 +827,15 @@ int main (int argc, char** argv)
 						break;
 				}
 		}
+
+	if(optind < argc) {
+		device_name = argv[optind++];
+	}
+
+	if(optind < argc) {
+		fprintf(stderr, "Ignoring extra argument %s\n", argv[optind]);
+	}
+
 	if(!run_as_server) {
 		struct sockaddr_in	addr;
 		int len = sizeof(addr);
@@ -820,66 +848,6 @@ int main (int argc, char** argv)
 			server_hostname = strdup(inet_ntoa(addr.sin_addr));
 		}
 	}
-
-	/*
-	 * Process the remaining command line arguments.
-	 */
-	for (; optind < argc; ++optind)	{
-		if (device_name == NULL) {
-			device_name = argv[optind];
-		} else if (local_names == NULL) {
-			local_names = malloc((argc-optind+1)*sizeof(char*));
-			local_names[local_namep++] = argv[optind];
-		} else {
-			local_names[local_namep++] = argv[optind];
-		}
-	}
-
-	if (!local_names) {
-	    if(server_hostname) {
-			local_names = malloc(3*sizeof(char*));
-			local_names[local_namep++] = 
-				makeDisplayName(server_hostname, bind_port);
-#if 0
-		} else if(getenv("DISPLAY")) {
-			local_names = malloc(2*sizeof(char*));
-			local_names[local_namep++] = getenv("DISPLAY");
-#endif
-		} else {
-			int len;			
-			local_names = malloc(4*sizeof(char*));
-			len=16;
-			while(1) {
-				char *hostname;
-				hostname = malloc(len);
-				if(gethostname(hostname, len-3) >= 0) {
-					local_names[local_namep++] = 
-						makeDisplayName(hostname, bind_port);
-					free(hostname);
-					break;
-				}
-				free(hostname);
-				if(errno == EINVAL) {
-					/* too short */
-					len += len;
-					continue;
-				}
-				perror("gethostname");
-				/* other error */
-				local_names[1] = NULL;
-				break;
-			}
-			if(!no_local) {
-				local_names[local_namep] = "a";
-				local_names[local_namep++] = makeDisplayName("localhost", bind_port);
-			}
-		}
-		if(!no_local) {
-			local_names[local_namep++] = 
-				makeDisplayName("", bind_port);
-		}
-	}
-	local_names[local_namep++] = NULL;
 
 	umask(0077);
 
@@ -921,16 +889,6 @@ int main (int argc, char** argv)
 	*q = *p;
 	putenv(authFile);
 
-	if(!port_is_supplied) {
-		p = strchr(local_names[0], ':');
-		if(!p) {
-			fprintf(stderr, "Bad display name %s\n", local_names[0]);
-			exit(1);
-		}
-		p++;
-		bind_port += atoi(p);
-	}
-
 	/*
 	 * See if we should run as a server.
 	 */
@@ -967,12 +925,13 @@ int main (int argc, char** argv)
 							signal(SIGTSTP, SIG_IGN);
 							signal(SIGCONT, SIG_IGN);
 							signal(SIGPIPE, alarm_signal);
-							signal(SIGALRM, alarm_signal);
+							/*signal(SIGALRM, alarm_signal);*/
 
 							/*
 							 * Drop back to an untrusted user.
 							 */
 							setgid(run_gid);
+							initgroups(username, -1);
 							setuid(run_uid);
 
 							/*
@@ -991,7 +950,7 @@ int main (int argc, char** argv)
 							/*
 							 * Handle the server main loop.
 							 */
-							server_main_loop(sock, device_name, local_names);
+							server_main_loop(sock, device_name);
 
 							/*
 							 * Should never exit.
@@ -1014,25 +973,15 @@ int main (int argc, char** argv)
 	signal(SIGTSTP, SIG_IGN);
 	signal(SIGCONT, SIG_IGN);
 	signal(SIGPIPE, alarm_signal);
-	signal(SIGALRM, alarm_signal);
+	/*signal(SIGALRM, alarm_signal);*/
 
-	signal(SIGHUP, alarm_signal);
-#ifndef DEBUG
-	signal(SIGINT, alarm_signal);
-#endif
-	signal(SIGQUIT, alarm_signal);
-	signal(SIGTERM, alarm_signal);
-	signal(SIGTSTP, SIG_IGN);
-	signal(SIGCONT, SIG_IGN);
-	signal(SIGPIPE, alarm_signal);
-	signal(SIGALRM, alarm_signal);
 #ifndef DEBUG
 	close(2);
 	open("/dev/null", O_WRONLY);
 #endif
 	/* Starting from inetd */
 
-	serve_client(fileno(sockfp), device_name, local_names);
+	serve_client(fileno(sockfp), device_name);
 	return 0;
 }
 
@@ -1050,7 +999,7 @@ void send_reply(FILE* fp, io_buffer sock, int len) {
 	destroyPacket(reply);
 }
 
-void serve_client(int sockhandle, char* device_name, char** local_names) {
+void serve_client(int sockhandle, char* device_name) {
 	Packet opcode;
 	Packet parm;
 
@@ -1072,7 +1021,7 @@ void serve_client(int sockhandle, char* device_name, char** local_names) {
 	 */
 	alarm(60);
 	
-	if (!do_auth(sock, local_names)) {
+	if (!do_auth(sock)) {
 		free_io_buffer(sock);
 		return;
 	}
@@ -1096,7 +1045,7 @@ void serve_client(int sockhandle, char* device_name, char** local_names) {
 		/*
 		 * Allow 60 seconds for any activity.
 		 */
-		alarm(60);
+		/*alarm(60);*/
 
 		if (!recv_packet(opcode, sock, 1)) {
 			break;

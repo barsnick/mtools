@@ -73,7 +73,7 @@ struct scan_state {
 void clear_vfat(struct vfat_state  *);
 int unicode_write(char *, struct unicode_char *, int num, int *end);
 
-void clear_vses(Stream_t *, int, size_t);
+int clear_vses(Stream_t *, int, size_t);
 void autorename_short(char *, int);
 void autorename_long(char *, int);
 

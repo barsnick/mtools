@@ -17,7 +17,12 @@
 
 #ifdef OS_linux
 #include "linux/hdreg.h"
+
+#define _LINUX_STRING_H_
+#define kdev_t int
 #include "linux/fs.h"
+#undef _LINUX_STRING_H_
+
 #endif
 
 #define tolinear(x) \
@@ -415,7 +420,11 @@ void mpartition(int argc, char **argv, int dummy)
 					errmsg, open2flags, 1, 0);
 
 		if (!Stream) {
+#ifdef HAVE_SNPRINTF
+			snprintf(errmsg,199,"init: open: %s", strerror(errno));
+#else
 			sprintf(errmsg,"init: open: %s", strerror(errno));
+#endif
 			continue;
 		}			
 
@@ -449,9 +458,15 @@ void mpartition(int argc, char **argv, int dummy)
 
 		/* read the partition table */
 		if (READS(Stream, (char *) buf, 0, 512) != 512) {
-			sprintf(errmsg, 
+#ifdef HAVE_SNPRINTF
+			snprintf(errmsg, 199,
 				"Error reading from '%s', wrong parameters?",
 				name);
+#else
+			sprintf(errmsg,
+				"Error reading from '%s', wrong parameters?",
+				name);
+#endif
 			continue;
 		}
 		if(verbose>=2)

@@ -1,4 +1,4 @@
-.TH mdir 1 "28Jun99" mtools-3.9.6
+.TH mdir 1 "01jun00" mtools-3.9.7
 .SH Name
 mdir - display an MSDOS directory
 '\" t
@@ -26,7 +26,7 @@ end of this man page for details.
 The \fR\&\f(CWmdir\fR command is used to display an MS-DOS directory. Its
 syntax is:
 .PP
-\&\fR\&\f(CWmdir\fR [\fR\&\f(CW-/\fR] [\fR\&\f(CW-f\fR] [\fR\&\f(CW-w\fR] [\fR\&\f(CW-a\fR] [\fR\&\f(CW-X\fR] \fImsdosfile\fR [ \fImsdosfiles\fR\&...] 
+\&\fR\&\f(CWmdir\fR [\fR\&\f(CW-/\fR] [\fR\&\f(CW-f\fR] [\fR\&\f(CW-w\fR] [\fR\&\f(CW-a\fR] [\fR\&\f(CW-b\fR] \fImsdosfile\fR [ \fImsdosfiles\fR\&...] 
 .PP
 \&\fR\&\f(CWMdir\fR
 displays the contents of MS-DOS directories, or the entries for some
@@ -51,9 +51,11 @@ the whole FAT must be read in and scanned.  The \fR\&\f(CW-f\fR flag bypasses
 this step.  This flag is not needed on FAT32 filesystems, which store
 the size explicitely.
 .TP
-\&\fR\&\f(CWX\fR\ 
-Concise listing.  List only a newline separated list of pathnames
-without any decoration nor additional information
+\&\fR\&\f(CWb\fR\ 
+Concise listing. Lists each directory name or filename, one per line
+(including the filename extension). This switch displays no heading
+information and no summary. Only a newline separated list of pathnames
+is displayed.
 .PP
 An error occurs if a component of the path is not a directory.
 .PP

@@ -43,15 +43,30 @@ extern long long llseek (int fd, long long offset, int origin);
 # endif
 #endif
 
+#if defined HAVE_LSEEK64
+# ifndef HAVE_LSEEK64_PROTOTYPE
+extern long long lseek64 (int fd, long long offset, int origin);
+# endif
+#endif
+
+
 int mt_lseek(int fd, mt_off_t where, int whence)
 {
-#if defined HAVE_LLSEEK
+#if defined HAVE_LSEEK64
+	if(lseek64(fd, where, whence) >= 0)
+		return 0;
+	else
+		return -1;
+#elif defined HAVE_LLSEEK
 	if(llseek(fd, where, whence) >= 0)
 		return 0;
 	else
 		return -1;		
 #else
-	return lseek(fd, (off_t) where, whence);
+	if (lseek(fd, (off_t) where, whence) >= 0)
+		return 0;
+	else
+		return 1;
 #endif
 }
 

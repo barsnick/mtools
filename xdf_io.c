@@ -600,7 +600,11 @@ Stream_t *XdfOpen(struct device *dev, char *name,
 	precmd(dev);
 	This->fd = open(name, mode | dev->mode | O_EXCL | O_NDELAY);
 	if(This->fd < 0) {
+#ifdef HAVE_SNPRINTF
+		snprintf(errmsg,199,"xdf floppy: open: \"%s\"", strerror(errno));
+#else
 		sprintf(errmsg,"xdf floppy: open: \"%s\"", strerror(errno));
+#endif
 		goto exit_0;
 	}
 	closeExec(This->fd);
@@ -622,8 +626,13 @@ Stream_t *XdfOpen(struct device *dev, char *name,
 
 	/* lock the device on writes */
 	if (lock_dev(This->fd, mode == O_RDWR, dev)) {
+#ifdef HAVE_SNPRINTF
+		snprintf(errmsg,199,"xdf floppy: device \"%s\" busy:", 
+			dev->name);
+#else
 		sprintf(errmsg,"xdf floppy: device \"%s\" busy:", 
 			dev->name);
+#endif
 		goto exit_3;
 	}
 

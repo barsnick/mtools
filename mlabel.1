@@ -1,4 +1,4 @@
-.TH mlabel 1 "28Jun99" mtools-3.9.6
+.TH mlabel 1 "01jun00" mtools-3.9.7
 .SH Name
 mlabel - make an MSDOS volume label
 '\" t
@@ -24,7 +24,7 @@ end of this man page for details.
 .PP
 The \fR\&\f(CWmlabel\fR command adds a volume label to a disk. Its syntax is:
 .(l I
-\&\fR\&\f(CWmlabel\fR [\fR\&\f(CW-vcs\fR] \fIdrive\fR:[\fInew_label\fR]
+\&\fR\&\f(CWmlabel\fR [\fR\&\f(CW-vcsn\fR] [\fR\&\f(CW-N\fR \fIserial\fR] \fIdrive\fR:[\fInew_label\fR]
 .)l
  
 .PP
@@ -45,6 +45,13 @@ Clears an existing label, without prompting the user
 .TP
 \&\fR\&\f(CWs\fR\ 
 Shows the existing label, without prompting the user.
+.TP
+\&\fR\&\f(CWn\ \fR\ 
+Assigns a new (random) serial number to the disk
+.TP
+\&\fR\&\f(CWN\ \fIserial\fR\&\f(CW\fR\ 
+Sets the supplied serial number. The serial number should be supplied as
+an 8 digit hexadecimal number, without spaces
 .PP
 .SH See\ Also
 Mtools' texinfo doc

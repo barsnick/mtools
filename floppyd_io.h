@@ -27,8 +27,11 @@ enum AuthErrorsEnum {
 	AUTH_PACKETOVERSIZE,
 	AUTH_AUTHFAILED,
 	AUTH_WRONGVERSION,
-	AUTH_DEVLOCKED
+	AUTH_DEVLOCKED,
+	AUTH_BADPACKET
 };
+
+typedef unsigned long IPaddr_t;
 
 #endif
 #endif

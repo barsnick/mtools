@@ -88,16 +88,27 @@ UNUSED(static inline void set_word(unsigned char *data, unsigned short value))
 
 
 typedef struct InfoSector_t {
-	unsigned char signature0[4];
-	unsigned char filler[0x1e0];
-	unsigned char signature[4];
+	unsigned char signature1[4];
+	unsigned char filler1[0x1e0];
+	unsigned char signature2[4];
 	unsigned char count[4];
 	unsigned char pos[4];
+	unsigned char filler2[14];
+	unsigned char signature3[2];
 } InfoSector_t;
 
-#define INFOSECT_SIGNATURE0 0x41615252
-#define INFOSECT_SIGNATURE 0x61417272
+#define INFOSECT_SIGNATURE1 0x41615252
+#define INFOSECT_SIGNATURE2 0x61417272
 
+
+typedef struct label_blk_t {
+	unsigned char physdrive;	/* 36 physical drive ? */
+	unsigned char reserved;		/* 37 reserved */
+	unsigned char dos4;		/* 38 dos > 4.0 diskette */
+	unsigned char serial[4];       	/* 39 serial number */
+	char label[11];			/* 43 disk label */
+	char fat_type[8];		/* 54 FAT type */
+} label_blk_t;
 
 /* FAT32 specific info in the bootsector */
 typedef struct fat32_t {
@@ -108,16 +119,12 @@ typedef struct fat32_t {
 	unsigned char infoSector[2];	/* 48 changeable global info */
 	unsigned char backupBoot[2];	/* 50 back up boot sector */
 	unsigned char reserved[6];	/* 52 ? */
+	unsigned char reserved2[6];	/* 52 ? */
+	struct label_blk_t labelBlock;
 } fat32; /* ends at 58 */
 
 typedef struct oldboot_t {
-	unsigned char physdrive;	/* 36 physical drive ? */
-	unsigned char reserved;		/* 37 reserved */
-	unsigned char dos4;		/* 38 dos > 4.0 diskette */
-	unsigned char serial[4];       	/* 39 serial number */
-	char label[11];			/* 43 disk label */
-	char fat_type[8];		/* 54 FAT type */
-			
+	struct label_blk_t labelBlock;
 	unsigned char res_2m;		/* 62 reserved by 2M */
 	unsigned char CheckSum;		/* 63 2M checksum (not used) */
 	unsigned char fmt_2mf;		/* 64 2MF format version */

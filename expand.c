@@ -51,20 +51,26 @@ const char *expand(const char *input, char *ans)
 	char buf[256];
 	char *command[] = { "/bin/sh", "sh", "-c", 0, 0 };
 
+	ans[EXPAND_BUF-1]='\0';
+
 	if (input == NULL)
 		return(NULL);
 	if (*input == '\0')
 		return("");
 					/* any thing to expand? */
 	if (!strpbrk(input, "$*(){}[]\\?`~")) {
-		strcpy(ans, input);
+		strncpy(ans, input, EXPAND_BUF-1);
 		return(ans);
 	}
 					/* popen an echo */
+#ifdef HAVE_SNPRINTF
+	snprintf(buf, 255, "echo %s", input);
+#else
 	sprintf(buf, "echo %s", input);
+#endif
 
 	command[3]=buf;
-	last=safePopenOut(command, ans, EXPAND_BUF);
+	last=safePopenOut(command, ans, EXPAND_BUF-1);
 	if(last<0) {
 		perror("Pipe read error");
 		exit(1);
@@ -72,6 +78,6 @@ const char *expand(const char *input, char *ans)
 	if(last)
 		ans[last-1] = '\0';
 	else
-		strcpy(ans, input);
+		strncpy(ans, input, EXPAND_BUF-1);
 	return ans;
 }

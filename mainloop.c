@@ -156,11 +156,15 @@ static int _dos_loop(Stream_t *Dir, MainParam_t *mp, const char *filename)
 	Stream_t *MyFile=0;
 	direntry_t entry;
 	int ret;
+	int r;
+	
 	ret = 0;
+	r=0;
 	initializeDirentry(&entry, Dir);
 	while(!got_signal &&
-	      vfat_lookup(&entry, filename, -1,
-			  mp->lookupflags, mp->shortname, mp->longname) == 0 ){
+	      (r=vfat_lookup(&entry, filename, -1,
+			     mp->lookupflags, mp->shortname, 
+			     mp->longname)) == 0 ){
 		mp->File = NULL;
 		if(!checkForDot(mp->lookupflags,entry.name)) {
 			MyFile = 0;
@@ -183,6 +187,8 @@ static int _dos_loop(Stream_t *Dir, MainParam_t *mp, const char *filename)
 		if(mp->fast_quit && (ret & ERROR_ONE))
 			break;
 	}
+	if (r == -2)
+	    return ERROR_ONE;
 	if(got_signal)
 		ret |= ERROR_ONE;
 	return ret;
@@ -200,6 +206,7 @@ static int recurs_dos_loop(MainParam_t *mp, const char *filename0,
 	int ret;
 	int have_one;
 	int doing_mcwd;
+	int r;
 
 	while(1) {
 		/* strip dots and // */
@@ -281,13 +288,14 @@ static int recurs_dos_loop(MainParam_t *mp, const char *filename0,
 		lookupflags = ACCEPT_DIR | DO_OPEN | NO_DOTS;
 
 	ret = 0;
-
+	r = 0;
 	have_one = 0;
 	initializeDirentry(&entry, mp->File);
 	while(!(ret & STOP_NOW) &&
 	      !got_signal &&
-	      vfat_lookup(&entry, filename0, length,
-			  lookupflags, mp->shortname, mp->longname) == 0 ){
+	      (r=vfat_lookup(&entry, filename0, length,
+			     lookupflags | NO_MSG, 
+			     mp->shortname, mp->longname)) == 0 ){
 		if(checkForDot(lookupflags, entry.name))
 			/* while following the path, ignore the
 			 * special entries if they were not
@@ -307,6 +315,8 @@ static int recurs_dos_loop(MainParam_t *mp, const char *filename0,
 		if(doing_mcwd)
 			break;
 	}
+	if (r == -2)
+		return ERROR_ONE;
 	if(got_signal)
 		return ret | ERROR_ONE;
 	if(doing_mcwd & !have_one)
@@ -508,7 +518,7 @@ const char *mpGetBasename(MainParam_t *mp)
 void mpPrintFilename(FILE *fp, MainParam_t *mp)
 {
 	if(mp->direntry)
-		fprintPwd(fp, mp->direntry);
+		fprintPwd(fp, mp->direntry, 0);
 	else
 		fprintf(fp,"%s",mp->originalArg);
 }

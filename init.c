@@ -86,7 +86,7 @@ Stream_t *find_device(char drive, int mode, struct device *out_dev,
 		      struct bootsector *boot,
 		      char *name, int *media, mt_size_t *maxSize)
 {
-	char errmsg[80];
+	char errmsg[200];
 	Stream_t *Stream;
 	struct device *dev;
 	int r;
@@ -109,21 +109,22 @@ Stream_t *find_device(char drive, int mode, struct device *out_dev,
 		Stream = XdfOpen(out_dev, name, mode, errmsg, 0);
 		if(Stream) {
 			out_dev->use_2m = 0x7f;
-			*maxSize = max_off_t_31;
+			if(maxSize)
+			    *maxSize = max_off_t_31;
 		}
 #endif
 
 #ifdef USE_FLOPPYD
 		if(!Stream) {
 			Stream = FloppydOpen(out_dev, dev, name, mode, errmsg, 0, 1);
-			if(Stream)
+			if(Stream && maxSize)
 				*maxSize = max_off_t_31;
 		}
 #endif
 
 		if (!Stream)
 			Stream = SimpleFileOpen(out_dev, dev, name, mode,
-									errmsg, 0, 1, maxSize);
+						errmsg, 0, 1, maxSize);
 
 		if( !Stream)
 			continue;
@@ -150,9 +151,15 @@ Stream_t *find_device(char drive, int mode, struct device *out_dev,
 		errno = 0;
 		if(SET_GEOM(Stream, out_dev, dev, *media, boot)){
 			if(errno)
-				sprintf(errmsg, 
+#ifdef HAVE_SNPRINTF
+				snprintf(errmsg, 199,
 					"Can't set disk parameters for %c: %s", 
 					drive, strerror(errno));
+#else
+				sprintf(errmsg,
+					"Can't set disk parameters for %c: %s", 
+					drive, strerror(errno));
+#endif
 			else
 				sprintf(errmsg, 
 					"Can't set disk parameters for %c", 
@@ -243,6 +250,7 @@ Stream_t *fs_init(char drive, int mode)
 		This->fat_bits = 12;
 		nhs = 0;
 	} else {
+		struct label_blk_t *labelBlock;
 		/*
 		 * all numbers are in sectors, except num_clus 
 		 * (which is in clusters)
@@ -254,16 +262,23 @@ Stream_t *fs_init(char drive, int mode)
 		} else
 			nhs = WORD(nhs);
 
-		if(boot0.ext.old.dos4 == 0x29 && WORD(fatlen)) {
-			This->serialized = 1;
-			This->serial_number = DWORD(ext.old.serial);
-		}
 
 		This->cluster_size = boot0.clsiz; 		
 		This->fat_start = WORD(nrsvsect);
 		This->fat_len = WORD(fatlen);
 		This->dir_len = WORD(dirents) * MDIR_SIZE / This->sector_size;
 		This->num_fat = boot0.nfat;
+
+		if (This->fat_len) {
+			labelBlock = &boot0.ext.old.labelBlock;
+		} else {
+			labelBlock = &boot0.ext.fat32.labelBlock;
+		}
+
+		if(labelBlock->dos4 == 0x29) {
+			This->serialized = 1;
+			This->serial_number = _DWORD(labelBlock->serial);
+		}
 	}
 
 	if (tot_sectors >= (maxSize >> This->sectorShift)) {

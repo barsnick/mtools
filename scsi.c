@@ -73,7 +73,11 @@ int scsi_open(const char *name, int flag, int mode, void **extra_data)
     else
         return -1;
 #else
-    return open(name, O_RDONLY | O_NDELAY /* O_RDONLY  | dev->mode*/);
+    return open(name, O_RDONLY | 
+#ifdef O_NDELAY
+		O_NDELAY
+#endif
+	/* O_RDONLY  | dev->mode*/);
 #endif
 }
 

@@ -420,11 +420,13 @@ void fat_write(Fs_t *This)
 		/* initialize info sector */
 		InfoSector_t *infoSector;
 		infoSector = (InfoSector_t *) safe_malloc(This->sector_size);
-		set_dword(infoSector->signature0, INFOSECT_SIGNATURE0);
-		memset(infoSector->filler, sizeof(infoSector->filler),0);
-		set_dword(infoSector->signature, INFOSECT_SIGNATURE);
+		set_dword(infoSector->signature1, INFOSECT_SIGNATURE1);
+		memset(infoSector->filler1, sizeof(infoSector->filler1),0);
+		memset(infoSector->filler2, sizeof(infoSector->filler2),0);
+		set_dword(infoSector->signature2, INFOSECT_SIGNATURE2);
 		set_dword(infoSector->pos, This->last);
 		set_dword(infoSector->count, This->freeSpace);
+		set_dword(infoSector->signature3, 0xaa55);
 		if(forceWriteSector(This, (char *)infoSector, This->infoSectorLoc, 1) !=
 		   This->sector_size)
 			fprintf(stderr,"Trouble writing the info sector\n");
@@ -609,8 +611,8 @@ static int check_media_type(Fs_t *This, struct bootsector *boot,
 		return 0;
 	
 	if((address[0] != boot->descr && boot->descr >= 0xf0 &&
-	    (address[0] != 0xf9 || boot->descr != 0xf0)) ||
-	   address[0] < 0xf0) {
+	    ((address[0] != 0xf9 && address[0] != 0xf7) 
+	     || boot->descr != 0xf0)) || address[0] < 0xf0) {
 		fprintf(stderr,
 			"Bad media types %02x/%02x, probably non-MSDOS disk\n", 
 				address[0],
@@ -646,8 +648,8 @@ static int fat_32_read(Fs_t *This, struct bootsector *boot,
 		infoSector = (InfoSector_t *) safe_malloc(size);
 		if(forceReadSector(This, (char *)infoSector,
 						   This->infoSectorLoc, 1) == This->sector_size &&
-		   _DWORD(infoSector->signature) == INFOSECT_SIGNATURE &&
-		   _DWORD(infoSector->signature0) == INFOSECT_SIGNATURE0) {
+		   _DWORD(infoSector->signature1) == INFOSECT_SIGNATURE1 &&
+		   _DWORD(infoSector->signature2) == INFOSECT_SIGNATURE2) {
 			This->freeSpace = _DWORD(infoSector->count);
 			This->last = _DWORD(infoSector->pos);
 		}

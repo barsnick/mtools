@@ -10,12 +10,18 @@
 /*
  * Read a directory entry into caller supplied buffer
  */
-struct directory *dir_read(direntry_t *entry)
+struct directory *dir_read(direntry_t *entry, int *error)
 {
-	if(force_read(entry->Dir, (char *) (&entry->dir), 
-				  (mt_off_t) entry->entry * MDIR_SIZE, MDIR_SIZE) != MDIR_SIZE)
+	int n;
+	*error = 0;
+	if((n=force_read(entry->Dir, (char *) (&entry->dir), 
+			 (mt_off_t) entry->entry * MDIR_SIZE, 
+			 MDIR_SIZE)) != MDIR_SIZE) {
+		if (n < 0) {
+			*error = -1;
+		}
 		return NULL;
-
+	}
 	return &entry->dir;
 }
 

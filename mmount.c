@@ -44,7 +44,7 @@ void mmount(int argc, char **argv, int type)
 
 	if ( dev.partition ) {
 		char part_name[4];
-		snprintf(part_name, 3, "%d", dev.partition); 
+		sprintf(part_name, "%d", dev.partition %1000);
 		strcat(name, part_name); 
 	}
 

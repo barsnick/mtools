@@ -132,7 +132,7 @@ static int unix_write(direntry_t *entry, MainParam_t *mp, int needfilter)
 			ret = copyfile(Source, Target);
 		FREE(&Source);
 		FREE(&Target);
-		if(ret < -1){
+		if(ret <= -1){
 			if(!arg->type) {
 				unlink(unixFile);
 				free(unixFile);
@@ -184,7 +184,7 @@ static int unix_copydir(direntry_t *entry, MainParam_t *mp)
 		mtime = 0L;
 	if(!arg->type && arg->verbose) {
 		fprintf(stderr,"Copying ");
-		fprintPwd(stderr, entry);
+		fprintPwd(stderr, entry,0);
 		fprintf(stderr, "\n");
 	}
 	if(got_signal)
@@ -295,6 +295,9 @@ static int writeit(char *dosname,
 	ret = copyfile(arg->mp.File, Target);
 	GET_DATA(Target, 0, &newsize, 0, &fat);
 	FREE(&Target);
+	if (arg->needfilter & arg->textmode)
+	    newsize++; /* ugly hack: we gathered the size before the Ctrl-Z
+			* was written.  Increment it manually */
 	if(ret < 0 ){
 		fat_free(arg->mp.targetDir, fat);
 		return -1;
@@ -340,10 +343,14 @@ static Stream_t *subDir(Stream_t *parent, const char *filename)
 	direntry_t entry;		
 	initializeDirentry(&entry, parent);
 
-	if(vfat_lookup(&entry, filename, -1, ACCEPT_DIR, 0, 0) == 0 ){
+	switch(vfat_lookup(&entry, filename, -1, ACCEPT_DIR, 0, 0)) {
+	    case 0:
 		return OpenFileByDirentry(&entry);
-	} else
+	    case -1:
 		return NULL;
+	    default: /* IO Error */
+		return NULL;
+	}
 }
 
 static int dos_copydir(direntry_t *entry, MainParam_t *mp)
@@ -361,9 +368,9 @@ static int dos_copydir(direntry_t *entry, MainParam_t *mp)
 
 	if(entry && isSubdirOf(mp->targetDir, mp->File)) {
 		fprintf(stderr, "Cannot recursively copy directory ");
-		fprintPwd(stderr, entry);
+		fprintPwd(stderr, entry,0);
 		fprintf(stderr, " into one of its own subdirectories ");
-		fprintPwd(stderr, getDirentry(mp->targetDir));
+		fprintPwd(stderr, getDirentry(mp->targetDir),0);
 		fprintf(stderr, "\n");
 		return ERROR_ONE;
 	}
@@ -437,9 +444,9 @@ static void usage(void)
 	fprintf(stderr,
 		"Mtools version %s, dated %s\n", mversion, mdate);
 	fprintf(stderr,
-		"Usage: %s [-tnmvV] sourcefile targetfile\n", progname);
+		"Usage: %s [-spatnmQVB] [-D clash_option] sourcefile targetfile\n", progname);
 	fprintf(stderr,
-		"       %s [-tnmvV] sourcefile [sourcefiles...] targetdirectory\n", 
+		"       %s [-spatnmQVB] [-D clash_option] sourcefile [sourcefiles...] targetdirectory\n", 
 		progname);
 	exit(1);
 }
@@ -465,14 +472,16 @@ void mcopy(int argc, char **argv, int mtype)
 	arg.verbose = 0;
 	arg.type = mtype;
 	fastquit = 0;
-	while ((c = getopt(argc, argv, "b/ptnmvorsamQORSAM")) != EOF) {
+	while ((c = getopt(argc, argv, "abB/sptnmvQD:o")) != EOF) {
 		switch (c) {
+			case 's':
 			case '/':
 				arg.recursive = 1;
 				break;
 			case 'p':
 				arg.preserveAttributes = 1;
 				break;
+			case 'a':
 			case 't':
 				arg.textmode = 1;
 				break;
@@ -482,20 +491,26 @@ void mcopy(int argc, char **argv, int mtype)
 			case 'm':
 				arg.preserveTime = 1;
 				break;
-			case 'v':	/* dummy option for mcopy */
+			case 'v':
 				arg.verbose = 1;
 				break;
 			case 'Q':
 				fastquit = 1;
 				break;
+			case 'B':
 			case 'b':
 				batchmode = 1;
+				break;
+			case 'o':
+				handle_clash_options(&arg.ch, c);
+				break;
+			case 'D':
+				if(handle_clash_options(&arg.ch, *optarg))
+					usage();
 				break;
 			case '?':
 				usage();
 			default:
-				if(handle_clash_options(&arg.ch, c))
-					usage();
 				break;
 		}
 	}
