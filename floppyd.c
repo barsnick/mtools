@@ -470,7 +470,7 @@ char do_auth(io_buffer sock, int *version)
 	*ptr++ = '\0';
 
 	write(fd, template, len+8);
-	ptr = mit_cookie->data;
+	ptr = (char *)mit_cookie->data;
 	len = mit_cookie->len;
 
 	if (eat(&ptr,&len,1) ||    /* the "type"    */
@@ -697,7 +697,7 @@ static void alarm_signal(int a)
 static void server_main_loop(int sock, char* device_name)
 {
 	struct sockaddr_in	addr;
-	int					len;
+	unsigned int		len;
 
 	/*
 	 * Ignore dead servers so no zombies should be left hanging.
@@ -846,7 +846,7 @@ int main (int argc, char** argv)
 
 	if(!run_as_server) {
 		struct sockaddr_in	addr;
-		int len = sizeof(addr);
+		unsigned int len = sizeof(addr);
 		
 		/* try to find out port that we are connected to */
 		if(getsockname(0, (struct sockaddr*) &addr, &len) >= 0 && 

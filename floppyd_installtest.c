@@ -133,7 +133,7 @@ int authenticate_to_floppyd(char fullauth, int sock, char *display,
 	fprintf(stderr, "Protocol Version=%d\n", protoversion);
 
 	if (fullauth) {
-		dword2byte(filelen, xcookie);
+		dword2byte(filelen, (Byte *) xcookie);
 		write(sock, xcookie, filelen+4);
 
 		if (read_dword(sock) != 4) {

@@ -1,5 +1,5 @@
 '\" t
-.TH mtools.1 3 "27May01" MTOOLS MTOOLS
+.TH mtools.1 3 "03Mar03" MTOOLS MTOOLS
 .SH Name
 mtools.conf - mtools configuration files
 '\" t
@@ -51,9 +51,11 @@ The configuration files is made up of sections. Each section starts
 with a keyword identifying the section followed by a colon.
 Then follow variable assignments and flags. Variable assignments take
 the following form:
-.(l I
+.ft I
+.nf
 name=value
-.)l
+.fi
+.ft R
  
 Flags are lone keywords without an equal sign and value following
 them.  A section either ends at the end of the file or where the next
@@ -475,6 +477,12 @@ real filename using the \fR\&\f(CWmedia_findname()\fR and
 \&\fR\&\f(CWmedia_oldaliases()\fR functions of the \fR\&\f(CWvolmgt\fR library.  This
 flag is only available if you configured mtools with the
 \&\fR\&\f(CW--enable-new-vold\fR option before compilation.
+.TP
+\&\fR\&\f(CWswap\fR\ 
+.iX "c Atari"
+.iX "c Wordswapped"
+.IP
+Consider the media as a word-swapped Atari disk.
 .TP
 \&\fR\&\f(CWuse_xdf\fR\ 
 .iX "c XDF disks (how to configure)"

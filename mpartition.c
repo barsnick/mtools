@@ -29,7 +29,7 @@
 (sector(x)-1+(head(x)+cyl(x)*used_dev->heads)*used_dev->sectors)
 
 
-static inline void print_hsc(hsc *h)
+static __inline__ void print_hsc(hsc *h)
 {
 	printf(" h=%d s=%d c=%d\n", 
 	       head(*h), sector(*h), cyl(*h));
@@ -302,8 +302,11 @@ void mpartition(int argc, char **argv, int dummy)
 	argsectors = 0;
 
 	/* get command line options */
-	while ((c = getopt(argc, argv, "adprcIT:t:h:s:fvpb:l:S:B:")) != EOF) {
+	while ((c = getopt(argc, argv, "i:adprcIT:t:h:s:fvpb:l:S:B:")) != EOF) {
 		switch (c) {
+			case 'i':
+				set_cmd_line_image(optarg, 0);
+				break;
 			case 'B':
 				bootSector = optarg;
 				break;
@@ -398,6 +401,8 @@ void mpartition(int argc, char **argv, int dummy)
 	sprintf(errmsg, "Drive '%c:' not supported", drive);
 	Stream = 0;
 	for(dev=devices;dev->drive;dev++) {
+		int mode ;
+
 		FREE(&(Stream));
 		/* drive letter */
 		if (dev->drive != drive)
@@ -415,8 +420,15 @@ void mpartition(int argc, char **argv, int dummy)
 		SET_INT(used_dev.sectors, argsectors);
 		
 		expand(dev->name, name);
-		Stream = SimpleFileOpen(&used_dev, dev, name,
-					dirty ? O_RDWR : O_RDONLY, 
+
+		mode = dirty ? O_RDWR : O_RDONLY;
+		if(initialize)
+ 			mode |= O_CREAT;
+
+#ifdef USING_NEW_VOLD
+		strcpy(name, getVoldName(dev, name));
+#endif
+		Stream = SimpleFileOpen(&used_dev, dev, name, mode, 
 					errmsg, open2flags, 1, 0);
 
 		if (!Stream) {
@@ -457,7 +469,7 @@ void mpartition(int argc, char **argv, int dummy)
 #endif
 
 		/* read the partition table */
-		if (READS(Stream, (char *) buf, 0, 512) != 512) {
+		if (READS(Stream, (char *) buf, 0, 512) != 512 && !initialize){
 #ifdef HAVE_SNPRINTF
 			snprintf(errmsg, 199,
 				"Error reading from '%s', wrong parameters?",

@@ -72,10 +72,14 @@ int test_mounted ( char *dev )
 	if (!S_ISBLK (st_dev.st_mode)) /* not a block device, cannot 
 					* be mounted */
 		return 0;
-	
-	if ((mtab = setmntent (MOUNTED, "r")) == NULL) {
+
+#ifndef _PATH_MOUNTED
+# define _PATH_MOUNTED "/etc/mtab"
+#endif
+
+	if ((mtab = setmntent (_PATH_MOUNTED, "r")) == NULL) {
 		fprintf (stderr, "%s: can't open %s.\n",
-			 progname, MOUNTED);
+			 progname, _PATH_MOUNTED);
 		exit(1);
 	}
 	
@@ -225,8 +229,11 @@ void mzip(int argc, char **argv, int type)
 	break;
 	
 	/* get command line options */
-	while ((c = getopt(argc, argv, "efpqrwxu")) != EOF) {
+	while ((c = getopt(argc, argv, "i:efpqrwxu")) != EOF) {
 		switch (c) {
+			case 'i':
+				set_cmd_line_image(optarg, SCSI_FLAG);
+				break;
 			case 'f':
 				if (get_real_uid()) {
 					fprintf(stderr, 
@@ -264,7 +271,7 @@ void mzip(int argc, char **argv, int type)
 	     (!argv[optind][0] || argv[optind][1] != ':')))
 		usage();
 	
-	drive = toupper(argc - optind == 1 ? argv[argc - 1][0] : 'a');
+	drive = toupper(argc - optind == 1 ? argv[argc - 1][0] : ':');
 	
 	for (dev = devices; dev->name; dev++) {
 		unsigned char cdb[6] = { 0, 0, 0, 0, 0, 0 };
@@ -340,6 +347,8 @@ void mzip(int argc, char **argv, int type)
 		     strncasecmp("ZIP 100 PLUS    ",
 				 inq_data.product, sizeof inq_data.product) &&
 		     strncasecmp("ZIP 250         ",
+				 inq_data.product, sizeof inq_data.product) &&
+		     strncasecmp("ZIP 750         ",
 				 inq_data.product, sizeof inq_data.product) &&
 		     strncasecmp("JAZ 1GB         ",
 				 inq_data.product, sizeof inq_data.product) &&
