@@ -7,50 +7,64 @@
 #include "sysincludes.h"
 #include "mtools.h"
 
-const char *expand(const char *input, char *ans)
+
+int safePopenOut(char **command, char *output, int len)
 {
 	int pipefd[2];
-	int pid;
+	pid_t pid;
+	int status;
+	int last;
+
+	if(pipe(pipefd)) {
+		return -2;
+	}
+	switch((pid=fork())){
+		case -1:
+			return -2;
+		case 0: /* the son */
+			close(pipefd[0]);
+			destroy_privs();
+			close(1);
+			close(2); /* avoid nasty error messages on stderr */
+			dup(pipefd[1]);
+			close(pipefd[1]);
+			execvp(command[0], command+1);
+			exit(1);
+		default:
+			close(pipefd[1]);
+			break;
+	}
+	last=read(pipefd[0], output, len);
+	kill(pid,9);
+	wait(&status);
+	if(last<0) {
+		return -1;
+	}
+	return last;
+}
+
+
+
+const char *expand(const char *input, char *ans)
+{
 	int last;
 	char buf[256];
-	int status;
+	char *command[] = { "/bin/sh", "sh", "-c", 0, 0 };
 
 	if (input == NULL)
 		return(NULL);
 	if (*input == '\0')
 		return("");
 					/* any thing to expand? */
-	if (!strpbrk(input, "$*(){}[]\\?~")) {
+	if (!strpbrk(input, "$*(){}[]\\?`~")) {
 		strcpy(ans, input);
 		return(ans);
 	}
 					/* popen an echo */
 	sprintf(buf, "echo %s", input);
-	
-	if(pipe(pipefd)) {
-		perror("Could not open expand pipe");
-		exit(1);
-	}
-	switch((pid=fork())){
-		case -1:
-			perror("Could not fork");
-			exit(1);
-			break;
-		case 0: /* the son */
-			close(pipefd[0]);
-			destroy_privs();
-			close(1);
-			dup(pipefd[1]);
-			close(pipefd[1]);
-			execl("/bin/sh", "sh", "-c", buf, 0);
-			break;
-		default:
-			close(pipefd[1]);
-			break;
-	}
-	last=read(pipefd[0], ans, EXPAND_BUF);
-	kill(pid,9);
-	wait(&status);
+
+	command[3]=buf;
+	last=safePopenOut(command, ans, EXPAND_BUF);
 	if(last<0) {
 		perror("Pipe read error");
 		exit(1);

@@ -2,14 +2,17 @@
 #include "msdos.h"
 #include "stream.h"
 
+int batchmode = 0;
+
 int flush_stream(Stream_t *Stream)
 {
 	int ret=0;
-
-	if(Stream->Class->flush)
-		ret |= Stream->Class->flush(Stream);
-	if(Stream->Next)
-		ret |= flush_stream(Stream->Next);
+	if(!batchmode) {
+		if(Stream->Class->flush)
+			ret |= Stream->Class->flush(Stream);
+		if(Stream->Next)
+			ret |= flush_stream(Stream->Next);
+	}
 	return ret;
 }
 
@@ -26,11 +29,11 @@ int free_stream(Stream_t **Stream)
 
 	if(!*Stream)
 		return -1;
-	if((*Stream)->Class->flush)
-		ret |= (*Stream)->Class->flush(*Stream);
 	if(! --(*Stream)->refs){
-		if((*Stream)->Class->free)
-			ret |= (*Stream)->Class->free(*Stream);
+		if((*Stream)->Class->flush)
+			ret |= (*Stream)->Class->flush(*Stream);
+		if((*Stream)->Class->freeFunc)
+			ret |= (*Stream)->Class->freeFunc(*Stream);
 		if((*Stream)->Next)
 			ret |= free_stream(&(*Stream)->Next);
 		Free(*Stream);
@@ -45,18 +48,18 @@ int free_stream(Stream_t **Stream)
 (stream)->Class->get_data( (stream), (date), (size), (type), (address) )
 
 
-int get_data_pass_through(Stream_t *Stream, long *date, size_t *size,
+int get_data_pass_through(Stream_t *Stream, time_t *date, mt_size_t *size,
 			  int *type, int *address)
 {
        return GET_DATA(Stream->Next, date, size, type, address);
 }
 
-int read_pass_through(Stream_t *Stream, char *buf, off_t start, size_t len)
+int read_pass_through(Stream_t *Stream, char *buf, mt_off_t start, size_t len)
 {
 	return READS(Stream->Next, buf, start, len);
 }
 
-int write_pass_through(Stream_t *Stream, char *buf, off_t start, size_t len)
+int write_pass_through(Stream_t *Stream, char *buf, mt_off_t start, size_t len)
 {
 	return WRITES(Stream->Next, buf, start, len);
 }

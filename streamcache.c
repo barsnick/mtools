@@ -10,19 +10,15 @@
 #include "fs.h"
 #include "mainloop.h"
 #include "plain_io.h"
+#include "file.h"
 
 static int is_initialized = 0;
-static Stream_t *Subdir;	
-static char subdir_name[VBUFSIZE];
 static Stream_t *fss[256]; /* open drives */
-static char last_drive; /* last opened drive */	
-
 
 static void finish_sc(void)
 {
 	int i;
 
-	FREE(&Subdir);
 	for(i=0; i<256; i++){
 		if(fss[i] && fss[i]->refs != 1 )
 			fprintf(stderr,"Streamcache allocation problem:%c %d\n",
@@ -31,8 +27,6 @@ static void finish_sc(void)
 	}
 }
 
-
-
 static void init_streamcache(void)
 {
 	int i;
@@ -40,25 +34,18 @@ static void init_streamcache(void)
 	if(is_initialized)
 		return;
 	is_initialized = 1;
-	last_drive = '\0';
 	for(i=0; i<256; i++)
 		fss[i]=0;
-	Subdir= NULL;
-	subdir_name[0]='\0';
 	atexit(finish_sc);
 }
 
-
-Stream_t *open_subdir(MainParam_t *mp, const char *arg, 
-		      int flags,int mode, int lock)
+Stream_t *open_root_dir(unsigned char drive, int flags)
 {
-	int drive;
 	Stream_t *Fs;
-	char pathname[MAX_PATH];
 
 	init_streamcache();
 
-	mp->drivename = drive = get_drive(arg, *(mp->mcwd));
+	drive = toupper(drive);
 	
 	/* open the drive */
 	if(fss[drive])
@@ -73,18 +60,5 @@ Stream_t *open_subdir(MainParam_t *mp, const char *arg,
 		fss[drive] = Fs;
 	}
 
-	get_name(arg, mp->filename, mp->mcwd);
-	get_path(arg, pathname, mp->mcwd, mode);
-	if(mp->pathname)
-		strcpy(mp->pathname, pathname);
-
-	if (last_drive != drive || 
-	    strcasecmp(pathname,subdir_name)){
-		FREE(&Subdir);
-		
-		Subdir = subdir(Fs, pathname, lock);
-		last_drive = drive;
-		strcpy(subdir_name, pathname);
-	}
-	return COPY(Subdir);
+	return OpenRoot(Fs);
 }

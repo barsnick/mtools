@@ -35,49 +35,57 @@ typedef struct Arg_t {
 } Arg_t;
 
 
+typedef struct CreateArg_t {
+	Stream_t *Dir;
+	Stream_t *NewDir;
+	unsigned char attr;
+	time_t mtime;
+} CreateArg_t;
+
 /*
  * Open the named file for read, create the cluster chain, return the
  * directory structure or NULL on error.
  */
-static struct directory *makeeit(char *dosname,
-				 char *longname,
-				 void *arg0,
-				 struct directory *dir)
+int makeit(char *dosname,
+	    char *longname,
+	    void *arg0,
+	    direntry_t *targetEntry)
 {
 	Stream_t *Target;
-	time_t now;
-	Arg_t *arg = (Arg_t *) arg0;
+	CreateArg_t *arg = (CreateArg_t *) arg0;
 	int fat;
+	direntry_t subEntry;	
 
-	/* will it fit? At least one sector must be free */
-	if (! getfree(arg->targetDir)) {
-		fprintf(stderr,"Disk full\n");
-		return NULL;
-	}
+	/* will it fit? At least one cluster must be free */
+	if (!getfreeMinClusters(targetEntry->Dir, 1))
+		return -1;
 	
-	/* find out current time */
-	time(&now);
-	mk_entry(".", 0x10, 1, 0, now, dir);
-	Target = open_file(arg->targetDir, dir);	
+	mk_entry(dosname, ATTR_DIR, 1, 0, arg->mtime, &targetEntry->dir);
+	Target = OpenFileByDirentry(targetEntry);
 	if(!Target){
 		fprintf(stderr,"Could not open Target\n");
-		return NULL;
+		return -1;
 	}
 
-	dir_grow(Target, 0);
 	/* this allocates the first cluster for our directory */
 
-	GET_DATA(arg->targetDir, 0, 0, 0, &fat);
-	mk_entry("..         ", 0x10, fat, 0, now, dir);
-	dir_write(Target, 1, dir);
+	initializeDirentry(&subEntry, Target);
 
+	subEntry.entry = 1;
+	GET_DATA(targetEntry->Dir, 0, 0, 0, &fat);
+	mk_entry("..         ", ATTR_DIR, fat, 0, arg->mtime, &subEntry.dir);
+	dir_write(&subEntry);
+
+	FLUSH((Stream_t *) Target);
+	subEntry.entry = 0;
 	GET_DATA(Target, 0, 0, 0, &fat);
-	mk_entry(".          ", 0x10, fat, 0, now, dir);
-	dir_write(Target, 0, dir);
+	mk_entry(".          ", ATTR_DIR, fat, 0, arg->mtime, &subEntry.dir);
+	dir_write(&subEntry);
 
-	mk_entry(dosname, 0x10, fat, 0, now, dir);
-	FREE(&Target);
-	return dir;
+	mk_entry(dosname, ATTR_DIR | arg->attr, fat, 0, arg->mtime, 
+		 &targetEntry->dir);
+	arg->NewDir = Target;
+	return 0;
 }
 
 
@@ -93,14 +101,46 @@ static void usage(void)
 	exit(1);
 }
 
+Stream_t *createDir(Stream_t *Dir, const char *filename, ClashHandling_t *ch, 
+					unsigned char attr, time_t mtime)
+{
+	CreateArg_t arg;
+	int ret;
+
+	arg.Dir = Dir;
+	arg.attr = attr;
+	arg.mtime = mtime;
+
+	if (!getfreeMinClusters(Dir, 1))
+		return NULL;
+
+	ret = mwrite_one(Dir, filename,0, makeit, &arg, ch);
+	if(ret < 1)
+		return NULL;
+	else
+		return arg.NewDir;
+}
+
+static int createDirCallback(direntry_t *entry, MainParam_t *mp)
+{
+	Stream_t *ret;
+	time_t now;
+
+	ret = createDir(mp->File, mp->targetName, &((Arg_t *)(mp->arg))->ch, 
+					ATTR_DIR, getTimeNow(&now));
+	if(ret == NULL)
+		return ERROR_ONE;
+	else {
+		FREE(&ret);
+		return GOT_ONE;
+	}
+	
+}
+
 void mmd(int argc, char **argv, int type)
 {
-	int ret = 0;
-	Stream_t *Dir;
 	Arg_t arg;
 	int c;
-	char filename[VBUFSIZE];
-	int i;
 
 	/* get command line options */
 
@@ -139,39 +179,7 @@ void mmd(int argc, char **argv, int type)
 	init_mp(&arg.mp);
 	arg.mp.arg = (void *) &arg;
 	arg.mp.openflags = O_RDWR;
-	ret = 0;
-
-	for(i=optind; i < argc; i++){
-		if(got_signal)
-			break;
-		Dir = open_subdir(&arg.mp, argv[i], O_RDWR, 0, 0);
-		if(!Dir){
-			fprintf(stderr,"Could not open parent directory\n");
-			exit(1);
-		}
-		arg.targetDir = Dir;
-		get_name(argv[i], filename, arg.mp.mcwd);
-		if(!filename[0]){
-			if(!arg.silent)
-				fprintf(stderr,"Empty filename\n");
-			ret |= MISSED_ONE;
-			FREE(&Dir);
-			continue;
-		}
-		if(mwrite_one(Dir, filename,0,
-			      makeeit, (void *)&arg, &arg.ch)<=0){
-			if(!arg.silent)
-				fprintf(stderr,"Could not create %s\n", 
-					argv[i]);
-			ret |= MISSED_ONE;
-		} else
-			ret |= GOT_ONE;
-		FREE(&Dir);
-	}
-
-	if ((ret & GOT_ONE) && ( ret & MISSED_ONE))
-		exit(2);
-	if (ret & MISSED_ONE)
-		exit(1);
-	exit(0);
+	arg.mp.callback = createDirCallback;
+	arg.mp.lookupflags = OPEN_PARENT | DO_OPEN_DIRS;
+	exit(main_loop(&arg.mp, argv + optind, argc - optind));
 }

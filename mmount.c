@@ -4,7 +4,7 @@
  * written by:
  *
  * Alain L. Knaff			
- * Alain.Knaff@poboxes.com
+ * alain@linux.lu
  *
  */
 
@@ -12,9 +12,7 @@
 #include "msdos.h"
 #include "mtools.h"
 
-#ifdef linux
-#include "patchlevel.h"
-#include <linux/fd.h>
+#ifdef OS_linux
 #include <sys/wait.h>
 #include "mainloop.h"
 #include "fs.h"
@@ -32,17 +30,23 @@ void mmount(int argc, char **argv, int type)
 	struct bootsector boot;
 	Stream_t *Stream;
 	
-	if (argc<2 || !argv[1][0]) {
+	if (argc<2 || !argv[1][0]  || argv[1][1] != ':' || argv[1][2]){
 		fprintf(stderr,"Usage: %s -V drive:\n", argv[0]);
 		exit(1);
 	}
-	drive = argv[1][0];
-	Stream = find_device(drive, O_RDONLY, &dev, &boot, name, &media);
+	drive = toupper(argv[1][0]);
+	Stream = find_device(drive, O_RDONLY, &dev, &boot, name, &media, 0);
 	if(!Stream)
 		exit(1);
 	FREE(&Stream);
 
 	destroy_privs();
+
+	if ( dev.partition ) {
+		char part_name[4];
+		snprintf(part_name, 3, "%d", dev.partition); 
+		strcat(name, part_name); 
+	}
 
 	/* and finally mount it */
 	switch((pid=fork())){
@@ -67,7 +71,7 @@ void mmount(int argc, char **argv, int type)
 	argv[0] = strdup("mount");
 	argv[1] = strdup("-r");
 	if(!argv[0] || !argv[1]){
-		fprintf(stderr, "Out of memory error\n");
+		printOom();
 		exit(1);
 	}
 	if ( argc > 2 )

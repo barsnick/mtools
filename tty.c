@@ -4,41 +4,60 @@
 static FILE *tty=NULL;
 static int notty=0;	
 static int ttyfd=-1;
+#ifdef USE_RAWTERM
+int	mtools_raw_tty = 1;
+#else
+int	mtools_raw_tty = 0;
+#endif
+
+#ifdef USE_RAWTERM
+# if defined TCSANOW && defined HAVE_TCSETATTR
+/* we have tcsetattr & tcgetattr. Good */
+typedef struct termios Terminal;
+#  define stty(a,b)        (void)tcsetattr(a,TCSANOW,b)
+#  define gtty(a,b)        (void)tcgetattr(a,b)
+#  define USE_TCIFLUSH
+
+# elif defined TCSETS && defined TCGETS
+typedef struct termios Terminal;
+#  define stty(a,b) (void)ioctl(a,TCSETS,(char *)b)
+#  define gtty(a,b) (void)ioctl(a,TCGETS,(char *)b)
+#  define USE_TCIFLUSH
+
+# elif defined TCSETA && defined TCGETA
+typedef struct termio Terminal;
+#  define stty(a,b) (void)ioctl(a,TCSETA,(char *)b)
+#  define gtty(a,b) (void)ioctl(a,TCGETA,(char *)b)
+#  define USE_TCIFLUSH
+
+# elif defined(HAVE_SGTTY_H) && defined(TIOCSETP) && defined(TIOCGETP)
+typedef struct sgttyb Terminal;
+#  define stty(a,b) (void)ioctl(a,TIOCSETP,(char *)b)
+#  define gtty(a,b) (void)ioctl(a,TIOCGETP,(char *)b)
+#  define USE_SGTTY
+#  define discard_input(a) /**/
+
+# else
+/* no way to use raw terminal */
+#  warning Cannot use raw terminal code (disabled)
+#  undef USE_RAWTERM
+# endif
+
+#endif
+
+#ifdef USE_TCIFLUSH
+# if defined TCIFLUSH && defined HAVE_TCFLUSH
+#  define discard_input(a) tcflush(a,TCIFLUSH)
+# else
+#  define discard_input(a) /**/
+# endif
+#endif
+
+#ifdef USE_RAWTERM
+
 static int tty_mode = -1; /* 1 for raw, 0 for cooked, -1 for initial */
 static int need_tty_reset = 0;
 static int handlerIsSet = 0;
-int	mtools_raw_tty = 1;
-
-
-#ifdef TCSANOW
-
-/* we have tcsetattr & tcgetattr. Good */
-#define stty(a,b)        (void)tcsetattr(a,TCSANOW,b)
-#define gtty(a,b)        (void)tcgetattr(a,b)
-#ifdef TCIFLUSH
-#define discard_input(a) tcflush(a,TCIFLUSH)
-#else
-#define discard_input(a) /**/
-#endif
-
-#else /* TCSANOW */
-
-#ifndef TCSETS
-#define TCSETS TCSETA
-#define TCGETS TCGETA
-#define termios termio
-#endif
-
-#define stty(a,b) (void)ioctl(a,TCSETS,(char *)b)
-#define gtty(a,b) (void)ioctl(a,TCGETS,(char *)b)
-
-#ifdef TCIFLUSH
-#define discard_input(a) (void)ioctl(a,TCFLSH,TCIFLUSH)
-#else
-#define discard_input(a) /**/
-#endif
-
-#endif /* TCSANOW */
 
 #define restore_tty(a) stty(STDIN,a)
 
@@ -46,7 +65,7 @@ int	mtools_raw_tty = 1;
 #define STDIN ttyfd
 #define FAIL (-1)
 #define DONE 0
-static struct termios in_orig;
+static Terminal in_orig;
 
 /*--------------- Signal Handler routines -------------*/
 
@@ -81,67 +100,65 @@ static void cleanup_tty(void)
 { 
 	if(tty && need_tty_reset) {
 		restore_tty (&in_orig);
-		signal (SIGHUP, SIG_IGN);
-		signal (SIGINT, SIG_IGN);
-		signal (SIGTERM, SIG_IGN);
-		signal (SIGALRM, SIG_IGN);
+		setup_signal();
 	}
-}
-
-static void fail(void)
-{
-	exit(1);
 }
 
 static void set_raw_tty(int mode)
 {
-	struct termios in_raw;
+	Terminal in_raw;
 
 	if(mode != tty_mode && mode != -1) {
-		/* Determine existing TTY settings */
-		gtty (STDIN, &in_orig);
-		need_tty_reset = 1;
 		if(!handlerIsSet) {
+			/* Determine existing TTY settings */
+			gtty (STDIN, &in_orig);
+			need_tty_reset = 1;
+
+			/* Restore original TTY settings on exit */
 			atexit(cleanup_tty);
 			handlerIsSet = 1;
 		}
 
-		/*------ Restore original TTY settings on exit --------*/
-		signal (SIGHUP, (SIG_CAST) fail);
-		signal (SIGINT, (SIG_CAST) fail);
-		signal (SIGTERM, (SIG_CAST) fail);
+
+		setup_signal();
 		signal (SIGALRM, (SIG_CAST) tty_time_out);
 	
 		/* Change STDIN settings to raw */
 
 		gtty (STDIN, &in_raw);
 		if(mode) {
+#ifdef USE_SGTTY
+			in_raw.sg_flags |= CBREAK;
+#else
 			in_raw.c_lflag &= ~ICANON;
 			in_raw.c_cc[VMIN]=1;
-			in_raw.c_cc[VTIME]=0;
+			in_raw.c_cc[VTIME]=0;			
+#endif
 			stty (STDIN, &in_raw);
 		} else {
+#ifdef USE_SGTTY
+			in_raw.sg_flags &= ~CBREAK;
+#else
 			in_raw.c_lflag |= ICANON;
+#endif
 			stty (STDIN, &in_raw);
 		}
 		tty_mode = mode;
 		discard_input(STDIN);
 	}
 }
+#endif
 
 FILE *opentty(int mode)
 {
 	if(notty)
 		return NULL;
-/* BeOS does not have a working /dev/tty, so we use stdin */
-#ifndef __BEOS__
 	if (tty == NULL) {
 		ttyfd = open("/dev/tty", O_RDONLY);
 		if(ttyfd >= 0) {
 			tty = fdopen(ttyfd, "r");
 		}
 	}
-#endif
 	if  (tty == NULL){
 		if ( !isatty(0) ){
 			notty = 1;
@@ -150,8 +167,10 @@ FILE *opentty(int mode)
 		ttyfd = 0;
 		tty = stdin;
 	}
-
-	set_raw_tty(mode);
+#ifdef USE_RAWTERM
+	if(mtools_raw_tty)
+		set_raw_tty(mode);
+#endif
 	return tty;
 }
 

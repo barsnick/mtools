@@ -69,9 +69,10 @@ static int parse_range(const char **p, const char *s, char *out,
 
 
 static int _match(const char *s, const char *p, char *out, int Case,
+		  int length,
 		  int (*compfn) (char a, char b))
 {
-	for (; *p != '\0'; ) {
+	for (; *p != '\0' && length; ) {
 		switch (*p) {
 			case '?':	/* match any one character */
 				if (*s == '\0')
@@ -80,12 +81,15 @@ static int _match(const char *s, const char *p, char *out, int Case,
 					*(out++) = *s;
 				break;
 			case '*':	/* match everything */
-				while (*p == '*')
+				while (*p == '*' && length) {
 					p++;
+					length--;
+				}
 
 					/* search for next char in pattern */
 				while(*s) {
-					if(_match(s, p, out, Case, compfn))
+					if(_match(s, p, out, Case, length, 
+						  compfn))
 						return 1;
 					if(out)
 						*out++ = *s;
@@ -94,11 +98,13 @@ static int _match(const char *s, const char *p, char *out, int Case,
 				continue;
 			case '[':	 /* match range of characters */
 				p++;
+				length--;
 				if(!parse_range(&p, s, out++, compfn))
 					return 0;
 				break;
 			case '\\':	/* Literal match with next character */
 				p++;
+				length--;
 				/* fall thru */
 			default:
 				if (!compfn(*s,*p))
@@ -108,6 +114,7 @@ static int _match(const char *s, const char *p, char *out, int Case,
 				break;
 		}
 		p++;
+		length--;
 		s++;
 	}
 	if(out)
@@ -121,7 +128,7 @@ static int _match(const char *s, const char *p, char *out, int Case,
 }
 
 
-int match(const char *s, const char *p, char *out, int Case)
+int match(const char *s, const char *p, char *out, int Case, int length)
 {
 	int (*compfn)(char a, char b);
 
@@ -130,10 +137,6 @@ int match(const char *s, const char *p, char *out, int Case)
 	else
 		/*compfn = exactcmp;*/
 		compfn = casecmp;
-	return _match(s, p, out, Case, compfn);
+	return _match(s, p, out, Case, length, compfn);
 }
 
-int hasWildcards(const char *string)
-{
-	return (int) strpbrk(string, "?*");
-}

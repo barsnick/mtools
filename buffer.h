@@ -3,6 +3,9 @@
 
 #include "stream.h"
 
-Stream_t *buf_init(Stream_t *Next, int size, int grain, int grain2);
+Stream_t *buf_init(Stream_t *Next, 
+		   int size, 
+		   int cylinderSize,
+		   int sectorSize);
 
 #endif

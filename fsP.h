@@ -5,13 +5,10 @@
 #include "msdos.h"
 #include "fs.h"
 
-
-typedef struct FatMap_t {
-	unsigned char *data;
-	int dirty;
-	int valid;
-} FatMap_t;
-
+typedef enum fatAccessMode_t { 
+	FAT_ACCESS_READ, 
+	FAT_ACCESS_WRITE
+} fatAccessMode_t;
 
 typedef struct Fs_t {
 	Class_t *Class;
@@ -26,8 +23,8 @@ typedef struct Fs_t {
 	int fat_error;
 
 	unsigned int (*fat_decode)(struct Fs_t *This, unsigned int num);
-	int (*fat_encode)(struct Fs_t *This, unsigned int num,
-			  unsigned int code);
+	void (*fat_encode)(struct Fs_t *This, unsigned int num,
+			   unsigned int code);
 
 	Stream_t *Direct;
 	int fat_dirty;
@@ -38,7 +35,7 @@ typedef struct Fs_t {
 	unsigned int end_fat;
 	unsigned int last_fat;
 	int fat_bits;
-	FatMap_t *FatMap;
+	struct FatMap_t *FatMap;
 
 	int dir_start;
 	int dir_len;
@@ -51,17 +48,37 @@ typedef struct Fs_t {
 	unsigned int primaryFat;
 	unsigned int writeAllFats;
 	unsigned int rootCluster;
-	InfoSector_t *infoSector;
 	int infoSectorLoc;
+	unsigned int last; /* last sector allocated, or MAX32 if unknown */
+	unsigned int freeSpace; /* free space, or MAX32 if unknown */
+	int preallocatedClusters;
+
+	int lastFatSectorNr;
+	unsigned char *lastFatSectorData;
+	fatAccessMode_t lastFatAccessMode;
+	int sectorMask;
+	int sectorShift;
 } Fs_t;
+
+int fs_free(Stream_t *Stream);
 
 void set_fat12(Fs_t *Fs);
 void set_fat16(Fs_t *Fs);
 void set_fat32(Fs_t *Fs);
 unsigned int get_next_free_cluster(Fs_t *Fs, unsigned int last);
+unsigned int fatDecode(Fs_t *This, unsigned int pos);
+void fatAppend(Fs_t *This, unsigned int pos, unsigned int newpos);
+void fatDeallocate(Fs_t *This, unsigned int pos);
+void fatAllocate(Fs_t *This, unsigned int pos, unsigned int value);
+void fatEncode(Fs_t *This, unsigned int pos, unsigned int value);
+
 int fat_read(Fs_t *This, struct bootsector *boot, int fat_bits,
-	     unsigned int tot_sectors, int nodups);
+			 size_t tot_sectors, int nodups);
 void fat_write(Fs_t *This);
 int zero_fat(Fs_t *Fs, int media_descriptor);
 extern Class_t FsClass;
+int fsPreallocateClusters(Fs_t *Fs, long);
+Fs_t *getFs(Stream_t *Stream);
+
+
 #endif

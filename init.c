@@ -10,6 +10,7 @@
 #include "mtools.h"
 #include "fsP.h"
 #include "plain_io.h"
+#include "floppyd_io.h"
 #include "xdf_io.h"
 #include "buffer.h"
 
@@ -20,21 +21,19 @@ extern int errno;
 
 unsigned int num_clus;			/* total number of cluster */
 
-#ifndef linux
-#define BOOTSIZE 512
-#else
-#define BOOTSIZE 256
-#endif
-
 
 /*
  * Read the boot sector.  We glean the disk parameters from this sector.
  */
-static int read_boot(Stream_t *Stream, struct bootsector * boot)
+static int read_boot(Stream_t *Stream, struct bootsector * boot, int size)
 {	
 	/* read the first sector, or part of it */
-	if (force_read(Stream, (char *) boot, 0, BOOTSIZE) !=
-	    BOOTSIZE)
+	if(!size)
+		size = BOOTSIZE;
+	if(size > 1024)
+		size = 1024;
+
+	if (force_read(Stream, (char *) boot, 0, size) != size)
 		return -1;
 	return 0;
 }
@@ -51,9 +50,10 @@ Class_t FsClass = {
 	read_pass_through, /* read */
 	write_pass_through, /* write */
 	fs_flush, 
-	0, /* free */
+	fs_free, /* free */
 	0, /* set geometry */
-	get_data_pass_through
+	get_data_pass_through,
+	0 /* pre allocate */
 };
 
 static int get_media_type(Stream_t *St, struct bootsector *boot)
@@ -65,7 +65,7 @@ static int get_media_type(Stream_t *St, struct bootsector *boot)
 		char temp[512];
 		/* old DOS disk. Media descriptor in the first FAT byte */
 		/* old DOS disk always have 512-byte sectors */
-		if (force_read(St,temp,512,512) == 512)
+		if (force_read(St,temp,(mt_off_t) 512,512) == 512)
 			media = (unsigned char) temp[0];
 		else
 			media = 0;
@@ -84,11 +84,12 @@ Stream_t *GetFs(Stream_t *Fs)
 
 Stream_t *find_device(char drive, int mode, struct device *out_dev,
 		      struct bootsector *boot,
-		      char *name, int *media)
+		      char *name, int *media, mt_size_t *maxSize)
 {
 	char errmsg[80];
 	Stream_t *Stream;
 	struct device *dev;
+	int r;
 
 	Stream = NULL;
 	sprintf(errmsg, "Drive '%c:' not supported", drive);	
@@ -99,24 +100,36 @@ Stream_t *find_device(char drive, int mode, struct device *out_dev,
 			continue;
 		*out_dev = *dev;
 		expand(dev->name,name);
+#ifdef USING_NEW_VOLD
+		strcpy(name, getVoldName(dev, name));
+#endif
 
+		Stream = 0;
 #ifdef USE_XDF
 		Stream = XdfOpen(out_dev, name, mode, errmsg, 0);
-#else
-		Stream = 0;
+		if(Stream) {
+			out_dev->use_2m = 0x7f;
+			*maxSize = max_off_t_31;
+		}
+#endif
+
+#ifdef USE_FLOPPYD
+		if(!Stream) {
+			Stream = FloppydOpen(out_dev, dev, name, mode, errmsg, 0, 1);
+			if(Stream)
+				*maxSize = max_off_t_31;
+		}
 #endif
 
 		if (!Stream)
 			Stream = SimpleFileOpen(out_dev, dev, name, mode,
-						errmsg, 0);
-		else
-			out_dev->use_2m = 0x7f;
+									errmsg, 0, 1, maxSize);
 
 		if( !Stream)
 			continue;
 
 		/* read the boot sector */
-		if (read_boot(Stream, boot)){
+		if ((r=read_boot(Stream, boot, out_dev->blocksize)) < 0){
 			sprintf(errmsg,
 				"init %c: could not read boot sector",
 				drive);
@@ -124,15 +137,26 @@ Stream_t *find_device(char drive, int mode, struct device *out_dev,
 		}
 
 		if((*media= get_media_type(Stream, boot)) <= 0xf0 ){
-			sprintf(errmsg,"init %c: unknown media type", drive);
+			if (boot->jump[2]=='L') 
+				sprintf(errmsg,
+					"diskette %c: is Linux LILO, not DOS", 
+					drive);
+			else 
+				sprintf(errmsg,"init %c: non DOS media", drive);
 			continue;
 		}
 
 		/* set new parameters, if needed */
 		errno = 0;
 		if(SET_GEOM(Stream, out_dev, dev, *media, boot)){
-			sprintf(errmsg, "Can't set disk parameters for %c: %s", 
-				drive, strerror(errno));
+			if(errno)
+				sprintf(errmsg, 
+					"Can't set disk parameters for %c: %s", 
+					drive, strerror(errno));
+			else
+				sprintf(errmsg, 
+					"Can't set disk parameters for %c", 
+					drive);
 			continue;
 		}
 		break;
@@ -150,6 +174,7 @@ Stream_t *find_device(char drive, int mode, struct device *out_dev,
 
 Stream_t *fs_init(char drive, int mode)
 {
+	int blocksize;
 	int media,i;
 	int nhs;
 	int disk_size = 0;	/* In case we don't happen to set this below */
@@ -157,6 +182,7 @@ Stream_t *fs_init(char drive, int mode)
 	char name[EXPAND_BUF];
 	int cylinder_size;
 	struct device dev;
+	mt_size_t maxSize;
 
 	struct bootsector boot0;
 #define boot (&boot0)
@@ -171,9 +197,15 @@ Stream_t *fs_init(char drive, int mode)
 	This->refs = 1;
 	This->Buffer = 0;
 	This->Class = &FsClass;
+	This->preallocatedClusters = 0;
+	This->lastFatSectorNr = 0;
+	This->lastFatAccessMode = 0;
+	This->lastFatSectorData = 0;
 	This->drive = drive;
+	This->last = 0;
 
-	This->Direct = find_device(drive, mode, &dev, &boot0, name, &media);
+	This->Direct = find_device(drive, mode, &dev, &boot0, name, &media, 
+							   &maxSize);
 	if(!This->Direct)
 		return NULL;
 	
@@ -182,6 +214,18 @@ Stream_t *fs_init(char drive, int mode)
 		fprintf(stderr,"init %c: sector size too big\n", drive);
 		return NULL;
 	}
+
+	i = log_2(This->sector_size);
+
+	if(i == 24) {
+		fprintf(stderr, 
+			"init %c: sector size (%d) not a small power of two\n",
+			drive, This->sector_size);
+		return NULL;
+	}
+	This->sectorShift = i;
+	This->sectorMask = This->sector_size - 1;
+
 
 	cylinder_size = dev.heads * dev.sectors;
 	This->serialized = 0;
@@ -194,6 +238,8 @@ Stream_t *fs_init(char drive, int mode)
 		This->dir_len = old_dos[i].dir_len;
 		This->num_fat = 2;
 		This->sector_size = 512;
+		This->sectorShift = 9;
+		This->sectorMask = 511;
 		This->fat_bits = 12;
 		nhs = 0;
 	} else {
@@ -218,13 +264,20 @@ Stream_t *fs_init(char drive, int mode)
 		This->fat_len = WORD(fatlen);
 		This->dir_len = WORD(dirents) * MDIR_SIZE / This->sector_size;
 		This->num_fat = boot0.nfat;
-	}	
-	cylinder_size = dev.sectors * dev.heads;
+	}
+
+	if (tot_sectors >= (maxSize >> This->sectorShift)) {
+		fprintf(stderr, "Big disks not supported on this architecture\n");
+		exit(1);
+	}
 
 	if(!mtools_skip_check && (tot_sectors % dev.sectors)){
 		fprintf(stderr,
 			"Total number of sectors not a multiple of"
 			" sectors per track!\n");
+		fprintf(stderr,
+			"Add mtools_skip_check=1 to your .mtoolsrc file "
+			"to skip this test\n");
 		exit(1);
 	}
 
@@ -235,14 +288,14 @@ Stream_t *fs_init(char drive, int mode)
 	disk_size = (dev.tracks) ? dev.sectors : 512;
 #endif /* FULL_CYL */
 
-#if (defined sysv4 && !defined(solaris))
+#if (defined OS_sysv4 && !defined OS_solaris)
 	/*
 	 * The driver in Dell's SVR4 v2.01 is unreliable with large writes.
 	 */
         disk_size = 0;
 #endif /* (defined sysv4 && !defined(solaris)) */
 
-#ifdef linux
+#ifdef OS_linux
 	disk_size = cylinder_size;
 #endif
 
@@ -256,11 +309,15 @@ Stream_t *fs_init(char drive, int mode)
 	if (disk_size % 2)
 		disk_size *= 2;
 
+	if(!dev.blocksize || dev.blocksize < This->sector_size)
+		blocksize = This->sector_size;
+	else
+		blocksize = dev.blocksize;
 	if (disk_size)
 		This->Next = buf_init(This->Direct,
-				      disk_size * This->sector_size,
-				      This->sector_size,
-				      disk_size * This->sector_size);
+				      8 * disk_size * blocksize,
+				      disk_size * blocksize,
+				      This->sector_size);
 	else
 		This->Next = This->Direct;
 
@@ -277,4 +334,23 @@ Stream_t *fs_init(char drive, int mode)
 		return NULL;
 	}
 	return (Stream_t *) This;
+}
+
+char getDrive(Stream_t *Stream)
+{
+	DeclareThis(Fs_t);
+
+	if(This->Class != &FsClass)
+		return getDrive(GetFs(Stream));
+	else
+		return This->drive;
+}
+
+int fsPreallocateClusters(Fs_t *Fs, long size)
+{
+	if(size > 0 && getfreeMinClusters((Stream_t *)Fs, size) != 1)
+		return -1;
+
+	Fs->preallocatedClusters += size;
+	return 0;
 }

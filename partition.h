@@ -14,11 +14,18 @@ typedef struct hsc {
 
 
 struct partition {
-	hsc start  PACKED;
-	hsc end  PACKED;
+	hsc start;
+	hsc end;
 	unsigned char start_sect[4];	/* starting sector counting from 0 */
 	unsigned char nr_sects[4];     	/* nr of sectors in partition */
 };
 
 #define boot_ind start.byte0
 #define sys_ind end.byte0
+
+int consistencyCheck(struct partition *partTable, int doprint, int verbose,
+		     int *has_activated, int *last_end, int *j, 
+		     struct device *used_dev, int target_partition);
+
+void setBeginEnd(struct partition *partTable, int begin, int end,
+				 int heads, int sector, int activate, int type);

@@ -1,4 +1,4 @@
-.TH mformat 1 "21mar97" mtools-3.4
+.TH mformat 1 "28Jun99" mtools-3.9.6
 .SH Name
 mformat - add an MSDOS filesystem to a low-level formatted floppy disk
 '\" t
@@ -12,63 +12,10 @@ mformat - add an MSDOS filesystem to a low-level formatted floppy disk
 .tr \(if`
 .tr \(pd"
 
-.SH Note
+.SH Note\ of\ warning
 This manpage has been automatically generated from mtools's texinfo
-documentation.  However, this process is only approximative, and some
-items, such as crossreferences, footnotes and indices are lost in this
-translation process.  Indeed, this items have no appropriate
-representation in the manpage format.  Moreover, only the items specific
-to each command have been translated, and the general information about
-mtools has been dropped in the manpage version.  Thus I strongly advise
-you to use the original texinfo doc.
-.TP
-* \ \ 
-To generate a printable copy from the texinfo doc, run the following
-commands:
- 
-.nf
-.ft 3
-.in +0.3i
-    ./configure; make dvi; dvips mtools.dvi
-.fi
-.in -0.3i
-.ft R
-.lp
- 
-\&\fR
-.TP
-* \ \ 
-To generate a html copy,  run:
- 
-.nf
-.ft 3
-.in +0.3i
-    ./configure; make html
-.fi
-.in -0.3i
-.ft R
-.lp
- 
-\&\fRA premade html can be found at:
-\&\fR\&\f(CW\(ifhttp://linux.wauug.org/pub/knaff/mtools\(is\fR
-.TP
-* \ \ 
-To generate an info copy (browsable using emacs' info mode), run:
- 
-.nf
-.ft 3
-.in +0.3i
-    ./configure; make info
-.fi
-.in -0.3i
-.ft R
-.lp
- 
-\&\fR
-.PP
-The texinfo doc looks most pretty when printed or as html.  Indeed, in
-the info version certain examples are difficult to read due to the
-quoting conventions used in info.
+documentation, and may not be entirely accurate or complete.  See the
+end of this man page for details.
 .PP
 .SH Description
 .iX "p mformat"
@@ -85,7 +32,10 @@ low-level formatted diskette. Its syntax is:
 [\fR\&\f(CW-I\fR \fIfsVersion\fR] [\fR\&\f(CW-S\fR \fIsizecode\fR] [\fR\&\f(CW-2\fR
 \&\fIsectors_on_track_0\fR] [\fR\&\f(CW-M\fR \fIsoftware_sector_size\fR]
 [\fR\&\f(CW-a\fR] [\fR\&\f(CW-X\fR] [\fR\&\f(CW-C\fR] [\fR\&\f(CW-H\fR \fIhidden_sectors\fR]
-[\fR\&\f(CW-r\fR \fIroot_sectors\fR] \fIdrive:\fR
+[\fR\&\f(CW-r\fR \fIroot_sectors\fR] [\fR\&\f(CW-B\fR \fIboot_sector\fR]
+[\fR\&\f(CW-0\fR \fIrate_on_track_0\fR] [\fR\&\f(CW-A\fR \fIrate_on_other_tracks\fR]
+[\fR\&\f(CW-1\fR]
+[\fR\&\f(CW-k\fR] \fIdrive:\fR
 .)l
  
 .PP
@@ -135,9 +85,9 @@ If this option is given, an Atari style serial number is generated.
 Ataris store their serial number in the OEM label.
 .TP
 \&\fR\&\f(CWX\fR\ 
-formats the disk as an XDF disk. See section XDF for more details. The
-disk has first to be low-level formatted using the xdfcopy utility
-included in the fdutils package.
+formats the disk as an XDF disk. See section XDF, for more details. The disk
+has first to be low-level formatted using the xdfcopy utility included
+in the fdutils package.
 .TP
 \&\fR\&\f(CWC\fR\ 
 creates the disk image file to install the MS-DOS filesystem on
@@ -170,6 +120,21 @@ increases the cluster size, until the FAT is small enough.
 \&\fR\&\f(CWr\fR\ 
 Sets the size of the root directory (in sectors).  Only applicable to 12
 and 16 bit FATs.
+.TP
+\&\fR\&\f(CWB\fR\ 
+Use the bootsector stored in the given file or device, instead of using
+its own.  Only the geometry fields are updated to match the target disks
+parameters.
+.TP
+\&\fR\&\f(CWk\fR\ 
+Keep the existing boot sector as much as possible.  Only the geometry
+fields are updated to match the target disks parameters.
+.TP
+\&\fR\&\f(CW0\fR\ 
+Data transfer rate on track 0
+.TP
+\&\fR\&\f(CWA\fR\ 
+Data transfer rate on tracks other than 0
 .PP
 To format a diskette at a density other than the default, you must supply
 (at least) those command line parameters that are different from the
@@ -179,5 +144,66 @@ default.
 .PP
 It doesn't record bad block information to the Fat, use
 \&\fR\&\f(CWmkmanifest\fR for that.
-.SH See Also
+.PP
+.SH See\ Also
 Mtools' texinfo doc
+.SH Viewing\ the\ texi\ doc
+This manpage has been automatically generated from mtools's texinfo
+documentation. However, this process is only approximative, and some
+items, such as crossreferences, footnotes and indices are lost in this
+translation process.  Indeed, these items have no appropriate
+representation in the manpage format.  Moreover, not all information has
+been translated into the manpage version.  Thus I strongly advise you to
+use the original texinfo doc.  See the end of this manpage for
+instructions how to view the texinfo doc.
+.TP
+* \ \ 
+To generate a printable copy from the texinfo doc, run the following
+commands:
+ 
+.nf
+.ft 3
+.in +0.3i
+    ./configure; make dvi; dvips mtools.dvi
+.fi
+.in -0.3i
+.ft R
+.lp
+ 
+\&\fR
+.TP
+* \ \ 
+To generate a html copy,  run:
+ 
+.nf
+.ft 3
+.in +0.3i
+    ./configure; make html
+.fi
+.in -0.3i
+.ft R
+.lp
+ 
+\&\fRA premade html can be found at:
+\&\fR\&\f(CW\(ifhttp://mtools.linux.lu\(is\fR
+and also at:
+\&\fR\&\f(CW\(ifhttp://www.tux.org/pub/knaff/mtools\(is\fR
+.TP
+* \ \ 
+To generate an info copy (browsable using emacs' info mode), run:
+ 
+.nf
+.ft 3
+.in +0.3i
+    ./configure; make info
+.fi
+.in -0.3i
+.ft R
+.lp
+ 
+\&\fR
+.PP
+The texinfo doc looks most pretty when printed or as html.  Indeed, in
+the info version certain examples are difficult to read due to the
+quoting conventions used in info.
+.PP

@@ -73,6 +73,37 @@ char *memset(char *s, char c, size_t n)
 #endif /* HAVE_MEMSET */
 
 
+#ifndef HAVE_STRCHR
+
+char * strchr (const char* s, int c)
+{
+	if (!s) return NULL;
+	while (*s && *s != c) s++;
+	if (*s) 
+		return (char*) s;
+	else
+		return NULL;
+}
+
+#endif
+
+#ifndef HAVE_STRRCHR
+
+char * strrchr (const char* s1, int c) 
+{
+	char* s = (char*) s1;
+	char* start = (char*) s;
+	if (!s) return NULL;
+	s += strlen(s)-1;
+	while (*s != c && (unsigned long) s != (unsigned long) start) s--;
+	if ((unsigned long) s == (unsigned long) start && *s != c)
+		return NULL;
+	else
+		return s;
+}
+
+#endif
+
 #ifndef HAVE_STRPBRK
 /*
  * Return ptr to first occurrence of any character from `brkset'
@@ -152,13 +183,30 @@ unsigned long strtoul(const char *string, char **eptr, int base)
 }
 #endif /* HAVE_STRTOUL */
 
+#ifndef HAVE_STRTOL
+long strtol(const char *string, char **eptr, int base)
+{
+	long l;
+
+	if(*string == '-') {
+		return -(long) strtoul(string+1, eptr, base);
+	} else {
+		if (*string == '+')
+			string ++;
+		return (long) strtoul(string, eptr, base);
+	}
+}
+#endif
+
+
+
 #ifndef HAVE_STRSPN
 /* Return the length of the maximum initial segment
    of S which contains only characters in ACCEPT.  */
 size_t strspn(const char *s, const char *accept)
 {
-  register CONST char *p;
-  register CONST char *a;
+  register char *p;
+  register char *a;
   register size_t count = 0;
 
   for (p = s; *p != '\0'; ++p)
@@ -195,6 +243,11 @@ size_t strcspn (const char *s, const char *reject)
 #endif /* HAVE_STRCSPN */
 
 #ifndef HAVE_STRERROR
+
+#ifndef DECL_SYS_ERRLIST
+extern char *sys_errlist[];
+#endif
+
 char *strerror(int errno)
 {
   return sys_errlist[errno];
@@ -233,11 +286,7 @@ int strcasecmp(const char *s1, const char *s2)
 /* Compare S1 and S2, ignoring case, returning less than, equal to or
    greater than zero if S1 is lexiographically less than,
    equal to or greater than S2.  */
-#ifdef __BEOS__
-int strncasecmp(const char *s1, const char *s2, unsigned int n)
-#else
 int strncasecmp(const char *s1, const char *s2, size_t n)
-#endif
 {
   register const unsigned char *p1 = (const unsigned char *) s1;
   register const unsigned char *p2 = (const unsigned char *) s2;
@@ -295,7 +344,7 @@ int atexit(void (*function) (void))
 		
 	newCallback = New(exitCallback_t);
 	if(!newCallback) {
-		fprintf(stderr,"Out of memory error\n");
+		printOom();
 		exit(1);
 	}
 	newCallback->function = function;
@@ -320,3 +369,18 @@ void myexit(int code)
 #endif
 
 #endif
+
+/*#ifndef HAVE_BASENAME*/
+const char *_basename(const char *filename)
+{
+	char *ptr;
+
+	ptr = strrchr(filename, '/');
+	if(ptr)
+		return ptr+1;
+	else
+		return filename;
+}
+/*#endif*/
+
+

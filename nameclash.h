@@ -32,22 +32,26 @@ typedef struct ClashHandling_t {
 	int use_longname;
 	int ignore_entry;
 	int source; /* to prevent the source from overwriting itself */
+	int source_entry; /* to account for the space freed up by the original 
+					   * name */
 	char * (*name_converter)(char *filename, int verbose, 
 				 int *mangled, char *ans);
 } ClashHandling_t;
 
 /* write callback */
-typedef struct directory * (write_data_callback)(char *,char *,
-						  void *, struct directory *);
+typedef int (write_data_callback)(char *,char *, void *, struct direntry_t *);
 
 int mwrite_one(Stream_t *Dir,
-	       char *argname,
-	       char *shortname,
+	       const char *argname,
+	       const char *shortname,
 	       write_data_callback *cb,
 	       void *arg,
 	       ClashHandling_t *ch);
 
 int handle_clash_options(ClashHandling_t *ch, char c);
 void init_clash_handling(ClashHandling_t *ch);
+Stream_t *createDir(Stream_t *Dir, const char *filename, ClashHandling_t *ch,
+		    unsigned char attr, time_t mtime);
+
 
 #endif

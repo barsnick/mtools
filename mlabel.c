@@ -27,11 +27,11 @@ char *label_name(char *filename, int verbose,
 	strncpy(ans, filename, len);
 	have_lower = have_upper = 0;
 	for(i=0; i<11; i++){
-		if(islower(ans[i]))
+		if(islower((unsigned char)ans[i]))
 			have_lower = 1;
 		if(isupper(ans[i]))
 			have_upper = 1;
-		ans[i] = toupper(ans[i]);
+		ans[i] = toupper((unsigned char)ans[i]);
 
 		if(strchr("^+=/[]:,?*\\<>|\".", ans[i])){
 			*mangled = 1;
@@ -43,17 +43,17 @@ char *label_name(char *filename, int verbose,
 	return ans;
 }
 
-struct directory *labelit(char *dosname,
-			  char *longname,
-			  void *arg0,
-			  struct directory *dir)
+int labelit(char *dosname,
+	    char *longname,
+	    void *arg0,
+	    direntry_t *entry)
 {
 	time_t now;
 
 	/* find out current time */
-	time(&now);
-	mk_entry(dosname, 0x8, 0, 0, now, dir);
-	return dir;
+	getTimeNow(&now);
+	mk_entry(dosname, 0x8, 0, 0, now, &entry->dir);
+	return 0;
 }
 
 static void usage(void)
@@ -67,10 +67,11 @@ static void usage(void)
 
 void mlabel(int argc, char **argv, int type)
 {
-	int entry, verbose, clear, interactive, show, open_mode;
-	struct directory dir;
+	char *newLabel;
+	int verbose, clear, interactive, show, open_mode;
+	direntry_t entry;
 	int result=0;
-	char longname[VBUFSIZE],filename[VBUFSIZE];
+	char longname[VBUFSIZE];
 	char shortname[13];
 	ClashHandling_t ch;
 	struct MainParam_t mp;
@@ -102,36 +103,37 @@ void mlabel(int argc, char **argv, int type)
 			}
 	}
 
-	if (argc - optind != 1 ||
-	    !argv[optind][0] || argv[optind][1] != ':') 
+	if (argc - optind != 1 || !argv[optind][0] || argv[optind][1] != ':') 
 		usage();
 
 	init_mp(&mp);
-	get_name(argv[optind], filename, mp.mcwd);
-	interactive = !filename[0] && !show && !clear;
-	if (filename[0] || clear || interactive)
-		open_mode = O_RDWR;
-	else
-		open_mode = O_RDONLY;
+	newLabel = argv[optind]+2;
+	interactive = !show && !clear &&!newLabel[0];
+	open_mode = O_RDWR;
+	RootDir = open_root_dir(argv[optind][0], open_mode);
+	if(strlen(newLabel) > VBUFSIZE) {
+		fprintf(stderr, "Label too long\n");
+		FREE(&RootDir);
+		exit(1);
+	}
 
-	RootDir = open_subdir(&mp, argv[optind], open_mode, 0, 0);
-	if(!RootDir && open_mode == O_RDWR && !clear && !filename[0] &&
+	if(!RootDir && open_mode == O_RDWR && !clear && !newLabel[0] &&
 	   ( errno == EACCES || errno == EPERM) ) {
 		show = 1;
 		interactive = 0;
-		RootDir = open_subdir(&mp, argv[optind], O_RDONLY, 0, 0);
+		RootDir = open_root_dir(argv[optind][0], O_RDONLY);
 	}	    
 	if(!RootDir) {
 		fprintf(stderr, "%s: Cannot initialize drive\n", argv[0]);
 		exit(1);
 	}
 
-	entry = 0;
-	vfat_lookup(RootDir, &dir, &entry, 0, 0, ACCEPT_LABEL | MATCH_ANY,
-		    NULL, shortname, longname);
+	initializeDirentry(&entry, RootDir);
+	vfat_lookup(&entry, 0, 0, ACCEPT_LABEL | MATCH_ANY,
+		    shortname, longname);
 	
 	if(show || interactive){
-		if(entry == -1)
+		if(isNotFound(&entry))
 			printf(" Volume has no label\n");
 		else if (*longname)
 			printf(" Volume label is %s (abbr=%s)\n",
@@ -143,38 +145,39 @@ void mlabel(int argc, char **argv, int type)
 
 	/* ask for new label */
 	if(interactive){
+		newLabel = longname;
 		fprintf(stderr,"Enter the new volume label : ");
-		fgets(filename, VBUFSIZE, stdin);
-		if(filename[0])
-			filename[strlen(filename)-1] = '\0';
+		fgets(newLabel, VBUFSIZE, stdin);
+		if(newLabel[0])
+			newLabel[strlen(newLabel)-1] = '\0';
 	}
 
-	if(!show && entry != -1){
+	if((!show || newLabel[0]) && !isNotFound(&entry)){
 		/* if we have a label, wipe it out before putting new one */
-		if(interactive && filename[0] == '\0')
+		if(interactive && newLabel[0] == '\0')
 			if(ask_confirmation("Delete volume label (y/n): ",0,0)){
 				FREE(&RootDir);
 				exit(0);
-			}
-		dir.name[0] = DELMARK;
-		dir.attr = 0; /* for old mlabel */
-		dir_write(RootDir, entry-1, &dir);
+			}		
+		entry.dir.name[0] = DELMARK;
+		entry.dir.attr = 0; /* for old mlabel */
+		dir_write(&entry);
 	}
 
-	if (!show && filename[0] != '\0') {
+	if (newLabel[0] != '\0') {
 		ch.ignore_entry = 1;
-		result = mwrite_one(RootDir,filename,0,labelit,NULL,&ch) ? 
+		result = mwrite_one(RootDir,newLabel,0,labelit,NULL,&ch) ? 
 		  0 : 1;
 	}
 
-	if(!show){
+	if(!show || newLabel[0]){
 		struct bootsector boot;
 		Stream_t *Fs = GetFs(RootDir);
 
-		if(!filename[0])
+		if(!newLabel[0])
 			strncpy(shortname, "NO NAME    ",11);
 		else
-			label_name(filename, verbose, &mangled, shortname);
+			label_name(newLabel, verbose, &mangled, shortname);
 
 		if(force_read(Fs,(char *)&boot,0,sizeof(boot)) == 
 		   sizeof(boot) &&

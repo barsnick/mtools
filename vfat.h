@@ -2,12 +2,10 @@
 #define MTOOLS_VFAT_H
 
 #include "msdos.h"
-#include "stream.h"
 
 /*
  * VFAT-related common header file
  */
-
 #define VFAT_SUPPORT
 
 struct unicode_char {
@@ -23,6 +21,8 @@ struct unicode_char {
 #define VSE1SIZE 5
 #define VSE2SIZE 6
 #define VSE3SIZE 2
+
+#include "stream.h"
 
 struct vfat_subentry {
 	unsigned char id;		/* 0x40 = last; & 0x1f = VSE ID */
@@ -52,6 +52,7 @@ struct vfat_state {
 	int subentries;
 	unsigned char sum; /* no need to remember the sum for each entry,
 			    * it is the same anyways */
+	int present;
 };
 
 
@@ -60,43 +61,40 @@ struct scan_state {
 	int shortmatch;
 	int longmatch;
 	int free_start;
-	int free_size;
+	int free_end;
 	int slot;
 	int got_slots;
 	int size_needed;
 	int max_entry;
 };
 
+#include "mtoolsDirentry.h"
 
 void clear_vfat(struct vfat_state  *);
-int check_vfat(struct vfat_state *v, struct directory *dir);
-int unicode_read(struct unicode_char *, char *, int num);
 int unicode_write(char *, struct unicode_char *, int num, int *end);
-unsigned char sum_shortname(char *);
-int write_vfat(Stream_t *, char *, char *, int);
+
 void clear_vses(Stream_t *, int, size_t);
 void autorename_short(char *, int);
 void autorename_long(char *, int);
 
-int vfat_lookup(Stream_t *Dir,
-		struct directory *dir, int *entry,
-		int *beginpos,
-		const char *filename,
-		int flags, char *outname,
-		char *shortname, char *longname);
+int lookupForInsert(Stream_t *Dir,
+					char *dosname,
+					char *longname,
+					struct scan_state *ssp, 
+					int ignore_entry,
+					int source_entry,
+					int pessimisticShortRename);
 
-struct directory *dir_read(Stream_t *Stream,
-			   struct directory *dir, 
-			   int num, 
-			   struct vfat_state *v);
-
-#define DO_OPEN 1
-#define ACCEPT_NO_DOTS 0x4
-#define ACCEPT_PLAIN 0x20
-#define ACCEPT_DIR 0x10
+#define DO_OPEN 1 /* open all files that are found */
 #define ACCEPT_LABEL 0x08
-#define SINGLE 2
+#define ACCEPT_DIR 0x10
+#define ACCEPT_PLAIN 0x20
 #define MATCH_ANY 0x40
 #define NO_MSG 0x80
-#define NO_DOTS 0x100
+#define NO_DOTS 0x100 /* accept no dots if matched by wildcard */
+#define DO_OPEN_DIRS 0x400 /* open all directories that are found */
+#define OPEN_PARENT 0x1000  /* in target lookup, open parent
+			     * instead of file itself */
+#define NO_UNIX 0x2000 /* in target lookup, consider all files to reside on
+			* the DOS fs */
 #endif

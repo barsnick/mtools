@@ -1,6 +1,7 @@
 /*
  * mformat.c
  */
+#define DONT_NEED_WAIT
 
 #include "sysincludes.h"
 #include "msdos.h"
@@ -14,10 +15,13 @@
 #include "scsi.h"
 #include "partition.h"
 
-#include <math.h>
+#ifdef OS_linux
+#include "linux/hdreg.h"
+#include "linux/fs.h"
+#endif
 
 #define tolinear(x) \
-(sector(x)-1+(head(x)+cyl(x)*used_dev.heads)*used_dev.sectors)
+(sector(x)-1+(head(x)+cyl(x)*used_dev->heads)*used_dev->sectors)
 
 
 static inline void print_hsc(hsc *h)
@@ -38,11 +42,110 @@ static void set_offset(hsc *h, int offset, int heads, int sectors)
 
 		head = offset % heads;
 		cyl = offset / heads;
+		if(cyl > 1023) cyl = 1023;
 	}
 
 	h->head = head;
 	h->sector = ((sector+1) & 0x3f) | ((cyl & 0x300)>>2);
 	h->cyl = cyl & 0xff;
+}
+
+void setBeginEnd(struct partition *partTable, int begin, int end,
+				 int heads, int sectors, int activate, int type)
+{
+	set_offset(&partTable->start, begin, heads, sectors);
+	set_offset(&partTable->end, end-1, heads, sectors);
+	set_dword(partTable->start_sect, begin);
+	set_dword(partTable->nr_sects, end-begin);
+	if(activate)
+		partTable->boot_ind = 0x80;
+	else
+		partTable->boot_ind = 0;
+	if(!type) {
+		if(end-begin < 4096)
+			type = 1; /* DOS 12-bit FAT */
+		else if(end-begin<32*2048)
+			type = 4; /* DOS 16-bit FAT, <32M */
+		else
+			type = 6; /* DOS 16-bit FAT >= 32M */
+	}
+	partTable->sys_ind = type;
+}
+
+int consistencyCheck(struct partition *partTable, int doprint, int verbose,
+		     int *has_activated, int *last_end, int *j, 
+		     struct device *used_dev, int target_partition)
+{
+	int i;
+	int inconsistency;
+	
+	*j = 0;
+	*last_end = 1;
+
+	/* quick consistency check */
+	inconsistency = 0;
+	*has_activated = 0;
+	for(i=1; i<5; i++){
+		if(!partTable[i].sys_ind)
+			continue;
+		if(partTable[i].boot_ind)
+			(*has_activated)++;
+		if((used_dev && 
+		    (used_dev->heads != head(partTable[i].end)+1 ||
+		     used_dev->sectors != sector(partTable[i].end))) ||
+		   sector(partTable[i].start) != 1){
+			fprintf(stderr,
+				"Partition %d is not aligned\n",
+				i);
+			inconsistency=1;
+		}
+		
+		if(*j && *last_end > BEGIN(partTable[i])) {
+			fprintf(stderr,
+				"Partitions %d and %d badly ordered or overlapping\n",
+				*j,i);
+			inconsistency=1;
+		}
+			
+		*last_end = END(partTable[i]);
+		*j = i;
+
+		if(used_dev &&
+		   cyl(partTable[i].start) != 1023 &&
+		   tolinear(partTable[i].start) != BEGIN(partTable[i])) {
+			fprintf(stderr,
+				"Start position mismatch for partition %d\n",
+				i);
+			inconsistency=1;
+		}
+		if(used_dev &&
+		   cyl(partTable[i].end) != 1023 &&
+		   tolinear(partTable[i].end)+1 != END(partTable[i])) {
+			fprintf(stderr,
+				"End position mismatch for partition %d\n",
+				i);
+			inconsistency=1;
+		}
+
+		if(doprint && verbose) {
+			if(i==target_partition)
+				putchar('*');
+			else
+				putchar(' ');
+			printf("Partition %d\n",i);
+
+			printf("  active=%x\n", partTable[i].boot_ind);
+			printf("  start:");
+			print_hsc(&partTable[i].start);
+			printf("  type=0x%x\n", partTable[i].sys_ind);
+			printf("  end:");
+			print_hsc(&partTable[i].end);
+			printf("  start=%d\n", BEGIN(partTable[i]));
+			printf("  nr=%d\n", _DWORD(partTable[i].nr_sects));
+			printf("\n");
+		}
+	}
+	return inconsistency;
 }
 
 /* setsize function.  Determines scsicam mapping if this cannot be inferred from
@@ -141,7 +244,8 @@ static void usage(void)
 	fprintf(stderr, 
 		"Mtools version %s, dated %s\n", mversion, mdate);
 	fprintf(stderr, 
-		"Usage: %s [-prIadcv] [-s sectors] [-t cylinders] "
+		"Usage: %s [-pradcv] [-I [-B bootsect-template] [-s sectors] "
+			"[-t cylinders] "
 		"[-h heads] [-T type] [-b begin] [-l length] "
 		"drive\n", progname);
 	exit(1);
@@ -186,14 +290,18 @@ void mpartition(int argc, char **argv, int dummy)
 	struct partition *partTable=(struct partition *)(buf+ 0x1ae);
 	struct device *dev;
 	char errmsg[200];
- 
+	char *bootSector=0;
+
 	argtracks = 0;
 	argheads = 0;
 	argsectors = 0;
 
 	/* get command line options */
-	while ((c = getopt(argc, argv, "adprcIT:t:h:s:fvpb:l:S:")) != EOF) {
+	while ((c = getopt(argc, argv, "adprcIT:t:h:s:fvpb:l:S:B:")) != EOF) {
 		switch (c) {
+			case 'B':
+				bootSector = optarg;
+				break;
 			case 'a':
 				/* no privs, as it could be abused to
 				 * make other partitions unbootable, or
@@ -282,7 +390,8 @@ void mpartition(int argc, char **argv, int dummy)
 	drive = toupper(argv[optind][0]);
 
 	/* check out a drive whose letter and parameters match */	
-	sprintf(errmsg, "Drive '%c:' not supported", drive);	
+	sprintf(errmsg, "Drive '%c:' not supported", drive);
+	Stream = 0;
 	for(dev=devices;dev->drive;dev++) {
 		FREE(&(Stream));
 		/* drive letter */
@@ -303,7 +412,7 @@ void mpartition(int argc, char **argv, int dummy)
 		expand(dev->name, name);
 		Stream = SimpleFileOpen(&used_dev, dev, name,
 					dirty ? O_RDWR : O_RDONLY, 
-					errmsg, open2flags);
+					errmsg, open2flags, 1, 0);
 
 		if (!Stream) {
 			sprintf(errmsg,"init: open: %s", strerror(errno));
@@ -314,14 +423,14 @@ void mpartition(int argc, char **argv, int dummy)
 		/* try to find out the size */
 		if(!sizetest)
 			tot_sectors = 0;
-		if(dev->scsi) {
+		if(IS_SCSI(dev)) {
 			unsigned char cmd[10];
 			unsigned char data[10];
 			cmd[0] = SCSI_READ_CAPACITY;
 			memset ((void *) &cmd[2], 0, 8);
 			memset ((void *) &data[0], 137, 10);
 			scsi_cmd(get_fd(Stream), cmd, 10, SCSI_IO_READ,
-				 data, 10);
+				 data, 10, get_extra_data(Stream));
 			
 			tot_sectors = 1 +
 				(data[0] << 24) +
@@ -332,6 +441,12 @@ void mpartition(int argc, char **argv, int dummy)
 				printf("%d sectors in total\n", tot_sectors);
 		}
 
+#ifdef OS_linux
+		if (tot_sectors == 0) {
+			ioctl(get_fd(Stream), BLKGETSIZE, &tot_sectors);
+		}
+#endif
+
 		/* read the partition table */
 		if (READS(Stream, (char *) buf, 0, 512) != 512) {
 			sprintf(errmsg, 
@@ -340,7 +455,7 @@ void mpartition(int argc, char **argv, int dummy)
 			continue;
 		}
 		if(verbose>=2)
-			print_sector("Read sector", buf);
+			print_sector("Read sector", buf, 512);
 		break;
 	}
 
@@ -359,9 +474,17 @@ void mpartition(int argc, char **argv, int dummy)
 	}
 
 	if(initialize) {
+		if (bootSector) {
+			int fd;
+			fd = open(bootSector, O_RDONLY);
+			if (fd < 0) {
+				perror("open boot sector");
+				exit(1);
+			}
+			read(fd, (char *) buf, 512);
+		}
 		memset((char *)(partTable+1), 0, 4*sizeof(*partTable));
-		buf[510] = 0x55;
-		buf[511] = 0xaa;
+		set_dword(((unsigned char*)buf)+510, 0xaa55);
 	}
 
 	/* check for boot signature, and place it if needed */
@@ -418,20 +541,32 @@ void mpartition(int argc, char **argv, int dummy)
 			end_set = 1;
 		}
 	}
-	
+
+#ifdef OS_linux
+	if(!used_dev.sectors && !used_dev.heads) {
+		if(!IS_SCSI(dev)) {
+			struct hd_geometry geom;
+			if(ioctl(get_fd(Stream), HDIO_GETGEO, &geom) == 0) {
+				used_dev.heads = geom.heads;
+				used_dev.sectors = geom.sectors;
+			}
+		}
+	}
+#endif
+
 	if(!used_dev.sectors && !used_dev.heads) {
 		if(tot_sectors)
 			setsize0(tot_sectors,&dummy2,&used_dev.heads,
-				 &used_dev.sectors);
+					 &used_dev.sectors);
 		else {
 			used_dev.heads = 64;
-			used_dev.heads = 32;
+			used_dev.sectors = 32;
 		}
 	}
 
 	if(verbose)
-		fprintf(stderr,"sectors: %d heads: %d\n",
-			used_dev.sectors, used_dev.heads);
+		fprintf(stderr,"sectors: %d heads: %d %d\n",
+			used_dev.sectors, used_dev.heads, tot_sectors);
 
 	sec_per_cyl = used_dev.sectors * used_dev.heads;
 	if(create) {
@@ -469,29 +604,10 @@ void mpartition(int argc, char **argv, int dummy)
 			exit(1);
 		}
 
-		set_offset(&partTable[dev->partition].start, begin, 
-			   used_dev.heads, used_dev.sectors);
-		set_offset(&partTable[dev->partition].end, end-1, 
-			   used_dev.heads, used_dev.sectors);
-		set_dword(partTable[dev->partition].start_sect, begin);
-		set_dword(partTable[dev->partition].nr_sects, end-begin);
-		if(has_activated)
-			partTable[dev->partition].boot_ind = 0;
-		else
-			partTable[dev->partition].boot_ind = 0x80;
-		if(!type) {
-			if(end-begin < 4096)
-				type = 1; /* DOS 12-bit FAT */
-			else if(end-begin<32*2048)
-				type = 4; /* DOS 16-bit FAT, <32M */
-			else
-				type = 6; /* DOS 16-bit FAT >= 32M */
-		}
-		partTable[dev->partition].sys_ind = type;
+		setBeginEnd(&partTable[dev->partition], begin, end,
+					used_dev.heads, used_dev.sectors, 
+					!has_activated, type);
 	}
-
-	j = 0;
-	last_end = 1;
 
 	if(activate) {
 		if(!partTable[dev->partition].sys_ind) {
@@ -510,63 +626,10 @@ void mpartition(int argc, char **argv, int dummy)
 		}
 	}
 
-	/* quick consistency check */
-	has_activated = 0;
-	for(i=1; i<5; i++){
-		if(!partTable[i].sys_ind)
-			continue;
-		if(partTable[i].boot_ind)
-			has_activated++;
-		if(used_dev.heads != head(partTable[i].end)+1 ||
-		   used_dev.sectors != sector(partTable[i].end) ||
-		   sector(partTable[i].start) != 1){
-			fprintf(stderr,
-				"Partition %d is not aligned\n",
-				i);
-			inconsistency=1;
-		}
-		
-		if(j && last_end > BEGIN(partTable[i])) {
-			fprintf(stderr,
-				"Partitions %d and %d badly ordered or overlapping\n",
-				j,i);
-			inconsistency=1;
-		}
-			
-		last_end = END(partTable[i]);
-		j = i;
 
-		if(tolinear(partTable[i].start) != BEGIN(partTable[i])) {
-			fprintf(stderr,
-				"Start position mismatch for partition %d\n",
-				i);
-			inconsistency=1;
-		}
-		if(tolinear(partTable[i].end)+1 != END(partTable[i])) {
-			fprintf(stderr,
-				"End position mismatch for partition %d\n",
-				i);
-			inconsistency=1;
-		}
-
-		if(doprint && verbose) {
-			if(i==dev->partition)
-				putchar('*');
-			else
-				putchar(' ');
-			printf("Partition %d\n",i);
-
-			printf("  active=%x\n", partTable[i].boot_ind);
-			printf("  start:");
-			print_hsc(&partTable[i].start);
-			printf("  type=0x%x\n", partTable[i].sys_ind);
-			printf("  end:");
-			print_hsc(&partTable[i].end);
-			printf("  start=%d\n", BEGIN(partTable[i]));
-			printf("  nr=%d\n", _DWORD(partTable[i].nr_sects));
-			printf("\n");
-		}
-	}
+	inconsistency |= consistencyCheck(partTable, doprint, verbose,
+					  &has_activated, &last_end, &j,
+					  &used_dev, dev->partition);
 
 	if(doprint && !inconsistency && partTable[dev->partition].sys_ind) {
 		printf("The following command will recreate the partition for drive %c:\n", 
@@ -616,13 +679,13 @@ void mpartition(int argc, char **argv, int dummy)
 	if(dirty) {
 		/* write data back to the disk */
 		if(verbose>=2)
-			print_sector("Writing sector", buf);
+			print_sector("Writing sector", buf, 512);
 		if (WRITES(Stream, (char *) buf, 0, 512) != 512) {
 			fprintf(stderr,"Error writing partition table");
 			exit(1);
 		}
 		if(verbose>=3)
-			print_sector("Sector written", buf);
+			print_sector("Sector written", buf, 512);
 		FREE(&Stream);
 	}
 	exit(0);

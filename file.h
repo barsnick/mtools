@@ -2,11 +2,10 @@
 #define MTOOLS_FILE_H
 
 #include "stream.h"
+#include "mtoolsDirentry.h"
 
-Stream_t *open_file(Stream_t *Dir, struct directory *dir);
-Stream_t *open_root(Stream_t *Dir);
-int FileIsLocked(Stream_t *Stream);
-void LockFile(Stream_t *Stream);
-
-
+Stream_t *OpenFileByDirentry(direntry_t *entry);
+Stream_t *OpenRoot(Stream_t *Dir);
+void printFat(Stream_t *Stream);
+direntry_t *getDirentry(Stream_t *Stream);
 #endif

@@ -20,7 +20,7 @@ int file_read(FILE *fp, Stream_t *Source, int textmode, int stripmode)
 	
 	pos = 0;
 	while(1){
-		ret = Source->Class->read(Source, buffer, pos, 16384);
+		ret = Source->Class->read(Source, buffer, (mt_off_t) pos, 16384);
 		if (ret < 0 ){
 			perror("file read");
 			return -1;

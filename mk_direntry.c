@@ -14,6 +14,8 @@
 #include "vfat.h"
 #include "nameclash.h"
 #include "fs.h"
+#include "stream.h"
+#include "mainloop.h"
 
 static inline int ask_rename(ClashHandling_t *ch,
 			     char *longname, int isprimary, char *argname)
@@ -100,13 +102,18 @@ static inline clash_action ask_namematch(char *name, int isprimary,
 		fflush(stderr);
 		fflush(opentty(1));
 		if (mtools_raw_tty) {
-			ans[0] = fgetc(opentty(1));
+			int rep;
+			rep = fgetc(opentty(1));			
 			fputs("\n", stderr);
+			if(rep == EOF)
+				ans[0] = 'q';
+			else
+				ans[0] = rep;
 		} else {
 			fgets(ans, 9, opentty(0));
 		}
-		perm = isupper(ans[0]);
-		switch(tolower(ans[0])) {
+		perm = isupper((unsigned char)ans[0]);
+		switch(tolower((unsigned char)ans[0])) {
 			case 'a':
 				a = NAMEMATCH_AUTORENAME;
 				break;
@@ -218,101 +225,13 @@ static inline clash_action process_namematch(char *name,
 static void clear_scan(char *longname, int use_longname, struct scan_state *s)
 {
 	s->shortmatch = s->longmatch = s->slot = -1;
-	s->free_size = s->got_slots = s->free_start = 0;
+	s->free_end = s->got_slots = s->free_start = 0;
 
 	if (use_longname & 1)
                 s->size_needed = 2 + (strlen(longname)/VSE_NAMELEN);
 	else
                 s->size_needed = 1;
 }
-
-
-static int scan_dir(Stream_t *Dir,
-		    char *dosname,
-		    char *longname,
-		    struct vfat_state *vsp,
-		    struct scan_state *ssp, 
-		    int use_longname,
-		    int ignore_entry)
-{
-	int entry;
-	struct directory dir;
-	int vse_start;
-	int ignore_match;
-	int ret;
-	int address;
-	char readlongname[VBUFSIZE];
-	char readshortname[13];
-	ignore_match = (ignore_entry == -2 );
-
-	vse_start = -1;
-	clear_scan(longname, use_longname, ssp);
-	clear_vfat(vsp);
-	entry = 0;
-	ssp->match_free = 0;
-	while(1){
-		if(!ssp->got_slots){
-			ssp->free_start = entry;
-			ssp->free_size = 0;
-		}
-		if (ssp->longmatch > -1)
-			return 1; /* Name match, process and try again */
-		ret=vfat_lookup(Dir, &dir, &entry, &vse_start, 0,
-				ACCEPT_PLAIN | ACCEPT_DIR | ACCEPT_LABEL |
-				MATCH_ANY,
-				0, readshortname, readlongname);
-		if(!ssp->got_slots){
-			ssp->free_size = vse_start - ssp->free_start;
-			if(ssp->free_size >= ssp->size_needed){
-				/* enough entries */
-				ssp->got_slots = 1;
-				ssp->slot = ssp->free_start + 
-				    ssp->size_needed - 1;
-			}
-		}
-		if(!ssp->got_slots && ssp->slot == -1 && ssp->free_size > 1)
-			/* If there aren't enough consecutive entries
-			 * to store the long file name, perhaps just
-			 * store it with the short name? 
-			 */
-			ssp->slot = ssp->free_start;
-		if(ret)
-			break;
-
-		/* labels never match, neither does the ignored entry */
-		if( (dir.attr & 0x8) || (entry - 1 == ignore_entry) )
-			continue;
-		
-		/* check long name */
-		if((*readlongname && 
-		    !strncasecmp(readlongname, longname, VBUFSIZE-1)) ||
-		   (*readshortname &&
-		    !strncasecmp(readshortname, longname, VBUFSIZE-1)))
-			ssp->longmatch = entry - 1;
-
-		/* Long name or not, always check for short name match */
-		if (!ignore_match &&
-		    !strncasecmp(dosname, dir.name, 8) &&
-		    !strncasecmp(dosname+8, dir.ext, 3))
-			ssp->shortmatch = entry - 1;
-	}
-
-	if (ssp->shortmatch > -1)
-		return 1;
-	ssp->max_entry = vse_start;
-	if (ssp->got_slots)
-		return 6;	/* Success */
-
-	/* Need more room.  Can we grow the directory? */
-	GET_DATA(Dir,0,0,0,&address);
-	if (address)
-		return 5;	/* OK, try to grow the directory */
-
-	/* no '.' entry means root directory */
-	fprintf(stderr, "No directory slots\n");
-	return -1;
-
-} /* scan_dir */
 
 
 static int contains_illegals(const char *string, const char *illegals)
@@ -351,14 +270,17 @@ static inline clash_action get_slots(Stream_t *Dir,
 				     struct scan_state *ssp,
 				     ClashHandling_t *ch)
 {
-	struct vfat_state vfat;
 	clash_action ret;
 	int match=0;
-	struct directory dir;
+	direntry_t entry;
 	int isprimary;
 	int no_overwrite;
 	int reason;
+	int pessimisticShortRename;
 
+	pessimisticShortRename = (ch->action[0] == NAMEMATCH_AUTORENAME);
+
+	entry.Dir = Dir;
 	no_overwrite = 1;
 	if((is_reserved(longname,1)) ||
 	   longname[strspn(longname,". ")] == '\0'){
@@ -377,8 +299,12 @@ static inline clash_action get_slots(Stream_t *Dir,
 		isprimary = 0;
 	} else {
 		reason = EXISTS;
-		switch (scan_dir(Dir, dosname, longname, &vfat, 
-				 ssp, ch->use_longname, ch->ignore_entry)) {
+		clear_scan(longname, ch->use_longname, ssp);
+		switch (lookupForInsert(Dir, dosname, longname, ssp,
+								ch->ignore_entry, 
+								ch->source_entry,
+								pessimisticShortRename && 
+								ch->use_longname)) {
 			case -1:
 				return NAMEMATCH_ERROR;
 				
@@ -393,7 +319,7 @@ static inline clash_action get_slots(Stream_t *Dir,
 			case 6:
 				return NAMEMATCH_SUCCESS; /* Success */
 		}	    
-		match = -1;
+		match = -2;
 		if (ssp->longmatch > -1) {
 			/* Primary Long Name Match */
 #ifdef debug
@@ -403,7 +329,7 @@ static inline clash_action get_slots(Stream_t *Dir,
 #endif			
 			match = ssp->longmatch;
 			isprimary = 1;
-		} else if ((ch->use_longname & 1) && (ssp->shortmatch > -1)) {
+		} else if ((ch->use_longname & 1) && (ssp->shortmatch != -1)) {
 			/* Secondary Short Name Match */
 #ifdef debug
 			fprintf(stderr,
@@ -424,21 +350,24 @@ static inline clash_action get_slots(Stream_t *Dir,
 			isprimary = 1;
 		} else 
 			return NAMEMATCH_RENAME;
-		
-		dir_read(Dir, &dir, match, NULL);
-		/* if we can't overwrite, don't propose it */
-		no_overwrite = (match == ch->source || (dir.attr & 0x10));
+
+		if(match > -1) {
+			entry.entry = match;
+			dir_read(&entry);
+			/* if we can't overwrite, don't propose it */
+			no_overwrite = (match == ch->source || IS_DIR(&entry));
+		}
 	}
 	ret = process_namematch(isprimary ? longname : dosname, longname,
 				isprimary, ch, no_overwrite, reason);
 	
 	if (ret == NAMEMATCH_OVERWRITE && match > -1){
-		if((dir.attr & 0x5) &&
+		if((entry.dir.attr & 0x5) &&
 		   (ask_confirmation("file is read only, overwrite anyway (y/n) ? ",0,0)))
 			return NAMEMATCH_RENAME;
 		
 		/* Free up the file to be overwritten */
-		if(fatFreeWithDir(Dir,&dir))
+		if(fatFreeWithDirentry(&entry))
 			return NAMEMATCH_ERROR;
 		
 #if 0
@@ -455,8 +384,8 @@ static inline clash_action get_slots(Stream_t *Dir,
 		} else
 #endif
 			{
-			dir.name[0] = DELMARK;
-			dir_write(Dir, match, &dir);
+			entry.dir.name[0] = DELMARK;
+			dir_write(&entry);
 			return NAMEMATCH_RENAME;
 		}
 	}
@@ -473,22 +402,28 @@ static inline int write_slots(Stream_t *Dir,
 			      void *arg,
 			      int Case)
 {
-	struct directory dir;
+	direntry_t entry;
 
 	/* write the file */
 	if (fat_error(Dir))
 		return 0;
 
-	if (cb(dosname, longname, arg, &dir)) {
+	entry.Dir = Dir;
+	entry.entry = ssp->slot;
+	strcpy(entry.name, longname);
+	entry.dir.Case = Case & (EXTCASE | BASECASE);
+	if (cb(dosname, longname, arg, &entry) >= 0) {
 		if ((ssp->size_needed > 1) &&
-		    (ssp->free_size >= ssp->size_needed)) {
+		    (ssp->free_end - ssp->free_start >= ssp->size_needed)) {
 			ssp->slot = write_vfat(Dir, dosname, longname,
-					       ssp->free_start);
-			clear_vses(Dir, ssp->free_start + ssp->size_needed,
-				   ssp->free_start + ssp->free_size - 1);
+					       ssp->free_start, &entry);
+		} else {
+			ssp->size_needed = 1;
+			write_vfat(Dir, dosname, 0,
+				   ssp->free_start, &entry);
 		}
-		dir.Case = Case & (EXTCASE | BASECASE);
-		dir_write(Dir, ssp->slot, &dir);
+		/* clear_vses(Dir, ssp->free_start + ssp->size_needed, 
+		   ssp->free_end); */
 	} else
 		return 0;
 
@@ -499,20 +434,21 @@ static void stripspaces(char *name)
 {
 	char *p,*non_space;
 
-	non_space = name - 1;
+	non_space = name;
 	for(p=name; *p; p++)
 		if (*p != ' ')
 			non_space = p;
-	non_space[1] = '\0';
+	if(name[0])
+		non_space[1] = '\0';
 }
 
 
-int mwrite_one(Stream_t *Dir,
-	       char *argname,
-	       char *shortname,
-	       write_data_callback *cb,
-	       void *arg,
-	       ClashHandling_t *ch)
+int _mwrite_one(Stream_t *Dir,
+		char *argname,
+		char *shortname,
+		write_data_callback *cb,
+		void *arg,
+		ClashHandling_t *ch)
 {
 	char longname[VBUFSIZE];
 	const char *dstname;
@@ -522,6 +458,11 @@ int mwrite_one(Stream_t *Dir,
 	clash_action ret;
 
 	expanded = 0;
+
+	if(isSpecial(argname)) {
+		fprintf(stderr, "Cannot create entry named . or ..\n");
+		return -1;
+	}
 
 	if(ch->name_converter == dos_name) {
 		if(shortname)
@@ -547,7 +488,7 @@ int mwrite_one(Stream_t *Dir,
 	}
 
 	/* Copy original argument dstname to working value longname */
-	strcpy(longname, dstname);
+	strncpy(longname, dstname, VBUFSIZE-1);
 
 	if(shortname) {
 		ch->name_converter(shortname,0, &ch->use_longname, dosname);
@@ -567,7 +508,7 @@ int mwrite_one(Stream_t *Dir,
 						 * quit */
 				
 			case NAMEMATCH_SKIP:
-				return 0;	/* Skip file (user request or 
+				return -1;	/* Skip file (user request or 
 						 * error) */
 
 			case NAMEMATCH_PRENAME:
@@ -590,11 +531,8 @@ int mwrite_one(Stream_t *Dir,
 				}
 				expanded = 1;
 				
-				if (dir_grow(Dir, scan.max_entry)) {
-					fprintf(stderr, "%s: Disk full\n",
-						progname);
+				if (dir_grow(Dir, scan.max_entry))
 					return -1;
-				}
 				continue;
 			case NAMEMATCH_OVERWRITE:
 			case NAMEMATCH_SUCCESS:
@@ -611,9 +549,37 @@ int mwrite_one(Stream_t *Dir,
 	}
 }
 
+int mwrite_one(Stream_t *Dir,
+	       const char *_argname,
+	       const char *_shortname,
+	       write_data_callback *cb,
+	       void *arg,
+	       ClashHandling_t *ch)
+{
+	char *argname;
+	char *shortname;
+	int ret;
+
+	if(_argname)
+		argname = strdup(_argname);
+	else
+		argname = 0;
+	if(_shortname)
+		shortname = strdup(_shortname);
+	else
+		shortname = 0;
+	ret = _mwrite_one(Dir, argname, shortname, cb, arg, ch);
+	if(argname)
+		free(argname);
+	if(shortname)
+		free(shortname);
+	return ret;
+}
+
 void init_clash_handling(ClashHandling_t *ch)
 {
 	ch->ignore_entry = -1;
+	ch->source_entry = -2;
 	ch->nowarn = 0;	/*Don't ask, just do default action if name collision */
 	ch->namematch_default[0] = NAMEMATCH_AUTORENAME;
 	ch->namematch_default[1] = NAMEMATCH_NONE;

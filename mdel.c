@@ -17,67 +17,72 @@ typedef struct Arg_t {
 	int verbose;
 } Arg_t;
 
-static int del_entry(Stream_t *Dir, MainParam_t *mp, int entry)
+static int del_entry(direntry_t *entry, MainParam_t *mp)
 {
 	Arg_t *arg=(Arg_t *) mp->arg;
 
-	if (arg->verbose)
-		fprintf(stderr,"Removing %s\n", mp->outname);
 	if(got_signal)
-		return MISSED_ONE;
+		return ERROR_ONE;
 
-	if ((mp->dir.attr & 0x05) &&
+	if(entry->entry == -3) {
+		fprintf(stderr, "Cannot remove root directory\n");
+		return ERROR_ONE;
+	}
+
+	if (arg->verbose) {
+		fprintf(stderr,"Removing ");
+		fprintPwd(stdout, entry);
+		putchar('\n');
+	}
+
+	if ((entry->dir.attr & (ATTR_READONLY | ATTR_SYSTEM)) &&
 	    (ask_confirmation("%s: \"%s\" is read only, erase anyway (y/n) ? ",
-			      progname,
-			      mp->outname)))
-		return MISSED_ONE;
-	
-	if (fatFreeWithDir(Dir,&mp->dir))
-		return MISSED_ONE;
-	mp->dir.name[0] = (char) DELMARK;
-	dir_write(Dir,entry,& mp->dir);
+			      progname, entry->name)))
+		return ERROR_ONE;
+	if (fatFreeWithDirentry(entry)) 
+		return ERROR_ONE;
+	entry->dir.name[0] = (char) DELMARK;
+	dir_write(entry);
 	return GOT_ONE;
 }
 
-static int del_file(Stream_t *Dir, MainParam_t *mp, int entry)
+static int del_file(direntry_t *entry, MainParam_t *mp)
 {
 	char shortname[13];
-	int sub_entry = 0;
+	direntry_t subEntry;
 	Stream_t *SubDir;
 	Arg_t *arg = (Arg_t *) mp->arg;
 	MainParam_t sonmp;
-	char outname[VBUFSIZE];
 	int ret;
 
 	sonmp = *mp;
-	sonmp.outname = outname;
 	sonmp.arg = mp->arg;
 
-	if (mp->dir.attr & 0x10){
+	if (IS_DIR(entry)){
 		/* a directory */
-		SubDir = open_file(GetFs(Dir), & mp->dir);
-
+		SubDir = OpenFileByDirentry(entry);
+		initializeDirentry(&subEntry, SubDir);
 		ret = 0;
-		while(!vfat_lookup(SubDir, &sonmp.dir, &sub_entry, 
-				   0, "*",
+		while(!vfat_lookup(&subEntry, "*", 1,
 				   ACCEPT_DIR | ACCEPT_PLAIN,
-				   outname, shortname, NULL) ){
+				   shortname, NULL) ){
 			if(shortname[0] != DELMARK &&
 			   shortname[0] &&
 			   shortname[0] != '.' ){
 				if(arg->deltype != 2){
 					fprintf(stderr,
-						"Directory %s non empty\n", 
-						mp->outname);
-					ret = MISSED_ONE;
+						"Directory ");
+					fprintPwd(stderr, entry);
+					fprintf(stderr," non empty\n");
+					ret = ERROR_ONE;
 					break;
 				}
 				if(got_signal) {
-					ret = MISSED_ONE;
+					ret = ERROR_ONE;
 					break;
 				}
-				ret = del_file(SubDir, &sonmp, sub_entry - 1);
-				if( ret & MISSED_ONE)
+				ret = del_file(&subEntry, &sonmp);
+				if( ret & ERROR_ONE)
 					break;
 				ret = 0;
 			}
@@ -86,7 +91,7 @@ static int del_file(Stream_t *Dir, MainParam_t *mp, int entry)
 		if(ret)
 			return ret;
 	}
-	return del_entry(Dir, mp, entry);
+	return del_entry(entry, mp);
 }
 
 
@@ -101,16 +106,15 @@ static void usage(void)
 
 void mdel(int argc, char **argv, int deltype)
 {
-	int verbose=0;
 	Arg_t arg;
 	MainParam_t mp;
-	char filename[VBUFSIZE];
 	int c,i;
 
+	arg.verbose = 0;
 	while ((c = getopt(argc, argv, "v")) != EOF) {
 		switch (c) {
 			case 'v':
-				verbose = 1;
+				arg.verbose = 1;
 				break;
 			default:
 				usage();
@@ -122,7 +126,6 @@ void mdel(int argc, char **argv, int deltype)
 
 	init_mp(&mp);
 	mp.callback = del_file;
-	mp.outname = filename;
 	mp.arg = (void *) &arg;
 	mp.openflags = O_RDWR;
 	arg.deltype = deltype;

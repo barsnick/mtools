@@ -8,47 +8,40 @@
 
 #include "sysincludes.h"
 #include "msdos.h"
-#include "patchlevel.h"
+#include "mtools.h"
 
 static char *dos_name2();
 
-void
-main(argc, argv)
-int argc;
-char *argv[];
+int main(int argc, char **argv)
 {
 	int i;
-	char *name, *new_name;
+	const char *name;
+	char *new_name;
 
 	/* print the version */
 	if(argc >= 2 && strcmp(argv[1], "-V") == 0) {
-		printf("Mtools version %s, dated %s\n", VERSION, DATE);
-		exit(0);
+		printf("Mtools version %s, dated %s\n", mversion, mdate);
+		return 0;
 	}
 
 	if (argc == 1) {
 		fprintf(stderr, "Usage: mkmanifest [-V] <list-of-files>\n");
-		exit(1);
+		return 1;
 	}
 
 	for (i=1; i<argc; i++) {
-					/* zap the leading path */
-		if ((name = strrchr(argv[i], '/')))
-			name++;
-		else
-			name = argv[i];
-					/* create new name */
+		/* zap the leading path */
+		name = _basename(argv[i]);
+		/* create new name */
 		new_name = dos_name2(name);
 
 		if (strcasecmp(new_name, name))
 			printf("mv %s %s\n", new_name, name);
 	}
-	exit(0);
+	return 0;
 }
 
-static char *
-dos_name2(name)
-char *name;
+static char *dos_name2(const char *name)
 {
 	static const char *dev[9] = {"con", "aux", "com1", "com2", "lpt1", 
 				     "prn", "lpt2", "lpt3", "nul"};
@@ -58,7 +51,7 @@ char *name;
 	int i, dot;
 	static char ans[13];
 
-	strcpy(buf, name);
+	strncpy(buf, name, MAX_PATH-1);
 	temp = buf;
 					/* separate the name from extension */
 	ext = 0;
@@ -69,8 +62,8 @@ char *name;
 			buf[i] = '\0';
 			ext = &buf[i+1];
 		}
-		if (isupper(buf[i]))
-			buf[i] = tolower(buf[i]);
+		if (isupper((unsigned char)buf[i]))
+			buf[i] = tolower((unsigned char)buf[i]);
 	}
 					/* if no name */
 	if (*temp == '\0')
@@ -93,7 +86,7 @@ char *name;
 
 		while (ext && (s = strpbrk(ext, "^+=/[]:',?*\\<>|\". ")))
 			*s = 'x';	      
-		strcpy(ans, temp);
+		strncpy(ans, temp, 12);
 	}
 	if (ext && *ext) {
 		strcat(ans, ".");

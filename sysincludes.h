@@ -5,25 +5,21 @@
 
 #include "config.h"
 
+/* OS/2 needs __inline__, but for some reason is not autodetected */
+#ifdef __EMX__
+# ifndef inline
+#  define inline __inline__
+# endif
+#endif
+
 /***********************************************************************/
 /*                                                                     */
 /* OS dependancies which cannot be covered by the autoconfigure script */
 /*                                                                     */
 /***********************************************************************/
 
-#ifdef BSD
-/* on BSD we prefer gettimeofday, ... */
-# ifdef HAVE_GETTIMEOFDAY
-#  undef HAVE_TZSET
-# endif
-#else /* BSD */
-/* ... elsewhere we prefer tzset */
-# ifdef HAVE_TZSET
-#  undef HAVE_GETTIMEOFDAY
-# endif
-#endif
 
-#ifdef aux
+#ifdef OS_aux
 /* A/UX needs POSIX_SOURCE, just as AIX does. Unlike SCO and AIX, it seems
  * to prefer TERMIO over TERMIOS */
 #ifndef _POSIX_SOURCE
@@ -39,16 +35,22 @@
 /* On AIX, we have to prefer strings.h, as string.h lacks a prototype 
  * for strcasecmp. On most other architectures, it's string.h which seems
  * to be more complete */
-#if (defined(aix) && defined (HAVE_STRINGS_H))
+#if (defined OS_aix && defined HAVE_STRINGS_H)
 # undef HAVE_STRING_H
 #endif
 
 
+#ifdef OS_ultrix
+/* on ultrix, if termios present, prefer it instead of termio */
+# ifdef HAVE_TERMIOS_H
+#  undef HAVE_TERMIO_H
+# endif
+#endif
 
-#ifdef linux_gnu
+#ifdef OS_linux_gnu
 /* RMS strikes again */
-# ifndef linux
-#  define linux
+# ifndef OS_linux
+#  define OS_linux
 # endif
 #endif
 
@@ -97,6 +99,10 @@
 # include <unistd.h>
 #endif
 
+#ifdef HAVE_LINUX_UNISTD_H
+# include <linux/unistd.h>
+#endif
+
 #ifdef HAVE_LIBC_H
 # include <libc.h>
 #endif
@@ -132,11 +138,11 @@ extern int optind, opterr;
  * suppress warnings if the platform is broken, as long as these warnings do
  * not prevent compilation */
 
-#if TIME_WITH_SYS_TIME
+#ifdef TIME_WITH_SYS_TIME
 # include <sys/time.h>
 # include <time.h>
 #else
-# if HAVE_SYS_TIME_H
+# ifdef HAVE_SYS_TIME_H
 #  include <sys/time.h>
 # else
 #  include <time.h>
@@ -146,30 +152,65 @@ extern int optind, opterr;
 #ifndef NO_TERMIO
 # ifdef HAVE_TERMIO_H
 #  include <termio.h>
-# endif
-# ifdef HAVE_SYS_TERMIO_H
+# elif defined HAVE_SYS_TERMIO_H
 #  include <sys/termio.h>
 # endif
-# ifdef HAVE_TERMIOS_H
-#  include <termios.h>
+# if !defined OS_ultrix || !(defined HAVE_TERMIO_H || defined HAVE_TERMIO_H)
+/* on Ultrix, avoid double inclusion of both termio and termios */
+#  ifdef HAVE_TERMIOS_H
+#   include <termios.h>
+#  elif defined HAVE_SYS_TERMIOS_H
+#   include <sys/termios.h>
+#  endif
 # endif
-# ifdef HAVE_SYS_TERMIOS_H
-#  include <sys/termios.h>
+# ifdef HAVE_STTY_H
+#  include <sgtty.h>
 # endif
+#endif
+
+
+#if defined(OS_aux) && !defined(_SYSV_SOURCE)
+/* compiled in POSIX mode, this is left out unless SYSV */
+#define	NCC	8
+struct termio {
+	unsigned short	c_iflag;	/* input modes */
+	unsigned short	c_oflag;	/* output modes */
+	unsigned short	c_cflag;	/* control modes */
+	unsigned short	c_lflag;	/* line discipline modes */
+	char	c_line;			/* line discipline */
+	unsigned char	c_cc[NCC];	/* control chars */
+};
+extern int ioctl(int fildes, int request, void *arg);
+#endif
+
+
+#ifdef HAVE_MNTENT_H
+# include <mntent.h>
 #endif
 
 #ifdef HAVE_SYS_PARAM_H
 # include <sys/param.h>
 #endif
 
+/* Can only be done here, as BSD is defined in sys/param.h :-( */
+#if defined BSD || defined __BEOS__
+/* on BSD and on BEOS, we prefer gettimeofday, ... */
+# ifdef HAVE_GETTIMEOFDAY
+#  undef HAVE_TZSET
+# endif
+#else /* BSD */
+/* ... elsewhere we prefer tzset */
+# ifdef HAVE_TZSET
+#  undef HAVE_GETTIMEOFDAY
+# endif
+#endif
+
+
 #include <sys/stat.h>
 
 #include <errno.h>
 extern int errno;
-#if !defined netbsd && !defined freebsd
-/* NetBSD seems to choke on this, due to a slightly non-standard definition */
-extern char *sys_errlist[];
-#endif
+
 #include <pwd.h>
 
 
@@ -202,13 +243,54 @@ extern char *sys_errlist[];
 #endif
 
 #ifdef HAVE_SYS_WAIT_H
-# include <sys/wait.h>
+# ifndef DONT_NEED_WAIT
+#  include <sys/wait.h>
+# endif
 #endif
 
-#ifdef linux
-# include <linux/fd.h>
+
+#ifdef USE_FLOPPYD
+
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
 #endif
 
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+
+#ifdef HAVE_ARPA_INET_H
+#include <arpa/inet.h>
+#endif
+
+#ifdef HAVE_NETDB_H
+#include <netdb.h>
+#endif
+
+#ifdef HAVE_X11_XAUTH_H
+#include <X11/Xauth.h>
+#endif
+
+#ifdef HAVE_X11_XLIB_H
+#include <X11/Xlib.h>
+#endif
+
+#endif
+
+#ifndef INADDR_NONE
+#define INADDR_NONE (-1)
+#endif
+
+
+#ifdef sgi
+#define MSGIHACK __EXTENSIONS__
+#undef __EXTENSIONS__
+#endif
+#include <math.h>
+#ifdef sgi
+#define __EXTENSIONS__ MSGIHACK
+#undef MSGIHACK
+#endif
 
 /* missing functions */
 #ifndef HAVE_SRANDOM
@@ -285,17 +367,20 @@ int strcasecmp(const char *s1, const char *s2);
 #endif
 
 #ifndef HAVE_STRNCASECMP
-# ifdef __BEOS__
-int strncasecmp(const char *s1, const char *s2, unsigned int n);
-# else
 int strncasecmp(const char *s1, const char *s2, size_t n);
-# endif
 #endif
 
 #ifndef HAVE_GETPASS
 char *getpass(const char *prompt);
 #endif
 
+#if 0
+#ifndef HAVE_BASENAME
+const char *basename(const char *filename);
+#endif
+#endif
+
+const char *_basename(const char *filename);
 
 #ifndef __STDC__
 # ifndef signed
@@ -321,6 +406,15 @@ char *getpass(const char *prompt);
  * strings not modified by the function, and others do not.  By using just
  * the return type, which rarely changes, we avoid these problems.
  */
+
+/* Correction:  Now it seems that even return values are not standardized :-(
+  For instance  DEC-ALPHA, OSF/1 3.2d uses ssize_t as a return type for read
+  and write.  NextStep uses a non-void return value for exit, etc.  With the
+  advent of 64 bit system, we'll expect more of these problems in the future.
+  Better uncomment the lot, except on SunOS, which is known to have bad
+  incomplete files.  Add other OS'es with incomplete include files as needed
+  */
+#if (defined OS_sunos || defined OS_ultrix)
 int read();
 int write();
 int fflush();
@@ -335,6 +429,7 @@ char *getpass();
 int atoi();
 FILE *fdopen();
 FILE *popen();
+#endif
 
 #ifndef MAXPATHLEN
 # ifdef PATH_MAX
@@ -345,12 +440,54 @@ FILE *popen();
 #endif
 
 
-#ifndef linux
+#ifndef OS_linux
 # undef USE_XDF
 #endif
 
 #ifdef NO_XDF
 # undef USE_XDF
+#endif
+
+#ifdef __EMX__
+#define INCL_BASE
+#define INCL_DOSDEVIOCTL
+#include <os2.h>
+#endif
+
+#ifdef OS_nextstep
+/* nextstep doesn't have this.  Unfortunately, we cannot test its presence
+   using AC_EGREP_HEADER, as we don't know _which_ header to test, and in
+   the general case utime.h might be non-existent */
+struct utimbuf
+{
+  time_t actime,modtime;
+};
+#endif
+
+/* NeXTStep doesn't have these */
+#if !defined(S_ISREG) && defined (_S_IFMT) && defined (_S_IFREG)
+#define S_ISREG(mode)   (((mode) & (_S_IFMT)) == (_S_IFREG))
+#endif
+
+#if !defined(S_ISDIR) && defined (_S_IFMT) && defined (_S_IFDIR)
+#define S_ISDIR(mode)   (((mode) & (_S_IFMT)) == (_S_IFDIR))
+#endif
+
+
+#if 0
+
+#define malloc(x) mymalloc(x)
+#define calloc(x,y) mycalloc(x,y)
+#define free(x) myfree(x)
+#define realloc(x,y) myrealloc(x,y)
+#define strdup(a) mystrdup(a)
+
+void *mycalloc(size_t nmemb, size_t size);
+void *mymalloc(size_t size);
+void myfree(void *ptr);
+void *myrealloc(void *ptr, size_t size);
+char *mystrdup(char *a);
+
 #endif
 
 #endif

@@ -1,6 +1,7 @@
 #include "sysincludes.h"
 #include "msdos.h"
 #include "fsP.h"
+#include "mtoolsDirentry.h"
 
 /*
  * Remove a string of FAT entries (delete the file).  The argument is
@@ -18,16 +19,11 @@ int fat_free(Stream_t *Dir, unsigned int fat)
 		return(0);
 
 	/* CONSTCOND */
-	while (1) {
-					/* get next cluster number */
-		next_no_step = This->fat_decode(This,fat);
+	while (!This->fat_error) {
+		/* get next cluster number */
+		next_no_step = fatDecode(This,fat);
 		/* mark current cluster as empty */
-		if (This->fat_encode(This,fat, 0) || next_no_step == 1) {
-			fprintf(stderr, "fat_free: FAT problem %d %d\n",
-				fat,next_no_step);
-			This->fat_error++;
-			return(-1);
-		}
+		fatDeallocate(This,fat);
 		if (next_no_step >= This->last_fat)
 			break;
 		fat = next_no_step;
@@ -51,3 +47,9 @@ int fatFreeWithDir(Stream_t *Dir, struct directory *dir)
 		first |= STARTHI(dir) << 16;
 	return fat_free(Dir, first);
 }
+
+int fatFreeWithDirentry(direntry_t *entry)
+{
+	return fatFreeWithDir(entry->Dir, &entry->dir);
+}
+    

@@ -34,7 +34,7 @@ case $? in
 esac
 
 echo >&2; echo "Verifying files on drive ${DRIVE}..." >&2
-if mtype ${DRIVE}\* > /dev/null; then
+if mtype -/ ${DRIVE}\* > /dev/null; then
 	echo "Disk in drive ${DRIVE} is OK." >&2
 	exit 0
 else

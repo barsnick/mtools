@@ -3,19 +3,18 @@
  *
  * written by:
  *
- * Alain L. Knaff			
- * Alain.Knaff@poboxes.com
+ * Alain L. Knaff
+ * alain@linux.lu
  *
  */
 
 
 #include "sysincludes.h"
-#ifdef linux
+#ifdef OS_linux
 #include "msdos.h"
 #include "mtools.h"
 #include "devices.h"
 #include "xdf_io.h"
-#include "patchlevel.h"
 
 extern int errno;
 
@@ -385,8 +384,8 @@ static int fill_phantoms(Xdf_t *This, int ptr, int size)
 	return ptr;
 }
 
-static void decompose(Xdf_t *This, int where, int len, off_t *begin, off_t *end,
-		     int boot)
+static void decompose(Xdf_t *This, int where, int len, off_t *begin, 
+					  off_t *end, int boot)
 {
 	int ptr, track;
 	sector_map_t *map;
@@ -396,7 +395,7 @@ static void decompose(Xdf_t *This, int where, int len, off_t *begin, off_t *end,
 	
 	*begin = where - track * This->track_size * 1024;
 	*end = where + len - track * This->track_size * 1024;
-	maximize((size_t *)end, This->track_size * 1024);
+	maximize(*end, This->track_size * 1024);
 
 	if(This->current_track == track && !boot)
 		/* already OK, return immediately */
@@ -465,35 +464,35 @@ static void decompose(Xdf_t *This, int where, int len, off_t *begin, off_t *end,
 }
 
 
-static int xdf_read(Stream_t *Stream, char *buf, off_t where, size_t len)
+static int xdf_read(Stream_t *Stream, char *buf, mt_off_t where, size_t len)
 {	
 	off_t begin, end;
 	size_t len2;
 	DeclareThis(Xdf_t);
 
-	decompose(This, where, len, &begin, &end, 0);
+	decompose(This, truncBytes32(where), len, &begin, &end, 0);
 	len2 = load_data(This, begin, end, 4);
 	if(len2 < 0)
 		return len2;
 	len2 -= begin;
-	maximize(&len, len2);
+	maximize(len, len2);
 	memcpy(buf, This->buffer + begin, len);
 	return end - begin;
 }
 
-static int xdf_write(Stream_t *Stream, char *buf, off_t where, size_t len)
+static int xdf_write(Stream_t *Stream, char *buf, mt_off_t where, size_t len)
 {	
 	off_t begin, end;
 	size_t len2;
 	DeclareThis(Xdf_t);
 
-	decompose(This, where, len, &begin, &end, 0);
+	decompose(This, truncBytes32(where), len, &begin, &end, 0);
 	len2 = load_bounds(This, begin, end);
 	if(len2 < 0)
 		return len2;
-	maximize((size_t *)&end, len2);
+	maximize(end, len2);
 	len2 -= begin;
-	maximize(&len, len2);
+	maximize(len, len2);
 	memcpy(This->buffer + begin, buf, len);
 	mark_dirty(This, begin, end);
 	return end - begin;
@@ -522,25 +521,27 @@ static int check_geom(struct device *dev, int media, struct bootsector *boot)
 	if(media >= 0xfc && media <= 0xff)
 		return 1; /* old DOS */
 
-	if(compare(dev->sectors, 19) &&
-	   compare(dev->sectors, 23) &&
-	   compare(dev->sectors, 24) &&
-	   compare(dev->sectors, 46) &&
-	   compare(dev->sectors, 48))
+	if (!IS_MFORMAT_ONLY(dev)) {
+	    if(compare(dev->sectors, 19) &&
+	       compare(dev->sectors, 23) &&
+	       compare(dev->sectors, 24) &&
+	       compare(dev->sectors, 46) &&
+	       compare(dev->sectors, 48))
 		return 1;
-
-	/* check against contradictory info from configuration file */
-	if(compare(dev->heads, 2))
+	    
+	    /* check against contradictory info from configuration file */
+	    if(compare(dev->heads, 2))
 		return 1;
+	}
 
 	/* check against info from boot */
 	if(boot) {
 		sect = WORD(nsect);
 		if((sect != 19 && sect != 23 && sect != 24 &&
 		    sect != 46 && sect != 48) ||
-		   compare(dev->sectors, sect) || 
+		   (!IS_MFORMAT_ONLY(dev) && compare(dev->sectors, sect)) || 
 		   WORD(nheads) !=2)
-			return 1;
+		    return 1;
 	}
 	return 0;
 }
@@ -573,7 +574,8 @@ static Class_t XdfClass = {
 	xdf_flush, 
 	xdf_free, 
 	config_geom, 
-	0 /* get_data */
+	0, /* get_data */
+	0 /* pre-allocate */
 };
 
 Stream_t *XdfOpen(struct device *dev, char *name,
@@ -584,7 +586,7 @@ Stream_t *XdfOpen(struct device *dev, char *name,
 	struct bootsector *boot;
 	int type;
 
-	if(dev && (!dev->use_xdf || check_geom(dev, 0, 0)))
+	if(dev && (!SHOULD_USE_XDF(dev) || check_geom(dev, 0, 0)))
 		return NULL;
 
 	This = New(Xdf_t);

@@ -96,7 +96,7 @@ static void load_toupper(int country, int *codepage, char *filename)
 	fstat(fd, &buf);
 	file = (unsigned char *) malloc(buf.st_size);
 	if(!file) {
-		fprintf(stderr, "Out of memory\n");
+		printOom();
 		exit(1);
 	}
 

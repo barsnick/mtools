@@ -20,10 +20,12 @@ typedef struct Filter_t {
 
 /* read filter filters out messy dos' bizarre end of lines and final 0x1a's */
 
-static int read_filter(Stream_t *Stream, char *buf, off_t where, size_t len)
+static int read_filter(Stream_t *Stream, char *buf, mt_off_t iwhere, size_t len)
 {
 	DeclareThis(Filter_t);
 	int i,j,ret;
+
+	off_t where = truncBytes32(iwhere);
 
 	if ( where != This->unixpos ){
 		fprintf(stderr,"Bad offset\n");
@@ -35,7 +37,7 @@ static int read_filter(Stream_t *Stream, char *buf, off_t where, size_t len)
 	}
 	This->rw = F_READ;
 	
-	ret = READS(This->Next, buf, This->dospos, len);
+	ret = READS(This->Next, buf, (mt_off_t) This->dospos, len);
 	if ( ret < 0 )
 		return ret;
 
@@ -53,11 +55,14 @@ static int read_filter(Stream_t *Stream, char *buf, off_t where, size_t len)
 	return j;
 }
 
-static int write_filter(Stream_t *Stream, char *buf, off_t where, size_t len)
+static int write_filter(Stream_t *Stream, char *buf, mt_off_t iwhere, 
+						size_t len)
 {
 	DeclareThis(Filter_t);
 	int i,j,ret;
 	char buffer[1025];
+
+	off_t where = truncBytes32(iwhere);
 
 	if(This->unixpos == -1)
 		return -1;
@@ -85,7 +90,7 @@ static int write_filter(Stream_t *Stream, char *buf, off_t where, size_t len)
 	}
 	This->unixpos += j;
 
-	ret = force_write(This->Next, buffer, This->dospos, i);
+	ret = force_write(This->Next, buffer, (mt_off_t) This->dospos, i);
 	if(ret >0 )
 		This->dospos += ret;
 	if ( ret != i ){
@@ -103,7 +108,7 @@ static int free_filter(Stream_t *Stream)
 
 	/* write end of file */
 	if (This->rw == F_WRITE)
-		return force_write(This->Next, &buffer, This->dospos, 1);
+		return force_write(This->Next, &buffer, (mt_off_t) This->dospos, 1);
 	else
 		return 0;
 }
@@ -114,7 +119,8 @@ static Class_t FilterClass = {
 	0, /* flush */
 	free_filter,
 	0, /* set geometry */
-	get_data_pass_through
+	get_data_pass_through,
+	0
 };
 
 Stream_t *open_filter(Stream_t *Next)

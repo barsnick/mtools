@@ -2,6 +2,8 @@
  * mformat.c
  */
 
+#define DONT_NEED_WAIT
+
 #include "sysincludes.h"
 #include "msdos.h"
 #include "mtools.h"
@@ -9,22 +11,29 @@
 #include "fsP.h"
 #include "file.h"
 #include "plain_io.h"
+#include "floppyd_io.h"
 #include "nameclash.h"
 #include "buffer.h"
 #ifdef USE_XDF
 #include "xdf_io.h"
 #endif
+#include "partition.h"
 
-
-#include <math.h>
-
+#ifndef abs
 #define abs(x) ((x)>0?(x):-(x))
+#endif
+
+#ifdef OS_linux
+#include "linux/hdreg.h"
+#include "linux/fs.h"
+#endif
+
 
 extern int errno;
 
 static void init_geometry_boot(struct bootsector *boot, struct device *dev,
 			       int sectors0, int rate_0, int rate_any,
-			       int *tot_sectors)
+			       int *tot_sectors, int keepBoot)
 {
 	int i;
 	int nb_renum;
@@ -103,14 +112,17 @@ static void init_geometry_boot(struct bootsector *boot, struct device *dev,
 			sum += boot->jump[j];/* checksum */
 		boot->ext.old.CheckSum=-sum;
 	} else {
-		boot->jump[0] = 0xeb;
-		boot->jump[1] = 0;
-		boot->jump[2] = 0x90;
-		strncpy(boot->banner, "MTOOLS33", 8);
-		/* It looks like some versions of DOS are rather picky
-		 * about this, and assume default parameters without this,
-		 * ignoring any indication about cluster size et al. */
-		set_word(boot->ext.old.BootP, OFFSET(ext.old.BootP) + 2);
+		if(!keepBoot) {
+			boot->jump[0] = 0xeb;
+			boot->jump[1] = 0;
+			boot->jump[2] = 0x90;
+			strncpy(boot->banner, "MTOOL396", 8);
+			/* It looks like some versions of DOS are
+			 * rather picky about this, and assume default
+			 * parameters without this, ignoring any
+			 * indication about cluster size et al. */
+			set_word(boot->ext.old.BootP, OFFSET(ext.old.BootP)+2);
+		}
 	}
 	return;
 }
@@ -122,16 +134,24 @@ static int comp_fat_bits(Fs_t *Fs, int estimate,
 	int needed_fat_bits;
 
 	needed_fat_bits = 12;
-	if(tot_sectors > MAX_FAT12_SIZE(Fs->sector_size))
-		needed_fat_bits = 16;       	
-	if(fat32 || tot_sectors > MAX_FAT16_SIZE(Fs->sector_size))
-		needed_fat_bits = 32;		
+
+#define MAX_DISK_SIZE(bits,clusters) \
+	TOTAL_DISK_SIZE((bits), Fs->sector_size, (clusters), \
+			Fs->num_fat, MAX_SECT_PER_CLUSTER)
+
+	if(tot_sectors > MAX_DISK_SIZE(12, FAT12))
+		needed_fat_bits = 16;
+	if(fat32 || tot_sectors > MAX_DISK_SIZE(16, FAT16))
+		needed_fat_bits = 32;
+
+#undef MAX_DISK_SIZE
+
 	if(abs(estimate) && abs(estimate) < needed_fat_bits) {
 		if(fat32) {
 			fprintf(stderr,
 				"Contradiction between FAT size on command line and FAT size in conf file\n");
 			exit(1);
-		}		
+		}
 		fprintf(stderr,
 			"Device too big for a %d bit FAT\n",
 			estimate);
@@ -139,15 +159,19 @@ static int comp_fat_bits(Fs_t *Fs, int estimate,
 	}
 
 	if(needed_fat_bits == 32 && !fat32 && abs(estimate) !=32){
-		fprintf(stderr,"Warning: Using 32 bit FAT.  Drive will only be accessibly by Win95 OEM\n");		
+		fprintf(stderr,"Warning: Using 32 bit FAT.  Drive will only be accessibly by Win95 OEM / Win98\n");
 	}
 
 	if(!estimate) {
+		int min_fat16_size;
+
 		if(needed_fat_bits > 12)
 			return needed_fat_bits;
-		else if(tot_sectors < MIN_FAT16_SIZE(Fs->sector_size))
+		min_fat16_size = DISK_SIZE(16, Fs->sector_size, FAT12+1,
+					   Fs->num_fat, 1);
+		if(tot_sectors < min_fat16_size)
 			return 12;
-		else if(tot_sectors >= 2* MIN_FAT16_SIZE(Fs->sector_size))
+		else if(tot_sectors >= 2* min_fat16_size)
 			return 16; /* heuristics */
 	}
 
@@ -160,26 +184,33 @@ static void calc_fat_bits2(Fs_t *Fs, unsigned int tot_sectors, int fat_bits)
 
 	/*
 	 * the "remaining sectors" after directory and boot
-	 * has been accounted for.
+	 * hasve been accounted for.
 	 */
 	rem_sect = tot_sectors - Fs->dir_len - Fs->fat_start;
 	switch(abs(fat_bits)) {
 		case 0:
-			if((rem_sect - 32)/Fs->cluster_size > FAT12)
-				/* big enough for FAT16:
-				 * sectors minus 2 fats of 32
-				 * bits */
+
+#define MY_DISK_SIZE(bits,clusters) \
+			DISK_SIZE( (bits), Fs->sector_size, (clusters), \
+				   Fs->num_fat, Fs->cluster_size)
+
+			if(rem_sect >= MY_DISK_SIZE(16, FAT12 + 1))
+				/* big enough for FAT16 */
 				set_fat16(Fs);
-			else if((rem_sect - 24)/Fs->cluster_size <= FAT12)
-				set_fat12(Fs);
+			else if(rem_sect <= MY_DISK_SIZE(12, FAT12))
+				 /* small enough for FAT12 */
+				 set_fat12(Fs);
 			else {
 				/* "between two chairs",
 				 * augment cluster size, and
 				 * settle it */
-				Fs->cluster_size <<= 1;
+				if(Fs->cluster_size < MAX_SECT_PER_CLUSTER)
+					Fs->cluster_size <<= 1;
 				set_fat12(Fs);
 			}
 			break;
+#undef MY_DISK_SIZE
+
 		case 12:
 			set_fat12(Fs);
 			break;
@@ -205,7 +236,7 @@ static inline void format_root(Fs_t *Fs, char *label, struct bootsector *boot)
 	ch.ignore_entry = -2;
 
 	buf = safe_malloc(Fs->sector_size);
-	RootDir = open_root((Stream_t *)Fs);
+	RootDir = OpenRoot((Stream_t *)Fs);
 	if(!RootDir){
 		fprintf(stderr,"Could not open root directory\n");
 		exit(1);
@@ -213,14 +244,16 @@ static inline void format_root(Fs_t *Fs, char *label, struct bootsector *boot)
 
 	memset(buf, '\0', Fs->sector_size);
 
-	if(Fs->fat_bits == 32)
+	if(Fs->fat_bits == 32) {
 		/* on a FAT32 system, we only write one sector,
 		 * as the directory can be extended at will...*/
 		dirlen = 1;
-	else
+		fatAllocate(Fs, Fs->rootCluster, Fs->end_fat);
+	} else
 		dirlen = Fs->dir_len; 
 	for (i = 0; i < dirlen; i++)
-		WRITES(RootDir, buf, i * Fs->sector_size,  Fs->sector_size);
+		WRITES(RootDir, buf, sectorsToBytes((Stream_t*)Fs, i),  
+			   Fs->sector_size);
 
 	ch.ignore_entry = 1;
 	if(label[0])
@@ -231,6 +264,7 @@ static inline void format_root(Fs_t *Fs, char *label, struct bootsector *boot)
 		set_word(boot->dirents, 0);
 	else
 		set_word(boot->dirents, Fs->dir_len * (Fs->sector_size / 32));
+	free(buf);
 }
 
 
@@ -318,6 +352,12 @@ static void calc_fat_size(Fs_t *Fs, unsigned int tot_sectors)
 			" or .mtoolsrc file\n");
 		exit(1);
 	}
+	if ( Fs->num_clus <= FAT12 && Fs->fat_bits > 12 ){
+		fprintf(stderr,"Too few clusters for this fat size."
+			" Please choose a 12-bit fat in your /etc/mtools"
+			" or .mtoolsrc file\n");
+		exit(1);
+	}
 }
 
 
@@ -334,7 +374,7 @@ static inline void inst_boot_prg(struct bootsector *boot)
 	memcpy((char *) boot->jump + offset, 
 	       (char *) bootprog, sizeof(bootprog) /sizeof(bootprog[0]));
 	boot->jump[0] = 0xeb;
-	boot->jump[1] = offset + 1;
+	boot->jump[1] = offset - 1;
 	boot->jump[2] = 0x90;
 	set_word(boot->jump + offset + 20, offset + 24);
 }
@@ -343,20 +383,31 @@ static void calc_cluster_size(struct Fs_t *Fs, unsigned int tot_sectors,
 			      int fat_bits)
 			      
 {
-	unsigned int term, mult, rem_sect;
+	unsigned int max_clusters; /* maximal possible number of sectors for
+				   * this FAT entry length (12/16/32) */
+	unsigned int max_fat_size; /* maximal size of the FAT for this FAT
+				    * entry length (12/16/32) */
+	unsigned int rem_sect; /* remaining sectors after we accounted for
+				* the root directory and boot sector(s) */
 
 	switch(abs(fat_bits)) {
 		case 12:			
-			mult = FAT12;
-			term = MAX_FAT12_FATLEN(Fs->sector_size);
+			max_clusters = FAT12;
+			max_fat_size = Fs->num_fat * 
+				FAT_SIZE(12, Fs->sector_size, max_clusters);
 			break;
 		case 16:
 		case 0: /* still hesititating between 12 and 16 */
-			mult = FAT16;
-			term = MAX_FAT16_FATLEN(Fs->sector_size);
+			max_clusters = FAT16;
+			max_fat_size = Fs->num_fat * 
+				FAT_SIZE(16, Fs->sector_size, max_clusters);
 			break;
-		case 32:
-			Fs->cluster_size = 1;
+		case 32:		  
+			Fs->cluster_size = 8;
+			/* According to
+			 * http://www.microsoft.com/kb/articles/q154/9/97.htm,
+			 * Micro$oft does not support FAT32 with less than 4K
+			 */
 			return;
 		default:
 			fprintf(stderr,"Bad fat size\n");
@@ -364,7 +415,10 @@ static void calc_cluster_size(struct Fs_t *Fs, unsigned int tot_sectors,
 	}
 
 	rem_sect = tot_sectors - Fs->dir_len - Fs->fat_start;
-	while(Fs->cluster_size * mult  + term < rem_sect) {
+
+	/* double the cluster size until we can fill up the disk with
+	 * the maximal number of sectors of this size */
+	while(Fs->cluster_size * max_clusters  + max_fat_size < rem_sect) {
 		if(Fs->cluster_size > 64) {
 			/* bigger than 64. Should fit */
 			fprintf(stderr,
@@ -453,9 +507,11 @@ static void calc_fs_parameters_32(unsigned int tot_sectors,
 	else
 		boot->descr = 0xf0;
 	if(!Fs->cluster_size)
-		/* FAT32 disks have a cluster size of 1 by default.
-		 * After all, we can afford it, can't we? */		
-		Fs->cluster_size = 1;
+		/* According to
+		 * http://www.microsoft.com/kb/articles/q154/9/97.htm,
+		 * Micro$oft does not support FAT32 with less than 4K
+		 */
+		Fs->cluster_size = 8;
 	
 	Fs->dir_len = 0;
 	Fs->num_clus = tot_sectors / Fs->cluster_size;
@@ -500,10 +556,13 @@ void mformat(int argc, char **argv, int dummy)
 	struct xdf_info info;
 #endif
 	struct bootsector *boot;
+	char *bootSector=0;
 	int c;
+	int keepBoot = 0;
 	struct device used_dev;
 	int argtracks, argheads, argsectors;
 	int tot_sectors;
+	int blocksize;
 
 	char drive, name[EXPAND_BUF];
 
@@ -514,6 +573,8 @@ void mformat(int argc, char **argv, int dummy)
 	unsigned long serial;
  	int serial_set;
 	int fsVersion;
+
+	mt_off_t maxSize;
 
 	int Atari = 0; /* should we add an Atari-style serial number ? */
  
@@ -537,8 +598,15 @@ void mformat(int argc, char **argv, int dummy)
 	rate_any = mtools_rate_any;
 
 	/* get command line options */
-	while ((c = getopt(argc,argv,"r:IFCc:Xt:h:s:l:n:H:M:S:12:0Aaf:"))!= EOF) {
+	while ((c = getopt(argc,argv,
+			   "B:kr:IFCc:Xt:h:s:l:n:H:M:S:12:0Aaf:"))!= EOF) {
 		switch (c) {
+			case 'k':
+				keepBoot = 1;
+				break;
+			case 'B':
+				bootSector = optarg;
+				break;
 			case 'r': 
 				Fs.dir_len = strtoul(optarg,0,0);
 				break;
@@ -630,6 +698,7 @@ void mformat(int argc, char **argv, int dummy)
 	/* check out a drive whose letter and parameters match */	
 	sprintf(errmsg, "Drive '%c:' not supported", drive);	
 	Fs.Direct = NULL;
+	blocksize = 0;
 	for(dev=devices;dev->drive;dev++) {
 		FREE(&(Fs.Direct));
 		/* drive letter */
@@ -646,15 +715,29 @@ void mformat(int argc, char **argv, int dummy)
 			used_dev.hidden = hs;
 		
 		expand(dev->name, name);
-#ifdef USE_XDF
-		if(!format_xdf)
+#ifdef USING_NEW_VOLD
+		strcpy(name, getVoldName(dev, name));
 #endif
-			Fs.Direct = SimpleFileOpen(&used_dev, dev, name,
-						   O_RDWR | create,
-						   errmsg, 0);
+
 #ifdef USE_XDF
-		else {
-			used_dev.use_xdf = 1;
+		if(!format_xdf) {
+#endif
+			Fs.Direct = 0;
+#ifdef USE_FLOPPYD
+			Fs.Direct = FloppydOpen(&used_dev, dev, name, O_RDWR | create,
+									errmsg, 0, 1);
+			if(Fs.Direct) {
+				maxSize = max_off_t_31;
+			}
+#endif
+			if(!Fs.Direct) {			
+				Fs.Direct = SimpleFileOpen(&used_dev, dev, name,
+										   O_RDWR | create,
+										   errmsg, 0, 1, &maxSize);
+			}
+#ifdef USE_XDF
+		} else {
+			used_dev.misc_flags |= USE_XDF_FLAG;
 			Fs.Direct = XdfOpen(&used_dev, name, O_RDWR,
 					    errmsg, &info);
 			if(Fs.Direct && !Fs.fat_len)
@@ -667,12 +750,49 @@ void mformat(int argc, char **argv, int dummy)
 		if (!Fs.Direct)
 			continue;
 
-		/* non removable media */
+#ifdef OS_linux
+		if ((!used_dev.tracks || !used_dev.heads || !used_dev.sectors) &&
+			(!IS_SCSI(dev))) {
+			int fd= get_fd(Fs.Direct);
+			struct stat buf;
+
+			if (fstat(fd, &buf) < 0) {
+				sprintf(errmsg, "Could not stat file (%s)", strerror(errno));
+				continue;						
+			}
+
+			if (S_ISBLK(buf.st_mode)) {
+				struct hd_geometry geom;
+				long size;
+				int sect_per_track;
+
+				if (ioctl(fd, HDIO_GETGEO, &geom) < 0) {
+					sprintf(errmsg, "Could not get geometry of device (%s)",
+							strerror(errno));
+					continue;
+				}
+
+				if (ioctl(fd, BLKGETSIZE, &size) < 0) {
+					sprintf(errmsg, "Could not get size of device (%s)",
+							strerror(errno));
+					continue;
+				}
+
+				sect_per_track = geom.heads * geom.sectors;
+				used_dev.heads = geom.heads;
+				used_dev.sectors = geom.sectors;
+				used_dev.hidden = geom.start % sect_per_track;
+				used_dev.tracks = (size + used_dev.hidden) / sect_per_track;
+			}
+		}
+#endif
+
+		/* no way to find out geometry */
 		if (!used_dev.tracks || !used_dev.heads || !used_dev.sectors){
 			sprintf(errmsg, 
-				"Non-removable media is not supported "
+				"Unknown geometry "
 				"(You must tell the complete geometry "
-				"of the disk, either in /etc/mtools or "
+				"of the disk, \neither in /etc/mtools.conf or "
 				"on the command line) ");
 			continue;
 		}
@@ -686,9 +806,29 @@ void mformat(int argc, char **argv, int dummy)
 		}
 #endif
 		Fs.sector_size = 512;
-		if( !(used_dev.use_2m & 0x7f))
+		if( !(used_dev.use_2m & 0x7f)) {
 			Fs.sector_size = 128 << (used_dev.ssize & 0x7f);
+		}
+
 		SET_INT(Fs.sector_size, msize);
+		{
+		    int i;
+		    for(i = 0; i < 31; i++) {
+			if (Fs.sector_size == 1 << i) {
+			    Fs.sectorShift = i;
+			    break;
+			}
+		    }
+		    Fs.sectorMask = Fs.sector_size - 1;
+		}
+
+		if(!used_dev.blocksize || used_dev.blocksize < Fs.sector_size)
+			blocksize = Fs.sector_size;
+		else
+			blocksize = used_dev.blocksize;
+		
+		if(blocksize > MAX_SECTOR)
+			blocksize = MAX_SECTOR;
 
 		/* do a "test" read */
 		if (!create &&
@@ -712,16 +852,39 @@ void mformat(int argc, char **argv, int dummy)
 
 	/* the boot sector */
 	boot = (struct bootsector *) buf;
-	memset((char *)boot, '\0', Fs.sector_size);
+	if(bootSector) {
+		int fd;
+
+		fd = open(bootSector, O_RDONLY);
+		if(fd < 0) {
+			perror("open boot sector");
+			exit(1);
+		}
+		read(fd, buf, blocksize);
+		keepBoot = 1;
+	}
+	if(!keepBoot) {
+		memset((char *)boot, '\0', Fs.sector_size);
+		if(Fs.sector_size == 512 && !used_dev.partition) {
+			/* install fake partition table pointing to itself */
+			struct partition *partTable=(struct partition *)
+				(((char*) boot) + 0x1ae);
+			setBeginEnd(&partTable[1], 0,
+						used_dev.heads * used_dev.sectors * used_dev.tracks,
+						used_dev.heads, used_dev.sectors, 1, 0);
+		}
+	}
 	set_dword(boot->nhs, used_dev.hidden);
 
 	Fs.Next = buf_init(Fs.Direct,
-			   Fs.sector_size * used_dev.heads * used_dev.sectors,
-			   Fs.sector_size,
-			   Fs.sector_size * used_dev.heads * used_dev.sectors);
+			   blocksize * used_dev.heads * used_dev.sectors,
+			   blocksize * used_dev.heads * used_dev.sectors,
+			   blocksize);
+	Fs.Buffer = 0;
 
 	boot->nfat = Fs.num_fat = 2;
-	set_word(boot->jump + 510, 0xaa55);
+	if(!keepBoot)
+		set_word(boot->jump + 510, 0xaa55);
 	
 	/* get the parameters */
 	tot_sectors = used_dev.tracks * used_dev.heads * used_dev.sectors - 
@@ -735,7 +898,7 @@ void mformat(int argc, char **argv, int dummy)
 	if(dev->fat_bits == 32) {
 		Fs.primaryFat = 0;
 		Fs.writeAllFats = 1;
-		Fs.fat_start = 3;
+		Fs.fat_start = 32;
 		calc_fs_parameters_32(tot_sectors, &Fs, boot);
 
 		Fs.clus_start = Fs.num_fat * Fs.fat_len + Fs.fat_start;
@@ -750,21 +913,26 @@ void mformat(int argc, char **argv, int dummy)
 		set_dword(boot->ext.fat32.rootCluster, Fs.rootCluster = 2);
 
 		/* info sector */
-		set_word(boot->ext.fat32.infoSector, Fs.infoSectorLoc = 2);
+		set_word(boot->ext.fat32.infoSector, Fs.infoSectorLoc = 1);
+		Fs.infoSectorLoc = 1;
 
 		/* no backup boot sector */
-		set_word(boot->ext.fat32.backupBoot, 1);
+		set_word(boot->ext.fat32.backupBoot, 6);
 	} else {
+		Fs.infoSectorLoc = 0;
 		Fs.fat_start = 1;
 		calc_fs_parameters(&used_dev, tot_sectors, &Fs, boot);
-		boot->ext.old.physdrive = 0x00;
+		if (!keepBoot)
+			/* only zero out physdrive if we don't have a template
+			 * bootsector */
+			boot->ext.old.physdrive = 0x00;
 		boot->ext.old.reserved = 0;
 		boot->ext.old.dos4 = 0x29;
 		Fs.dir_start = Fs.num_fat * Fs.fat_len + Fs.fat_start;
 		Fs.clus_start = Fs.dir_start + Fs.dir_len;
 
 		if (!serial_set || Atari)
-			srandom(time (0));
+			srandom((long)time (0));
 		if (!serial_set)
 			serial=random();
 		set_dword(boot->ext.old.serial, serial);	
@@ -773,7 +941,8 @@ void mformat(int argc, char **argv, int dummy)
 		else
 			label_name(label, 0, &mangled, shortlabel);
 		strncpy(boot->ext.old.label, shortlabel, 11);
-		sprintf(boot->ext.old.fat_type, "FAT%2.2d   ", Fs.fat_bits);
+		sprintf(boot->ext.old.fat_type, "FAT%2.2d  ", Fs.fat_bits);
+		boot->ext.old.fat_type[7] = ' ';
 	}
 
 	set_word(boot->secsiz, Fs.sector_size);
@@ -781,7 +950,7 @@ void mformat(int argc, char **argv, int dummy)
 	set_word(boot->nrsvsect, Fs.fat_start);
 
 	init_geometry_boot(boot, &used_dev, sectors0, rate_0, rate_any,
-			   &tot_sectors);
+			   &tot_sectors, keepBoot);
 	if(Atari) {
 		boot->banner[4] = 0;
 		boot->banner[5] = random();
@@ -791,46 +960,39 @@ void mformat(int argc, char **argv, int dummy)
 
 	if (create) {
 		WRITES(Fs.Direct, (char *) buf,
-		       Fs.sector_size * (tot_sectors-1),
+		       sectorsToBytes((Stream_t*)&Fs, tot_sectors-1),
 		       Fs.sector_size);
 	}
 
-	inst_boot_prg(boot);
+	if(!keepBoot)
+		inst_boot_prg(boot);
 	if(dev->use_2m & 0x7f)
 		Fs.num_fat = 1;
+	Fs.lastFatSectorNr = 0;
+	Fs.lastFatSectorData = 0;
 	zero_fat(&Fs, boot->descr);
-	if(Fs.fat_bits == 32) {
-		/* initialize info sector */
-		Fs.infoSector = (InfoSector_t *) safe_malloc(Fs.sector_size);
-		set_dword(Fs.infoSector->signature, INFOSECT_SIGNATURE);
-		set_dword(Fs.infoSector->count, Fs.num_clus);
-		set_dword(Fs.infoSector->pos, 2);
-
-		/* this will trigger writing it */
-		Fs.fat_dirty = 1;
-
-		/* root directory: allocate one sector */
-		Fs.fat_encode(&Fs, Fs.rootCluster, Fs.end_fat);
-	} else
-		Fs.infoSector = 0;
+	Fs.freeSpace = Fs.num_clus;
+	Fs.last = 2;
 
 #ifdef USE_XDF
 	if(format_xdf)
 		for(i=0; 
 		    i < (info.BadSectors+Fs.cluster_size-1)/Fs.cluster_size; 
 		    i++)
-			Fs.fat_encode(&Fs, i+2, 0xfff7);
+			fatEncode(&Fs, i+2, 0xfff7);
 #endif
 
 	format_root(&Fs, label, boot);
-	WRITES((Stream_t *)&Fs, (char *) boot, 0, Fs.sector_size);
+	WRITES((Stream_t *)&Fs, (char *) boot, (mt_off_t) 0, Fs.sector_size);
 	if(Fs.fat_bits == 32 && WORD(ext.fat32.backupBoot) != MAX32) {
 		WRITES((Stream_t *)&Fs, (char *) boot, 
-		       WORD(ext.fat32.backupBoot) * Fs.sector_size,
+		       sectorsToBytes((Stream_t*)&Fs, WORD(ext.fat32.backupBoot)),
 		       Fs.sector_size);
 	}
 	FLUSH((Stream_t *)&Fs); /* flushes Fs. 
 				 * This triggers the writing of the FAT */
+	FREE(&Fs.Next);
+	Fs.Class->freeFunc((Stream_t *)&Fs);
 #ifdef USE_XDF
 	if(format_xdf && isatty(0) && !getenv("MTOOLS_USE_XDF"))
 		fprintf(stderr,

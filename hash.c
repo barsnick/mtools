@@ -9,9 +9,10 @@
 struct hashtable {
   T_HashFunc f1,f2;
   T_ComparFunc compar;
-  int size,fill; 
-  int max;
-  int needrehash;
+  int size;  /* actual size of the array */
+  int fill;  /* number of deleted or in use slots */
+  int inuse; /* number of slots in use */
+  int max;   /* maximal number of elements to keep efficient */
   T_HashTableEl *entries;
 };
 
@@ -27,8 +28,12 @@ static int alloc_ht(T_HashTable *H, int size)
   int i;
 
   for(i=0; sizes[i]; i++)
-    if (sizes[i] > size*2 )
+    if (sizes[i] > size*4 )
       break;
+  if (!sizes[i])
+    for(i=0; sizes[i]; i++)
+      if (sizes[i] > size*2 )
+	break;
   if (!sizes[i])
     for(i=0; sizes[i]; i++)
       if (sizes[i] > size)
@@ -36,11 +41,12 @@ static int alloc_ht(T_HashTable *H, int size)
   if(!sizes[i])
     return -1;
   size = sizes[i];
+  if(size < H->size)
+	  size = H->size; /* never shrink the table */
   H->max = size * 4 / 5 - 2;
   H->size = size;
   H->fill = 0;
-  H->needrehash = 0;
-  
+  H->inuse = 0;
   H->entries = NewArray(size, T_HashTableEl);
   if (H->entries == NULL)
     return -1; /* out of memory error */
@@ -61,7 +67,7 @@ int make_ht(T_HashFunc f1, T_HashFunc f2, T_ComparFunc c, int size,
   (*H)->f1 = f1;
   (*H)->f2 = f2;
   (*H)->compar = c;
-
+  (*H)->size = 0;
   if(alloc_ht(*H,size))
     return -1;
   return 0;
@@ -81,20 +87,27 @@ int free_ht(T_HashTable *H, T_HashFunc entry_free)
 }
 
 /* add into hash table without checking for repeats */
-static int _hash_add(T_HashTable *H,T_HashTableEl *E)
+static int _hash_add(T_HashTable *H,T_HashTableEl *E, int *hint)
 {
-  int f2, pos;
+  int f2, pos, ctr;
 
   pos = H->f1(E) % H->size;
   f2 = -1;
+  ctr = 0;
   while(H->entries[pos] != &unallocated &&
 	H->entries[pos] != &deleted){
     if (f2 == -1)
       f2 = H->f2(E) % (H->size - 1);
     pos = (pos+f2+1) % H->size;
+    ctr++;
   }
+  if(H->entries[pos] == &unallocated)
+     H->fill++; /* only increase fill if the previous element was not yet
+		 * counted, i.e. unallocated */
+  H->inuse++;
   H->entries[pos] = E;
-  H->fill++;
+  if(hint)
+	  *hint = pos;
   return 0;
 }
 
@@ -106,30 +119,30 @@ static int rehash(T_HashTable *H)
   
   size = H->size;
   oldentries = H->entries;
-  if(alloc_ht(H,H->fill+1))
-    return -1;
+  if(alloc_ht(H,((H->inuse+1)*4+H->fill)/5))
+	  return -1;
 
   for(i=0; i < size; i++){
     if(oldentries[i] != &unallocated && oldentries[i] != &deleted)
-      _hash_add(H, oldentries[i]);
+      _hash_add(H, oldentries[i], 0);
   }
   Free(oldentries);
   return 0;
 }
 
-int hash_add(T_HashTable *H, T_HashTableEl *E)
+int hash_add(T_HashTable *H, T_HashTableEl *E, int *hint)
 {
-  if (H->fill >= H->max || H->needrehash)
+  if (H->fill >= H->max)
     rehash(H);
   if (H->fill == H->size)
     return -1; /*out of memory error */
-  return _hash_add(H,E);
+  return _hash_add(H,E, hint);
 }
 
 
 /* add into hash table without checking for repeats */
-int hash_lookup(T_HashTable *H,T_HashTableEl *E, T_HashTableEl **E2,
-		int *hint)
+static int _hash_lookup(T_HashTable *H,T_HashTableEl *E, T_HashTableEl **E2,
+			int *hint, int isIdentity)
 {
   int f2, pos, upos, ttl;
 
@@ -140,7 +153,8 @@ int hash_lookup(T_HashTable *H,T_HashTableEl *E, T_HashTableEl **E2,
   while(ttl &&
 	H->entries[pos] != &unallocated &&
 	(H->entries[pos] == &deleted ||
-	 H->compar(H->entries[pos], E) != 0)){
+	 ((isIdentity || H->compar(H->entries[pos], E) != 0) &&
+	  (!isIdentity || H->entries[pos] != E)))){
     if (f2 == -1)
       f2 = H->f2(E) % (H->size - 1);
     if (upos == -1 && H->entries[pos] == &deleted)
@@ -148,7 +162,7 @@ int hash_lookup(T_HashTable *H,T_HashTableEl *E, T_HashTableEl **E2,
     pos = (pos+f2+1) % H->size;
     ttl--;
   }
-  if(H->entries[pos] == &unallocated || H->entries[pos] == &deleted)
+  if(H->entries[pos] == &unallocated || !ttl)
     return -1;
   if (upos != -1){
     H->entries[upos] = H->entries[pos];
@@ -161,22 +175,31 @@ int hash_lookup(T_HashTable *H,T_HashTableEl *E, T_HashTableEl **E2,
   return 0;
 }
 
+
+int hash_lookup(T_HashTable *H,T_HashTableEl *E, T_HashTableEl **E2,
+		int *hint)
+{
+	return _hash_lookup(H, E, E2, hint, 0);
+}
+
 /* add into hash table without checking for repeats */
 int hash_remove(T_HashTable *H,T_HashTableEl *E, int hint)
 {
   T_HashTableEl *E2;
 
   if (hint >=0 && hint < H->size &&
-      H->entries[hint] != &unallocated && H->entries[hint] != &deleted &&
-      H->compar(H->entries[hint], E)){
-    H->fill--;
+      H->entries[hint] == E){
+    H->inuse--;
     H->entries[hint] = &deleted;
     return 0;
   }
 
-  if(hash_lookup(H, E, &E2, &hint))
-    return -1;
-  H->fill--;
+  if(_hash_lookup(H, E, &E2, &hint, 1)) {
+	  fprintf(stderr, "Removing non-existent entry\n");
+	  exit(1);
+	  return -1;
+  }
+  H->inuse--;
   H->entries[hint] = &deleted;
   return 0;
 }

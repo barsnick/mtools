@@ -12,44 +12,111 @@ typedef struct Arg_t {
 	char add;
 	unsigned char remove;
 	struct MainParam_t mp;
+	int recursive;
+	int doPrintName;
 } Arg_t;
 
-static int attrib_file(Stream_t *Dir, MainParam_t *mp, int entry)
+int concise;
+
+static int attrib_file(direntry_t *entry, MainParam_t *mp)
 {
 	Arg_t *arg=(Arg_t *) mp->arg;
 
-	mp->dir.attr = (mp->dir.attr & arg->remove) | arg->add;
-	dir_write(Dir,entry,& mp->dir);
+	if(entry->entry != -3) {
+		/* if not root directory, change it */
+		entry->dir.attr = (entry->dir.attr & arg->remove) | arg->add;
+		dir_write(entry);
+	}
+	return GOT_ONE;
+}
+
+static int replay_attrib(direntry_t *entry, MainParam_t *mp)
+{
+	if ( (IS_ARCHIVE(entry) && IS_DIR(entry)) ||
+		 (!IS_ARCHIVE(entry) && !IS_DIR(entry)) ||
+		 IS_SYSTEM(entry) || IS_HIDDEN(entry)) {
+
+		printf("mattrib ");
+
+		if (IS_ARCHIVE(entry) && IS_DIR(entry)) {
+			printf("+a ");
+		}
+
+		if (!IS_ARCHIVE(entry) && !IS_DIR(entry)) {
+			printf("-a ");
+		}
+
+		if (IS_SYSTEM(entry)) {
+			printf("+s ");
+		}
+
+		if (IS_HIDDEN(entry)) {
+			printf("+h ");
+		}
+
+		fprintPwd(stdout, entry);
+		printf("\n");
+	}
 	return GOT_ONE;
 }
 
 
-static int view_attrib(Stream_t *Dir, MainParam_t *mp, int entry)
+
+static int view_attrib(direntry_t *entry, MainParam_t *mp)
 {
 	printf("  ");
-	if(mp->dir.attr & 0x20)
+	if(IS_ARCHIVE(entry))
 		putchar('A');
 	else
 		putchar(' ');
 	fputs("  ",stdout);
-	if(mp->dir.attr & 0x4)
+	if(IS_SYSTEM(entry))
 		putchar('S');
 	else
 		putchar(' ');
-	if(mp->dir.attr & 0x2)
+	if(IS_HIDDEN(entry))
 		putchar('H');
 	else
 		putchar(' ');
-	if(mp->dir.attr & 0x1)
+	if(IS_READONLY(entry))
 		putchar('R');
 	else
 		putchar(' ');
-	printf("     %c:%s", mp->drivename, mp->pathname);
-	if(strlen(mp->pathname) != 1 )
-		putchar('/');	
-	puts(mp->outname);
+	printf("     ");
+	fprintPwd(stdout, entry);
+	printf("\n");
 	return GOT_ONE;
 }
+
+
+static int concise_view_attrib(direntry_t *entry, MainParam_t *mp)
+{
+	Arg_t *arg=(Arg_t *) mp->arg;
+
+	if(IS_ARCHIVE(entry))
+		putchar('A');
+	if(IS_DIR(entry))
+		putchar('D');	
+	if(IS_SYSTEM(entry))
+		putchar('S');
+	if(IS_HIDDEN(entry))
+		putchar('H');
+	if(IS_READONLY(entry))
+		putchar('R');
+	if(arg->doPrintName) {
+		putchar(' ');
+		fprintPwd(stdout, entry);
+	}
+	putchar('\n');
+	return GOT_ONE;
+}
+
+static int recursive_attrib(direntry_t *entry, MainParam_t *mp)
+{
+	mp->callback(entry, mp);
+	return mp->loop(mp->File, mp, "*");
+}
+
 
 static void usage(void) NORETURN;
 static void usage(void)
@@ -66,13 +133,13 @@ static int letterToCode(int letter)
 {
 	switch (toupper(letter)) {
 		case 'A':
-			return 0x20;
+			return ATTR_ARCHIVE;
 		case 'H':
-			return 0x2;
+			return ATTR_HIDDEN;
 		case 'R':
-			return 0x1;
+			return ATTR_READONLY;
 		case 'S':
-			return 0x4;
+			return ATTR_SYSTEM;
 		default:
 			usage();
 	}
@@ -84,18 +151,31 @@ void mattrib(int argc, char **argv, int type)
 	Arg_t arg;
 	int view;
 	int c;
-	char filename[VBUFSIZE];
-	char pathname[MAX_PATH];
+	int concise;
+	int replay;
 	char *ptr;
 
 	arg.add = 0;
 	arg.remove = 0xff;
+	arg.recursive = 0;
+	arg.doPrintName = 1;
 	view = 0;
-
-	while ((c = getopt(argc, argv, "ahrsAHRS")) != EOF) {
+	concise = 0;
+	replay = 0;
+	
+	while ((c = getopt(argc, argv, "/ahrsAHRSXp")) != EOF) {
 		switch (c) {
 			default:
 				arg.remove &= ~letterToCode(c);
+				break;
+			case 'p':
+				replay = 1;
+				break;
+			case '/':
+				arg.recursive = 1;
+				break;
+			case 'X':
+				concise = 1;
 				break;
 			case '?':
 				usage();
@@ -124,16 +204,27 @@ void mattrib(int argc, char **argv, int type)
 
 	init_mp(&arg.mp);
 	if(view){
-		arg.mp.callback = view_attrib;
+		if(concise) {
+			arg.mp.callback = concise_view_attrib;
+			arg.doPrintName = (argc - optind > 1 ||
+					   arg.recursive ||
+					   strpbrk(argv[optind], "*[?") != 0);
+		} else if (replay) {
+			arg.mp.callback = replay_attrib;
+		} else
+			arg.mp.callback = view_attrib;
 		arg.mp.openflags = O_RDONLY;
 	} else {
 		arg.mp.callback = attrib_file;
 		arg.mp.openflags = O_RDWR;
 	}
 
-	arg.mp.outname = filename;
+	if(arg.recursive)
+		arg.mp.dirCallback = recursive_attrib;
+
 	arg.mp.arg = (void *) &arg;
 	arg.mp.lookupflags = ACCEPT_PLAIN | ACCEPT_DIR;
-	arg.mp.pathname = pathname;
+	if(arg.recursive)
+		arg.mp.lookupflags |= DO_OPEN_DIRS | NO_DOTS;
 	exit(main_loop(&arg.mp, argv + optind, argc - optind));
 }

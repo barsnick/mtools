@@ -21,19 +21,19 @@
 #define DELMARK ((char) 0xe5)
 
 struct directory {
-	char name[8];			/* file name */
-	char ext[3];			/* file extension */
-	unsigned char attr;		/* attribute byte */
-	unsigned char Case;		/* case of short filename */
-	unsigned char ctime_ms;		/* creation time, milliseconds (?) */
-	unsigned char ctime[2];		/* creation time */
-	unsigned char cdate[2];		/* creation date */
-	unsigned char adate[2];		/* last access date */
-	unsigned char startHi[2];	/* start cluster, Hi */
-	unsigned char time[2];		/* time stamp */
-	unsigned char date[2];		/* date stamp */
-	unsigned char start[2];		/* starting cluster number */
-	unsigned char size[4];		/* size of the file */
+	char name[8];			/*  0 file name */
+	char ext[3];			/*  8 file extension */
+	unsigned char attr;		/* 11 attribute byte */
+	unsigned char Case;		/* 12 case of short filename */
+	unsigned char ctime_ms;		/* 13 creation time, milliseconds (?) */
+	unsigned char ctime[2];		/* 14 creation time */
+	unsigned char cdate[2];		/* 16 creation date */
+	unsigned char adate[2];		/* 18 last access date */
+	unsigned char startHi[2];	/* 20 start cluster, Hi */
+	unsigned char time[2];		/* 22 time stamp */
+	unsigned char date[2];		/* 24 date stamp */
+	unsigned char start[2];		/* 26 starting cluster number */
+	unsigned char size[4];		/* 28 size of the file */
 };
 
 #define EXTCASE 0x10
@@ -67,9 +67,9 @@ UNUSED(static inline void set_word(unsigned char *data, unsigned short value))
 /*
  *	    hi byte     |    low byte
  *	|7|6|5|4|3|2|1|0|7|6|5|4|3|2|1|0|
- *      | | | | | | | | | | | | | | | | |
- *      \   7 bits    /\4 bits/\ 5 bits /
- *         year +80      month     day
+ *  | | | | | | | | | | | | | | | | |
+ *  \   7 bits    /\4 bits/\ 5 bits /
+ *     year +80     month     day
  */
 #define	DOS_YEAR(dir) (((dir)->date[1] >> 1) + 1980)
 #define	DOS_MONTH(dir) (((((dir)->date[1]&0x1) << 3) + ((dir)->date[0] >> 5)))
@@ -88,11 +88,14 @@ UNUSED(static inline void set_word(unsigned char *data, unsigned short value))
 
 
 typedef struct InfoSector_t {
+	unsigned char signature0[4];
+	unsigned char filler[0x1e0];
 	unsigned char signature[4];
 	unsigned char count[4];
 	unsigned char pos[4];
 } InfoSector_t;
 
+#define INFOSECT_SIGNATURE0 0x41615252
 #define INFOSECT_SIGNATURE 0x61417272
 
 
@@ -127,7 +130,7 @@ typedef struct oldboot_t {
 	unsigned char InfTm[2];		/* 74 T3: track sectors size table */
 	unsigned char DateF[2];		/* 76 Format date */
 	unsigned char TimeF[2];		/* 78 Format time */
-	unsigned char junk[512 - 80];	/* 80 remaining data */
+	unsigned char junk[1024 - 80];	/* 80 remaining data */
 } oldboot_t;
 
 struct bootsector {
@@ -173,48 +176,52 @@ extern struct OldDos_t {
 #define FAT12 4085 /* max. number of clusters described by a 12 bit FAT */
 #define FAT16 65525
 
-#define NEEDED_FAT_SIZE(x) ((((x)->num_clus+2) * ((x)->fat_bits/4) -1 )/ 2 / (x)->sector_size + 1)
+#define ATTR_ARCHIVE 0x20
+#define ATTR_DIR 0x10
+#define ATTR_LABEL 0x8
+#define ATTR_SYSTEM 0x4
+#define ATTR_HIDDEN 0x2
+#define ATTR_READONLY 0x1
 
-#define MAX_FAT12_FATLEN(sec_siz) (2*((FAT12+2)*3+(2*sec_siz)-1)/(sec_siz)/2)
-#define MAX_FAT16_FATLEN(sec_siz) (2*((FAT16+2)*2+(sec_siz)-1)/(sec_siz))
-/* The maximal fat length (both fats) for a given drive is the number
- * of slots times the size of one slot divided by the size of a sector */
+#define HAS_BIT(entry,x) ((entry)->dir.attr & (x))
 
-#define MAX_FAT12_SIZE(sec_siz) (64 * FAT12 + MAX_FAT12_FATLEN(sec_siz) + 2)
-#define MAX_FAT16_SIZE(sec_siz) (64 * FAT16 + MAX_FAT16_FATLEN(sec_siz) + 2)
-/* the maximal size of a drive for a given fat size is FATn clusters
- * of max 64* sectors each, plus the two fats plus a boot sector and
- * at least one dir sector.  This doesn't give an absolute maximum,
- * but a very close approximation.
- * Experimentally, it turns out that DOS only wants powers of two, and 
- * less than 128 (else it gets a divide overflow) */
+#define IS_ARCHIVE(entry) (HAS_BIT((entry),ATTR_ARCHIVE))
+#define IS_DIR(entry) (HAS_BIT((entry),ATTR_DIR))
+#define IS_LABEL(entry) (HAS_BIT((entry),ATTR_LABEL))
+#define IS_SYSTEM(entry) (HAS_BIT((entry),ATTR_SYSTEM))
+#define IS_HIDDEN(entry) (HAS_BIT((entry),ATTR_HIDDEN))
+#define IS_READONLY(entry) (HAS_BIT((entry),ATTR_READONLY))
 
 
-#define MIN_FAT16_SIZE(sec_siz) (FAT12+MAX_FAT12_FATLEN(sec_siz)+2)
-/* minimal size for which a 16 bit FAT makes sense.  With less
- * sectors, the drive could be set up as a FAT12 drive with 1 sector
- * clusters. 16 bit would only be a waste of space */
+#define MAX_SECT_PER_CLUSTER 64
+/* Experimentally, it turns out that DOS only accepts cluster sizes
+ * which are powers of two, and less than 128 sectors (else it gets a
+ * divide overflow) */
+
+
+#define FAT_SIZE(bits, sec_siz, clusters) \
+	((((clusters)+2) * ((bits)/4) - 1) / 2 / (sec_siz) + 1)
+
+#define NEEDED_FAT_SIZE(x) FAT_SIZE((x)->fat_bits, (x)->sector_size, \
+				    (x)->num_clus)
+
+/* disk size taken by FAT and clusters */
+#define DISK_SIZE(bits, sec_siz, clusters, n, cluster_size) \
+	((n) * FAT_SIZE(bits, sec_siz, clusters) + \
+	 (clusters) * (cluster_size))
+
+#define TOTAL_DISK_SIZE(bits, sec_siz, clusters, n, cluster_size) \
+	(DISK_SIZE(bits, sec_siz, clusters, n, cluster_size) + 2)
+/* approx. total disk size: assume 1 boot sector and one directory sector */
 
 extern const char *mversion;
 extern const char *mdate;
 
-/*
- * Function Prototypes */
+extern char *Version;
+extern char *Date;
 
-int ask_confirmation(const char *, const char *, const char *);
-char *get_homedir(void);
-#define EXPAND_BUF 2048
-const char *expand(const char *, char *);
-const char *fix_mcwd(char *);
-FILE *open_mcwd(const char *mode);
-
-char *get_name(const char *, char *, char *mcwd);
-char *get_path(const char *, char *, char *mcwd, int mode);
-char get_drive(const char *, char);
 
 int init(char drive, int mode);
-
-
 
 #define MT_READ 1
 #define MT_WRITE 2

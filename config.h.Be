@@ -15,10 +15,8 @@
 #define HAVE_MEMCPY
 #define HAVE_MEMSET
 #define HAVE_STRERROR
-/* BeOS strncasecmp() is broken, so we have to
-   use the one in missing_functions.c
-*/
-#undef HAVE_STRCASECMP
+#define HAVE_STRNCASECMP
+#define HAVE_STRCASECMP
 #undef HAVE_GETPASS
 #define HAVE_STDLIB_H
 #define HAVE_STRCHR
@@ -37,3 +35,4 @@
 #define INIT_NOOP
 #include <signal.h>
 #define SYSCONFDIR "/boot/system"
+#define USE_RAWTERM

@@ -1,3 +1,183 @@
+993006  Released 3.9.6 with the following fixes:
+	- Typoes in xdf_io.c
+	- Make Xdf work in nodma mode
+	- Fix for mformatting MSS disks
+992806	1st attempt to release 3.9.6 with mostly minor fixes:
+	- platform compatibility
+	- automatic installation of info files
+	- mdir's -X flag no longer implies "recursive"
+991904	3.9.5 released with mostly minor fixes:
+	- Starting cluster numbers of "." directory entry
+	- Copying of empty Files from Dos to Unix
+	- Misc platform compatibility issues
+991503	Another embarrassing bug found, 3.9.4 released. When will this
+	nightmare stop?
+991403	Mtools 3.9.3 released
+991403	Open BSD SCSI fixes & added GLIBC linux/unistd.h for llseek. These
+	Glibc problems are potentially dangerous, and can lead to data loss.
+991403	Mtools 3.9.2 released
+991003	Fixed typo in plain_io.c
+990703	More rigor about signed vs unsigned issue.  FreeBSD Scsi support
+992302	Allow for 2GB Jaz drives
+991802	Rewrote floppyd in C instead of C++
+990802	More buffer fix
+991201	Buffer fix
+991101	"Big disk" fixes
+990401	OS/2 patch
+981112	Make sure that fat_type doesn't overwrite byte 62 with zero =>
+	disk unbootable
+980412	Added support for "replay" listing of mattrib.  Cleaned up version
+	number and date handling (date was not always accurate...)
+980412	Added geometry autodetection code for Linux harddisks to
+	mpartition and mformat.  Removed misleading references to
+	"non-removable media"
+980312	Added boot sector template option for mpartition.  Fixed mtools.1
+	man page. Mattrib -s e:/ fix
+983110	Man pages bug fixes
+982910	Fixed HP SCSI "big write" bug	
+980107	Fixed debug mode in vfat.c
+982906	A few minor floppy related fixes (installation, and replacement
+	for setenv function, which is absent from some platforms)	
+982305	Added floppyd (remote access to floppy disks)
+982205	Updated mkmanpages script to dynamically get date and mtools
+	version.  Correct "removable media" error message to talk about
+	/etc/mtools.conf instead of /etc/mtools.  Do init_geom to read
+	geometry if no geometry is set.
+981405	Mtools 3.9.1 released
+980305	Mformats makes disks which are readable both as partitioned and as
+	plain
+980504	Corrected Tim Hoogasian's e-mail address
+980404	OS/2 additions
+983103	"Dirty end too big" mformat bug corrected
+983003	Corrected typoes for IRIX devices, use macros for attribute types, 
+	fix 0 length file bug.
+982703	Loop detection code
+	Bigger array for SCSI command
+982303	GLIBC portability
+982203	OS/2 portabilty, GLIBC portability
+982003	Fixes related to Solaris new vold support
+981703	Fixed a few BSD typoes, and renamed ALLCFLAGS in the Makefile to
+	CFLAGS for those makes that don't support implicit rules well enough
+981003	Mtools 3.9 released
+980803	Various Bugfixes (overwrite mode and directory cache)
+980103	Added mformat_only flag.
+983001	Fixed non-batchmode mcopy bug.  Fixed shortname case bug
+983001	Minfo and mformat boot program bug fixes
+982001	Allow default block sizes per device which are not equal to 512
+980801	Allow and interpret back quotes in file names
+980101	Misc bugfixes
+973112	Scandir optimizations.  Fixed nasty Heisenbug in hash.c.
+972912	Fixed integer width problem in fat.c, and minor bugs in hashtable.
+972212	More performance optization.  Buffer handl
+	ing redone.  New
+	"asynchronous mode".
+971612	Fixed mtype and mcheck.  Started cleaning up out-of-memory handling
+971512	Jacked up performance, and corrected signal handling bugs.  Also
+	corrected various "Disk full bugs"
+971212	Fixed "Bad address" errors which occured when running mdu on empty 
+	files.  When copying recursively, do not barf if a directory
+	already exist at the target.  Mcopy operates silently by default.
+971212	removed mwrite. Obsoleted long ago by mcopy
+971112	fixed mdir -X, added mattrib -X; document both.  Fix doc for name
+	clash handling
+971012	fixed polarity of sys_errlist. Renamed some include files which
+	bore the same name as system include files.  Fixed another
+	memory leak in dir_grow. A/UX termio workaround.
+970912	fixed filedescriptor leak. Make mbadblocks stoppable. Doc
+ 	fixes.  Fixed one memory leak, another one further down the road
+ 	remains... Fixed error handling in createDirectory.
+970812	bugfixes: mbadblocks, fat, unix quit, null pointers in mcopy...
+970512	Renamed it to pre3-3.9 due to mixup when shipping the pre2-3.9
+	version. No actual code change apart from patchlevel.h
+970412	Pre2-3.9. Added mpartion manpage.  Added misc.o dependency to
+	mkmanifest.  Fixed mpartition bug with partitions with more
+	than 1023 cylinders
+972911	Pre-3.9.  Redid the mainloop logic, and got rid of lots of cruft
+	in subdir.c and parse.c.  It is now possible to put wildcards in
+	the directory part of the filename.  Design also became simpler,
+	making it easyer to maintain this part in the future.
+	Added a -u flag to mzip to temporarily unprotect a disk
+	Added a test to mzip to prevent manipulation of mounted disks
+	Added support for partitioned devices in mmount
+971611	Added mdu and recursive mdir
+971211	Fixed bugs in recursive copy stuff, added recursive mattrib, and
+	fixed a few buffer overrun bugs
+971011	Added recursive copy and attribute conservation flags to mtools	
+972910	Fix parse.c typo
+971310	Include Sys5 directories on SunOs in order to have a correct
+	timestamp
+	Detect Lilo disks
+970610	Correct vold typo
+970210	Use 8 sector clusters for 32-bit FATs: this is what Micro$oft user
+972308	Corrected gross bug in fat12_decode
+972308	Simplified fat bits handlings
+972008	Raw Scsi_io for SGI
+971308	Buffer.c and FAT bugfixes
+971308	More FAT32 fixes.  New mshowfat command.
+971308	Fix FAT32 problem (FAT32 does not use the high nibble)
+971208	Detect presence of sys_errlist using autoconf instead of
+	making its usage dependent on BSD.
+	Fixed make texclean.
+	Guard against corrupted "next free block" pointer in a FAT32
+	InfoBlock
+971507	Use root priviliges during scsi_init
+971407	Fixed close-on-exec bug.
+971407	Fixed #include in HP_UX. Sys/floppy.h is not known on all flavors
+	of HP_UX
+971307	Fixed Makefile so that make -j works without errors.  Fixed
+	upper/lower bug in mmount
+970807	Released 3.8
+972906	Add option to mformat to keep boot sector, or to read it from
+	a file.  Added various flags to customize directory listing
+	appearance and long name behavior
+972906	Fix bug in yesterdays fix.  Also make sure to resize hash
+	table if too many deleted entries accumulate.
+972806	Fixed yet another hash table bug
+971906	Yet another HPUX fix.
+971906	Fixed a segfault in mpartition
+971706	Removed a few Stallmanisms in config.guess
+971206	3.7 released
+971106	Corrected a few errors in new vold code
+971006	Removed extra &'s from string addresses.
+	Added listing of current configuration to mtools -V
+	Updated version number and date in mkmanpages
+970406	New Bebox patch.  Removes almost all BEBOX specifities because
+	they are no longer needed with the new DR9 release.
+	Small fix for size detection of SCSI disks.
+972405	Fixed small typo in new vold code
+972405	Added partition consistency checks for accessing device.
+972305	New version of Solaris vold code
+971605	Solaris floppy geometry.  Support for older MO disks (size
+	returned in non-standard location)
+	Corrected ftp address for fdutils
+970405	Updated README.BEBOX
+970405	Brought Makefile.Be and config.h.Be up to date with the recent
+	changes
+970405	Add Ultrix to the list of OS'es which do not define their
+	prototypes
+	Small Makefile fix
+970305	Various "Next proofintg".
+		* add VENDOR_, CPU_ and OS_ before machine type tags
+		detected by autoconf. Next tends to be a frequently
+		used variable
+		* use utimes preferably before utime
+		* try to include _all_ termios functions.
+		* more precise detection of available termios functions
+970105	Added knowledge of Zip Tools Disk password to mzip.
+972904	Went back to using ALLCFLAGS in Makefile for those people who
+	want to override CFLAGS
+972604	Added note about Alpha site to doc.
+972304	Prefer termios.h on Ultrix
+972204	Renamed missing_functions to missFuncs in order to accomodate
+	operating systems with file name size limits.
+972004	Autoextend size for images that are too small.  Moved BSD
+	dependant #ifdef's after the inclusion of sys/param.h, as it
+	is there where BSD is defined (sigh!)
+971904	Insist on the fact that mzip's -f flag only makes sense if
+	given in addition to -e
+971904	Corrected typo in doc.
+971704	Removed read and write prototypes, they conflict on an Alpha!
+971404	More HP/UX fixes.
 971404	3.6 released
 971404	Do not stat any files in /dev/ on BEOS. Remove spurious system
 	include files from non-sysincludes.h file

@@ -1,7 +1,6 @@
 #include "sysincludes.h"
 #include "msdos.h"
 #include "mtools.h"
-#include "patchlevel.h"
 
 /*#define PRIV_DEBUG*/
 
@@ -25,7 +24,11 @@ static inline void print_privs(const char *message)
 #endif
 }
 
-static int rgid, egid, ruid, euid;
+int noPrivileges=0;
+
+
+static gid_t rgid, egid;
+static uid_t ruid, euid;
 
 /* privilege management routines for SunOS and Solaris.  These are
  * needed in order to issue raw SCSI read/write ioctls.  Mtools drops
@@ -44,7 +47,7 @@ static int rgid, egid, ruid, euid;
  */
 
 
-static inline void Setuid(int uid)
+static inline void Setuid(uid_t uid)
 {
 #if defined HAVE_SETEUID || defined HAVE_SETRESUID
 	if(euid == 0) {
@@ -63,6 +66,8 @@ static inline void Setuid(int uid)
 
 void reclaim_privs(void)
 {
+	if(noPrivileges)
+		return;
 	setgid(egid);
 	Setuid(euid);
 	print_privs("after reclaim privs, both uids should be 0 ");
@@ -103,6 +108,11 @@ void destroy_privs(void)
 }
 
 
+uid_t get_real_uid(void)
+{
+	return ruid;
+}
+
 void init_privs(void)
 {
 	euid = geteuid();
@@ -110,14 +120,14 @@ void init_privs(void)
 	egid = getegid();
 	rgid = getgid();
 
-#ifndef FD_CLOEXEC
-	if(euid != euid) {
+#ifndef F_SETFD
+	if(euid != ruid) {
 		fprintf(stderr,
 			"Setuid installation not supported on this platform\n");
 		fprintf(stderr,
-			"Missing FD_CLOEXEC");
+			"Missing F_SETFD");
+		exit(1);
 	}
-	exit(1);
 #endif
 	
 	if(euid == 0 && ruid != 0) {
@@ -150,7 +160,7 @@ void init_privs(void)
 
 void closeExec(int fd)
 {
-#ifdef FD_CLOEXEC
-	fcntl(fd, F_SETFL, FD_CLOEXEC);
+#ifdef F_SETFD
+	fcntl(fd, F_SETFD, 1);
 #endif
 }

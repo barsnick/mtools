@@ -1,12 +1,9 @@
 #include "sysincludes.h"
 #include "msdos.h"
 #include "mtools.h"
-#include "patchlevel.h"
 #include "partition.h"
 #include "vfat.h"
 
-const char *mversion = VERSION;
-const char *mdate = DATE;
 const char *progname;
 
 static const struct dispatch {
@@ -16,11 +13,14 @@ static const struct dispatch {
 } dispatch[] = {
 	{"mattrib",mattrib, 0},
 	{"mbadblocks",mbadblocks, 0},
+	{"mcat",mcat, 0},
 	{"mcd",mcd, 0},
 	{"mcopy",mcopy, 0},
 	{"mdel",mdel, 0},
 	{"mdeltree",mdel, 2},
 	{"mdir",mdir, 0},
+	{"mdoctorfat",mdoctorfat, 0},
+	{"mdu",mdu, 0},
 	{"mformat",mformat, 0},
 	{"minfo", minfo, 0},
 	{"mlabel",mlabel, 0},
@@ -31,6 +31,7 @@ static const struct dispatch {
 	{"mread",mcopy, 0},
 	{"mmove",mmove, 0},
 	{"mren",mmove, 1},
+	{"mshowfat", mshowfat, 0},
 	{"mtoolstest", mtoolstest, 0},
 	{"mtype",mcopy, 1},
 	{"mwrite",mcopy, 0},
@@ -38,12 +39,15 @@ static const struct dispatch {
 };
 #define NDISPATCH (sizeof dispatch / sizeof dispatch[0])
 
-void main(int argc,char **argv)
+int main(int argc,char **argv)
 {
-	char *name;
+	const char *name;
 	int i;
 
 	init_privs();
+#ifdef __EMX__
+	_wildcard(&argc,&argv);
+#endif
 
 /*#define PRIV_TEST*/
 
@@ -68,15 +72,15 @@ void main(int argc,char **argv)
 		}
 		sprintf(command, "a.out %d", euid);
 		system(command);
-		exit(1);
+		return 1;
 	}
 #endif
 
-	/* print the version */
-	if(argc >= 2 && strcmp(argv[1], "-V") == 0) {
-		printf("Mtools version %s, dated %s\n", mversion, mdate);
-		exit(0);
-	}
+
+#ifdef __EMX__
+       _wildcard(&argc,&argv);
+#endif 
+
 
 	/* check whether the compiler lays out structures in a sane way */
 	if(sizeof(struct partition) != 16 ||
@@ -84,13 +88,14 @@ void main(int argc,char **argv)
 	   sizeof(struct vfat_subentry) !=32) {
 		fprintf(stderr,"Mtools has not been correctly compiled\n");
 		fprintf(stderr,"Recompile it using a more recent compiler\n");
-		exit(137);
+		return 137;
 	}
 
-	if ((name = strrchr(argv[0],'/')))
-		name++;
-	else
-		name = argv[0];
+#ifdef __EMX__
+       argv[0] = _getname(argv[0]); _remext(argv[0]); name = argv[0];
+#else  
+	name = _basename(argv[0]);
+#endif
 	progname = argv[0];
 
 	/* this allows the different tools to be called as "mtools -c <command>"
@@ -106,8 +111,44 @@ void main(int argc,char **argv)
 		name = argv[0];
 	}
 
-	argv[0] = name;
-	
+
+
+	/* print the version */
+	if(argc >= 2 && 
+	   (strcmp(argv[1], "-V") == 0 || strcmp(argv[1], "--version") ==0)) {
+		printf("%c%s version %s, dated %s\n", 
+		       toupper(name[0]), name+1,
+		       mversion, mdate);
+		printf("configured with the following options: ");
+#ifdef USE_XDF
+		printf("enable-xdf ");
+#else
+		printf("disable-xdf ");
+#endif
+#ifdef USING_VOLD
+		printf("enable-vold ");
+#else
+		printf("disable-vold ");
+#endif
+#ifdef USING_NEW_VOLD
+		printf("enable-new-vold ");
+#else
+		printf("disable-new-vold ");
+#endif
+#ifdef DEBUG
+		printf("enable-debug ");
+#else
+		printf("disable-debug ");
+#endif
+#ifdef USE_RAWTERM
+		printf("enable-raw-term ");
+#else
+		printf("disable-raw-term ");
+#endif
+		printf("\n");
+		return 0;
+	}
+
 	read_config();
 	setup_signal();
 	for (i = 0; i < NDISPATCH; i++) {
@@ -124,5 +165,5 @@ void main(int argc,char **argv)
 	}
 	putc('\n', stderr);
 
-	exit(1);
+	return 1;
 }

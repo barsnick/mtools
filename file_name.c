@@ -27,7 +27,7 @@ typedef enum Case_l {
 	LOWER 
 } Case_t;
 
-static void TranslateToDos(char *s, char *t, int count,
+static void TranslateToDos(const char *s, char *t, int count,
 			   char *end, Case_t *Case, int *mangled)
 {
 	*Case = NONE;
@@ -51,13 +51,13 @@ static void TranslateToDos(char *s, char *t, int count,
 		if ((*s & 0x7f) < ' ' ) {
 			*mangled |= 3;
 			*t = '_';
-		} else if (islower(*s)) {
+		} else if (islower((unsigned char)*s)) {
 			*t = toupper(*s);
 			if(*Case == UPPER && !mtools_no_vfat)
 				*mangled |= 1;
 			else
 				*Case = LOWER;
-		} else if (isupper(*s)) {
+		} else if (isupper((unsigned char)*s)) {
 			*t = *s;
 			if(*Case == LOWER && !mtools_no_vfat)
 				*mangled |= 1;
@@ -91,8 +91,7 @@ char *dos_name(char *name, int verbose, int *mangled, char *ans)
 		name = &name[2];
 
 	/* zap the leading path */
-	if ((s = strrchr(name, '/')))
-		name = s + 1;
+	name = (char *) _basename(name);
 	if ((s = strrchr(name, '\\')))
 		name = s + 1;
 	
@@ -173,23 +172,6 @@ char *unix_name(char *name, char *ext, char Case, char *ans)
 	/* fix special characters (above 0x80) */
 	to_unix(ans,11);
 	return(ans);
-}
-
-
-
-int unicode_read(struct unicode_char *in, char *out, int num)
-{
-	int j;
-
-	for (j=0; j<num; ++j) {
-		if (in->uchar)
-			*out = '_';
-		else
-			*out = in->lchar;
-		++out;
-		++in;
-	}
-	return num;
 }
 
 /* If null encountered, set *end to 0x40 and write nulls rest of way

@@ -1,4 +1,4 @@
-.TH mcopy 1 "21mar97" mtools-3.4
+.TH mcopy 1 "28Jun99" mtools-3.9.6
 .SH Name
 mcopy - copy MSDOS files to/from Unix
 '\" t
@@ -12,63 +12,10 @@ mcopy - copy MSDOS files to/from Unix
 .tr \(if`
 .tr \(pd"
 
-.SH Note
+.SH Note\ of\ warning
 This manpage has been automatically generated from mtools's texinfo
-documentation.  However, this process is only approximative, and some
-items, such as crossreferences, footnotes and indices are lost in this
-translation process.  Indeed, this items have no appropriate
-representation in the manpage format.  Moreover, only the items specific
-to each command have been translated, and the general information about
-mtools has been dropped in the manpage version.  Thus I strongly advise
-you to use the original texinfo doc.
-.TP
-* \ \ 
-To generate a printable copy from the texinfo doc, run the following
-commands:
- 
-.nf
-.ft 3
-.in +0.3i
-    ./configure; make dvi; dvips mtools.dvi
-.fi
-.in -0.3i
-.ft R
-.lp
- 
-\&\fR
-.TP
-* \ \ 
-To generate a html copy,  run:
- 
-.nf
-.ft 3
-.in +0.3i
-    ./configure; make html
-.fi
-.in -0.3i
-.ft R
-.lp
- 
-\&\fRA premade html can be found at:
-\&\fR\&\f(CW\(ifhttp://linux.wauug.org/pub/knaff/mtools\(is\fR
-.TP
-* \ \ 
-To generate an info copy (browsable using emacs' info mode), run:
- 
-.nf
-.ft 3
-.in +0.3i
-    ./configure; make info
-.fi
-.in -0.3i
-.ft R
-.lp
- 
-\&\fR
-.PP
-The texinfo doc looks most pretty when printed or as html.  Indeed, in
-the info version certain examples are difficult to read due to the
-quoting conventions used in info.
+documentation, and may not be entirely accurate or complete.  See the
+end of this man page for details.
 .PP
 .SH Description
 .iX "p mcopy"
@@ -86,8 +33,8 @@ Unix. It uses the following syntax:
 .nf
 .ft 3
 .in +0.3i
-\&\fR\&\f(CWmcopy [\fR\&\f(CW-tnvmoOsSrRA] \fIsourcefile\fR\&\f(CW \fItargetfile\fR\&\f(CW
-\&\fR\&\f(CWmcopy [\fR\&\f(CW-tnvmoOsSrRA] \fIsourcefile\fR\&\f(CW [ \fIsourcefiles\fR\&\f(CW\&... ] \fItargetdirectory\fR\&\f(CW
+\&\fR\&\f(CWmcopy [\fR\&\f(CW-b/ptnvmoQOsSrRA] \fIsourcefile\fR\&\f(CW \fItargetfile\fR\&\f(CW
+\&\fR\&\f(CWmcopy [\fR\&\f(CW-b/ptnvmoQOsSrRA] \fIsourcefile\fR\&\f(CW [ \fIsourcefiles\fR\&\f(CW\&... ] \fItargetdirectory\fR\&\f(CW
 \&\fR\&\f(CWmcopy [\fR\&\f(CW-tnvm] \fIMSDOSsourcefile\fR\&\f(CW
 .fi
 .in -0.3i
@@ -114,6 +61,16 @@ A filename of `\fR\&\f(CW-\fR' means standard input or standard output, dependin
 on its position on the command line.
 .PP
 \&\fR\&\f(CWMcopy\fR accepts the following command line options:
+.TP
+\&\fR\&\f(CWb\fR\ 
+Batch mode. Optimized for huge recursive copies, but less secure if a
+crash happens during the copy.
+.TP
+\&\fR\&\f(CW/\fR\ 
+Recursive copy.  Also copies directories and their contents
+.TP
+\&\fR\&\f(CWp\fR\ 
+Preserves the attributes of the copied files
 .TP
 \&\fR\&\f(CWQ\fR\ 
 When mcopying multiple files, quits as soon as one copy fails (for
@@ -149,5 +106,66 @@ mtype a:file1 a:file2 a:file3 | mcopy - a:msdosfile
 .lp
  
 \&\fR
-.SH See Also
+.PP
+.SH See\ Also
 Mtools' texinfo doc
+.SH Viewing\ the\ texi\ doc
+This manpage has been automatically generated from mtools's texinfo
+documentation. However, this process is only approximative, and some
+items, such as crossreferences, footnotes and indices are lost in this
+translation process.  Indeed, these items have no appropriate
+representation in the manpage format.  Moreover, not all information has
+been translated into the manpage version.  Thus I strongly advise you to
+use the original texinfo doc.  See the end of this manpage for
+instructions how to view the texinfo doc.
+.TP
+* \ \ 
+To generate a printable copy from the texinfo doc, run the following
+commands:
+ 
+.nf
+.ft 3
+.in +0.3i
+    ./configure; make dvi; dvips mtools.dvi
+.fi
+.in -0.3i
+.ft R
+.lp
+ 
+\&\fR
+.TP
+* \ \ 
+To generate a html copy,  run:
+ 
+.nf
+.ft 3
+.in +0.3i
+    ./configure; make html
+.fi
+.in -0.3i
+.ft R
+.lp
+ 
+\&\fRA premade html can be found at:
+\&\fR\&\f(CW\(ifhttp://mtools.linux.lu\(is\fR
+and also at:
+\&\fR\&\f(CW\(ifhttp://www.tux.org/pub/knaff/mtools\(is\fR
+.TP
+* \ \ 
+To generate an info copy (browsable using emacs' info mode), run:
+ 
+.nf
+.ft 3
+.in +0.3i
+    ./configure; make info
+.fi
+.in -0.3i
+.ft R
+.lp
+ 
+\&\fR
+.PP
+The texinfo doc looks most pretty when printed or as html.  Indeed, in
+the info version certain examples are difficult to read due to the
+quoting conventions used in info.
+.PP

@@ -22,19 +22,14 @@
  */
 
 typedef struct Arg_t {
-	char *target;
-	char *fromname;
+	const char *fromname;
 	int nowarn;
-	int single;
 	int interactive;
 	int verbose;
-	int oldsyntax;
 	MainParam_t mp;
 
-	Stream_t *SrcDir;
-	int entry;
+	direntry_t *entry;
 	ClashHandling_t ch;
-	Stream_t *targetDir;
 } Arg_t;
 
 
@@ -42,98 +37,157 @@ typedef struct Arg_t {
  * Open the named file for read, create the cluster chain, return the
  * directory structure or NULL on error.
  */
-static struct directory *renameit(char *dosname,
-				  char *longname,
-				  void *arg0,
-				  struct directory *dir)
+int renameit(char *dosname,
+	     char *longname,
+	     void *arg0,
+	     direntry_t *targetEntry)
 {
-	int entry;
-	struct directory parentdir;
-	Stream_t *Dir;
 	Arg_t *arg = (Arg_t *) arg0;
 	int fat;
 
+	targetEntry->dir = arg->entry->dir;
+	strncpy(targetEntry->dir.name, dosname, 8);
+	strncpy(targetEntry->dir.ext, dosname + 8, 3);
 
-	*dir = arg->mp.dir;
-	strncpy(dir->name, dosname, 8);
-	strncpy(dir->ext, dosname + 8, 3);
+	if(IS_DIR(targetEntry)) {
+		direntry_t *movedEntry;
 
-	if( (dir->attr & 0x10) && arg->targetDir){
-		/* we have a directory here. Change its parent link */
-		Dir = open_file(arg->targetDir, & arg->mp.dir);
-		if(FileIsLocked(Dir)) {
-			fprintf(stderr,
-				"Cannot move directory \'%s%s\' into itself\n",
-				dir->name,dir->ext);
-			FREE(&Dir);
+		/* get old direntry. It is important that we do this
+		 * on the actual direntry which is stored in the file,
+		 * and not on a copy, because we will modify it, and the
+		 * modification should be visible at file 
+		 * de-allocation time */
+		movedEntry = getDirentry(arg->mp.File);
+		if(movedEntry->Dir != targetEntry->Dir) {
+			/* we are indeed moving it to a new directory */
+			direntry_t subEntry;
+			Stream_t *oldDir;
+			/* we have a directory here. Change its parent link */
+			
+			initializeDirentry(&subEntry, arg->mp.File);
+			if(vfat_lookup(&subEntry, "..", 2, ACCEPT_DIR,
+				       NULL, NULL))
+				fprintf(stderr,
+					" Directory has no parent entry\n");
+			else {
+				GET_DATA(targetEntry->Dir, 0, 0, 0, &fat);
+				subEntry.dir.start[1] = (fat >> 8) & 0xff;
+				subEntry.dir.start[0] = fat & 0xff;
+				dir_write(&subEntry);
+				if(arg->verbose){
+					fprintf(stderr,
+						"Easy, isn't it? I wonder why DOS can't do this.\n");
+				}
+			}
+			
+			/* wipe out original entry */			
+			movedEntry->dir.name[0] = DELMARK;
+			dir_write(movedEntry);
+			
+			/* free the old parent, allocate the new one. */
+			oldDir = movedEntry->Dir;
+			*movedEntry = *targetEntry;
+			COPY(targetEntry->Dir);
+			FREE(&oldDir);
 			return 0;
 		}
-		entry = 0;
-		if(vfat_lookup(Dir,
-			       &parentdir, &entry, 0, "..", ACCEPT_DIR,
-			       NULL, NULL, NULL))
-			fprintf(stderr," Directory has no parent entry\n");
-		else {
-			entry--; /* rewind entry */
-			GET_DATA(arg->targetDir, 0, 0, 0, &fat);
-			parentdir.start[1] = (fat >> 8) & 0xff;
-			parentdir.start[0] = fat & 0xff;
-			dir_write(Dir, entry, &parentdir);
-			if(arg->verbose){
-				fprintf(stderr,
-					"Easy, isn't it? I wonder why DOS can't do this.\n");
-			}
-		}
-		FREE(&Dir);
 	}
 
 	/* wipe out original entry */
-	arg->mp.dir.name[0] = DELMARK;
-	dir_write(arg->SrcDir, arg->entry, &arg->mp.dir);
-
-	return dir;
+	arg->mp.direntry->dir.name[0] = DELMARK;
+	dir_write(arg->mp.direntry);
+	return 0;
 }
 
 
-static int rename_file(Stream_t *Dir, MainParam_t *mp, int entry)
+
+static int rename_file(direntry_t *entry, MainParam_t *mp)
 /* rename a messy DOS file to another messy DOS file */
 {
 	int result;
 	Stream_t *targetDir;
-	char *shortname, *longname;
+	char *shortname;
+	const char *longname;
 
 	Arg_t * arg = (Arg_t *) (mp->arg);
 
-	arg->SrcDir = Dir;
 	arg->entry = entry;
-	if(arg->oldsyntax)
-		targetDir = Dir;
-	else
-		targetDir = arg->targetDir;
+	targetDir = mp->targetDir;
 
-	if (targetDir == Dir){
+	if (targetDir == entry->Dir){
 		arg->ch.ignore_entry = -1;
-		arg->ch.source = entry;
+		arg->ch.source = entry->entry;
+		arg->ch.source_entry = entry->entry;
 	} else {
 		arg->ch.ignore_entry = -1;
 		arg->ch.source = -2;
 	}
 
-
-	if(arg->oldsyntax && !strcasecmp(mp->shortname, arg->fromname)){
-		longname = mp->longname;
-		shortname = arg->target;
-	} else {
-		longname = arg->target;
-		shortname = 0;
-	}
-
+	longname = mpPickTargetName(mp);
+	shortname = 0;
 	result = mwrite_one(targetDir, longname, shortname,
 			    renameit, (void *)arg, &arg->ch);
 	if(result == 1)
 		return GOT_ONE;
 	else
-		return MISSED_ONE;
+		return ERROR_ONE;
+}
+
+
+static int rename_directory(direntry_t *entry, MainParam_t *mp)
+{
+	int ret;
+
+	/* moves a DOS dir */
+	if(isSubdirOf(mp->targetDir, mp->File)) {
+		fprintf(stderr, "Cannot move directory ");
+		fprintPwd(stderr, entry);
+		fprintf(stderr, " into one of its own subdirectories (");
+		fprintPwd(stderr, getDirentry(mp->targetDir));
+		fprintf(stderr, ")\n");
+		return ERROR_ONE;
+	}
+
+	if(entry->entry == -3) {
+		fprintf(stderr, "Cannot move a root directory: ");
+		fprintPwd(stderr, entry);
+		return ERROR_ONE;
+	}
+
+	ret = rename_file(entry, mp);
+	if(ret & ERROR_ONE)
+		return ret;
+	
+	return ret;
+}
+
+static int rename_oldsyntax(direntry_t *entry, MainParam_t *mp)
+{
+	int result;
+	Stream_t *targetDir;
+	const char *shortname, *longname;
+
+	Arg_t * arg = (Arg_t *) (mp->arg);
+	arg->entry = entry;
+	targetDir = entry->Dir;
+
+	arg->ch.ignore_entry = -1;
+	arg->ch.source = entry->entry;
+	arg->ch.source_entry = entry->entry;
+
+	if(!strcasecmp(mp->shortname, arg->fromname)){
+		longname = mp->longname;
+		shortname = mp->targetName;
+	} else {
+		longname = mp->targetName;
+		shortname = 0;
+	}
+	result = mwrite_one(targetDir, longname, shortname,
+			    renameit, (void *)arg, &arg->ch);
+	if(result == 1)
+		return GOT_ONE;
+	else
+		return ERROR_ONE;
 }
 
 
@@ -151,15 +205,11 @@ static void usage(void)
 
 void mmove(int argc, char **argv, int oldsyntax)
 {
-	Stream_t *SubDir,*Dir;
 	Arg_t arg;
-	int c, ret;
-	char filename[VBUFSIZE];
-	char spareOutname[VBUFSIZE];
+	int c;
 	char shortname[13];
 	char longname[VBUFSIZE];
 	char def_drive;
-	char *s;
 	int i;
 	int interactive;
 
@@ -168,7 +218,6 @@ void mmove(int argc, char **argv, int oldsyntax)
 	init_clash_handling(& arg.ch);
 
 	interactive = 0;
-
 
 	/* get command line options */
 	arg.verbose = 0;
@@ -197,10 +246,6 @@ void mmove(int argc, char **argv, int oldsyntax)
 	if (argc - optind < 2)
 		usage();
 
-
-	/* only 1 file to rename... */
-	arg.single = SINGLE;
-	
 	init_mp(&arg.mp);		
 	arg.mp.arg = (void *) &arg;
 	arg.mp.openflags = O_RDWR;
@@ -224,62 +269,27 @@ void mmove(int argc, char **argv, int oldsyntax)
 	if (oldsyntax && (argc - optind != 2 || strpbrk(":/", argv[argc-1])))
 		oldsyntax = 0;
 
-	arg.oldsyntax = oldsyntax;
+	arg.mp.lookupflags = 
+	  ACCEPT_PLAIN | ACCEPT_DIR | DO_OPEN_DIRS | NO_DOTS | NO_UNIX;
 
 	if (!oldsyntax){
-		Dir = open_subdir(&arg.mp, argv[argc-1], O_RDWR, 0, 1);
-		if(!Dir){
-			fprintf(stderr,"Bad target\n");
-			exit(1);
-		}
-		get_name(argv[argc-1], filename, arg.mp.mcwd);
-		SubDir = descend(Dir, filename, 0, 0, 1);
-		if (!SubDir){
-			/* the last parameter is not a directory: take
-			 * it as the new name */
-			if ( argc - optind != 2 ){
-				fprintf(stderr,
-					"%s: Too many arguments, or destination directory omitted\n", 
-					argv[0]);
-				exit(1);
-			}
-			
-			arg.targetDir = Dir;
-			arg.mp.outname = 0; /* toss away source name */
-			arg.target = filename; /* store near name given as
-						* target */
-			arg.single = 1;
-		} else {
-			arg.targetDir = SubDir;
-			FREE(&Dir);
-			arg.mp.outname = arg.target = filename;
-			arg.single = 0;
-		}
+		target_lookup(&arg.mp, argv[argc-1]);
+		arg.mp.callback = rename_file;
+		arg.mp.dirCallback = rename_directory;
 	} else {
+		/* do not look up the target; it will be the same dir as the
+		 * source */
 		arg.fromname = argv[optind];
 		if(arg.fromname[0] && arg.fromname[1] == ':')
 			arg.fromname += 2;
-		s = strrchr(arg.fromname, '/');
-		if(s)
-			arg.fromname = s+1;
-		arg.mp.outname = filename;
-		arg.single = 0;
-		arg.targetDir = NULL;
-		arg.target = argv[argc-1];
+		arg.fromname = _basename(arg.fromname);
+		arg.mp.targetName = strdup(argv[argc-1]);
+		arg.mp.callback = rename_oldsyntax;
 	}
 
-	arg.mp.callback = rename_file;
-
-	arg.mp.lookupflags = 
-	  ACCEPT_PLAIN | ACCEPT_DIR | DO_OPEN | NO_DOTS | arg.single;
 
 	arg.mp.longname = longname;
 	arg.mp.shortname = shortname;
-	if(!arg.mp.outname)
-		arg.mp.outname = spareOutname;
 
-	ret=main_loop(&arg.mp, argv + optind, argc - optind - 1);
-	FREE(&arg.targetDir);
-
-	exit(ret);
+	exit(main_loop(&arg.mp, argv + optind, argc - optind - 1));
 }

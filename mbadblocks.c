@@ -21,7 +21,7 @@ void mbadblocks(int argc, char **argv, int type)
 	Stream_t *Dir;
 	int ret;
 
-	if (argc != 2) {
+	if (argc != 2 || !argv[1][0] || argv[1][1] != ':' || argv[1][2]) {
 		fprintf(stderr, "Mtools version %s, dated %s\n", 
 			mversion, mdate);
 		fprintf(stderr, "Usage: %s [-V] device\n", argv[0]);
@@ -30,7 +30,7 @@ void mbadblocks(int argc, char **argv, int type)
 
 	init_mp(&mp);
 
-	Dir = open_subdir(&mp, argv[1], O_RDWR, 0, 0);
+	Dir = open_root_dir(argv[1][0], O_RDWR);
 	if (!Dir) {
 		fprintf(stderr,"%s: Cannot initialize drive\n", argv[0]);
 		exit(1);
@@ -38,10 +38,15 @@ void mbadblocks(int argc, char **argv, int type)
 
 	Fs = (Fs_t *)GetFs(Dir);
 	in_len = Fs->cluster_size * Fs->sector_size;
-	in_buf = safe_malloc(in_len);
+	in_buf = malloc(in_len);
+	if(!in_buf) {
+		FREE(&Dir);
+		printOom();
+		exit(1);
+	}
 	for(i=0; i < Fs->clus_start; i++ ){
-		ret = READS(Fs->Next, in_buf, i * Fs->sector_size, 
-			   Fs->sector_size);
+		ret = READS(Fs->Next, 
+					in_buf, sectorsToBytes((Stream_t*)Fs, i), Fs->sector_size);
 		if( ret < 0 ){
 			perror("early error");
 			exit(1);
@@ -54,13 +59,16 @@ void mbadblocks(int argc, char **argv, int type)
 		
 	in_len = Fs->cluster_size * Fs->sector_size;
 	for(i=2; i< Fs->num_clus + 2; i++){
+		if(got_signal)
+			break;
 		if(Fs->fat_decode((Fs_t*)Fs,i))
 			continue;
 		start = (i - 2) * Fs->cluster_size + Fs->clus_start;
-		ret = READS(Fs->Next, in_buf, start * Fs->sector_size, in_len);
+		ret = force_read(Fs->Next, in_buf, 
+						 sectorsToBytes((Stream_t*)Fs, start), in_len);
 		if(ret < in_len ){
 			printf("Bad cluster %d found\n", i);
-			Fs->fat_encode((Fs_t*)Fs, i, 0xfff7);
+			fatEncode((Fs_t*)Fs, i, 0xfff7);
 			continue;
 		}
 	}

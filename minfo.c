@@ -30,8 +30,8 @@ static void displayInfosector(Stream_t *Stream, struct bootsector *boot)
 
 	infosec = (InfoSector_t *) safe_malloc(WORD(secsiz));
 	force_read(Stream, (char *) infosec, 
-		   WORD(secsiz) * WORD(ext.fat32.infoSector),
-		   WORD(secsiz));
+			   (mt_off_t) WORD(secsiz) * WORD(ext.fat32.infoSector),
+			   WORD(secsiz));
 	printf("\nInfosector:\n");
 	printf("signature=0x%08x\n", _DWORD(infosec->signature));
 	if(_DWORD(infosec->count) != MAX32)
@@ -73,13 +73,14 @@ void minfo(int argc, char **argv, int type)
 		drive = toupper(argv[optind][0]);
 
 		if(! (Stream = find_device(drive, O_RDONLY, &dev, boot, 
-					   name, &media)))
+								   name, &media, 0)))
 			exit(1);
 
 		tot_sectors = DWORD(bigsect);
 		SET_INT(tot_sectors, WORD(psect));
 		printf("device information:\n");
 		printf("===================\n");
+		printf("filename=\"%s\"\n", name);
 		printf("sectors per track: %d\n", dev.sectors);
 		printf("heads: %d\n", dev.heads);
 		printf("cylinders: %d\n\n", dev.tracks);
@@ -92,7 +93,6 @@ void minfo(int argc, char **argv, int type)
 		
 		printf("bootsector information\n");
 		printf("======================\n");
-		printf("filename=\"%s\"\n", name);
 		printf("banner:\"%8s\"\n", boot->banner);
 		printf("sector size: %d bytes\n", WORD(secsiz));
 		printf("cluster size: %d sectors\n", boot->clsiz);
@@ -140,9 +140,25 @@ void minfo(int argc, char **argv, int type)
 		}
 
 		if(verbose) {
+			int size;
+			unsigned char *buf;
+
 			printf("\n");
-			print_sector("Boot sector hexdump", 
-				     (unsigned char*) boot);
+			size = WORD(secsiz);
+			
+			buf = (unsigned char *) malloc(size);
+			if(!buf) {
+				fprintf(stderr, "Out of memory error\n");
+				exit(1);
+			}
+
+			size = READS(Stream, buf, (mt_off_t) 0, size);
+			if(size < 0) {
+				perror("read boot sector");
+				exit(1);
+			}
+
+			print_sector("Boot sector hexdump", buf, size);
 		}
 	}
 
