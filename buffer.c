@@ -43,7 +43,7 @@ static int _buf_flush(Buffer_t *Buffer)
 		fprintf(stderr,"Should not happen\n");
 		return -1;
 	}
-#ifdef DEBUG
+#if DEBUG
 	fprintf(stderr, "write %08x -- %02x %08x %08x\n",
 		Buffer,
 		(unsigned char) Buffer->buf[0],
@@ -182,7 +182,7 @@ static int buf_write(Stream_t *Stream, char *buf, mt_off_t start, size_t len)
 
 	This->ever_dirty = 1;
 
-#ifdef DEBUG
+#if DEBUG
 	fprintf(stderr, "buf write %x   %02x %08x %08x -- %08x %08x -- %08x\n", 
 		Stream, (unsigned char) This->buf[0],
 		start, len, This->current, This->cur_size, This->size);
@@ -193,7 +193,7 @@ static int buf_write(Stream_t *Stream, char *buf, mt_off_t start, size_t len)
 #endif
 	switch(isInBuffer(This, start, &len)) {
 		case OUTSIDE:
-#ifdef DEBUG
+#if DEBUG
 			fprintf(stderr, "outside\n");
 #endif
 			if(start % This->cylinderSize || 
@@ -218,7 +218,7 @@ static int buf_write(Stream_t *Stream, char *buf, mt_off_t start, size_t len)
 			}
 			/* FALL THROUGH */
 		case APPEND:
-#ifdef DEBUG
+#if DEBUG
 			fprintf(stderr, "append\n");
 #endif
 			len = ROUND_DOWN(len, This->sectorSize);
@@ -231,7 +231,7 @@ static int buf_write(Stream_t *Stream, char *buf, mt_off_t start, size_t len)
 			break;
 		case INSIDE:
 			/* nothing to do */
-#ifdef DEBUG
+#if DEBUG
 			fprintf(stderr, "inside\n");
 #endif
 			offset = OFFSET;
@@ -240,7 +240,7 @@ static int buf_write(Stream_t *Stream, char *buf, mt_off_t start, size_t len)
 		case ERROR:
 			return -1;
 		default:
-#ifdef DEBUG
+#if DEBUG
 			fprintf(stderr, "Should not happen\n");
 #endif
 			exit(1);
@@ -352,7 +352,7 @@ Stream_t *buf_init(Stream_t *Next, int size,
 	Buffer->ever_dirty = 0;
 	Buffer->dirty_pos = 0;
 	Buffer->dirty_end = 0;
-	Buffer->current = 0;
+	Buffer->current = 0L;
 	Buffer->cur_size = 0; /* buffer currently empty */
 
 	Buffer->Next = Next;

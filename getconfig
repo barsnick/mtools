@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# First get the philes
+wget --passive-ftp ftp://ftp.gnu.org/pub/gnu/config/config.guess
+wget --passive-ftp ftp://ftp.gnu.org/pub/gnu/config/config.sub
+
+# Then de-stallmanize them
+perl -i.subst -pe 's/linux-gnu/linux/g' config.guess config.sub
+rm -vf *.subst

@@ -366,7 +366,6 @@ static inline clash_action get_slots(Stream_t *Dir,
 		if((entry.dir.attr & 0x5) &&
 		   (ask_confirmation("file is read only, overwrite anyway (y/n) ? ",0,0)))
 			return NAMEMATCH_RENAME;
-		
 		/* Free up the file to be overwritten */
 		if(fatFreeWithDirentry(&entry))
 			return NAMEMATCH_ERROR;

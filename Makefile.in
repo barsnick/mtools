@@ -13,6 +13,7 @@ USERLDLIBS =
 
 MAKEINFO = makeinfo
 TEXI2DVI = texi2dvi
+TEXI2PDF = texi2pdf
 TEXI2HTML = texi2html
 
 
@@ -56,8 +57,9 @@ INSTALL_INFO	= @INSTALL_INFO@
 .SUFFIXES: .o .c
 .SUFFIXES: .o .c
 
-MAN1 = floppyd.1 mattrib.1 mbadblocks.1 mcat.1 mcd.1 mcopy.1 mdel.1 mdeltree.1 mdir.1 \
-mdu.1 mformat.1 mkmanifest.1 mlabel.1 mmd.1 mmount.1 mmove.1 mpartition.1 \
+MAN1 = floppyd.1 floppyd_installtest.1 mattrib.1 mbadblocks.1 mcat.1 mcd.1 \
+mcopy.1 mdel.1 mdeltree.1 mdir.1 mdu.1 mformat.1  minfo.1 mkmanifest.1 \
+mlabel.1 mmd.1 mmount.1 mmove.1 mpartition.1 \
 mrd.1 mread.1 mren.1 mshowfat.1 mtoolstest.1 mtools.1 mtype.1 mzip.1
 MAN1EXT	= 1
 MAN1DIR	= $(mandir)/man${MAN1EXT}
@@ -72,7 +74,7 @@ buffer.c buffer.h codepage.c codepage.h codepages.c config.c \
 config.guess config.h.in config.log config.sub configure configure.in \
 copyfile.c devices.c devices.h dirCache.c dirCache.h directory.c direntry.c \
 expand.c fat.c \
-fat_free.c file.c file.h file_name.c file_read.c files filter.c floppyd.1 \
+fat_free.c file.c file.h file_name.c files filter.c floppyd.1 \
 floppyd.c floppyd_io.c floppyd_io.h force_io.c fs.h fsP.h \
 getopt.h hash.c htable.h init.c llong.c mainloop.c match.c mattrib.1 \
 mattrib.c mbadblocks.1 mbadblocks.c mcat.1 mcat.c mcd.1 mcd.c mcopy.1 \
@@ -88,8 +90,8 @@ streamcache.c streamcache.h subdir.c sysincludes.h unixdir.c todo toupper.c \
 vfat.c vfat.h xdf_io.c xdf_io.h
 
 OBJS1 = buffer.o codepage.o codepages.o config.o copyfile.o devices.o \
-dirCache.o directory.o direntry.o expand.o fat.o fat_free.o file.o file_name.o \
-file_read.o filter.o floppyd_io.o force_io.o hash.o init.o llong.o match.o \
+dirCache.o directory.o direntry.o expand.o fat.o fat_free.o file.o  \
+file_name.o filter.o floppyd_io.o force_io.o hash.o init.o llong.o match.o \
 mainloop.o mattrib.o mbadblocks.o mcat.o mcd.o mcopy.o mdel.o mdir.o \
 mdoctorfat.o mdu.o \
 mformat.o minfo.o misc.o missFuncs.o mk_direntry.o mlabel.o mmd.o mmount.o \
@@ -146,10 +148,10 @@ mkmanifest: $(OBJS2)
 	$(LINK) $(OBJS2) -o $@ $(ALLLIBS)
 
 floppyd.o: floppyd.c
-	$(CC) $(X_CCFLAGS) -c $<
+	$(CC) $(X_CCFLAGS) -c $?
 
 floppyd: floppyd.o
-	$(LINK) $< -o $@ $(X_LDFLAGS)
+	$(LINK) $? -o $@ $(X_LDFLAGS)
 floppyd_installtest: $(OBJS4)
 	$(LINK) $(OBJS4) -o $@ $(ALLLIBS)
 
@@ -183,8 +185,8 @@ ps: mtools.ps
 	dvips -f < $< > $@
 
 pdf: mtools.pdf
-%.pdf: %.ps
-	ps2pdf $< $@
+%.pdf: %.texi
+	$(TEXI2PDF) $<
 
 
 html: mtools.html mtools_toc.html

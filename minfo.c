@@ -167,6 +167,6 @@ void minfo(int argc, char **argv, int type)
 			print_sector("Boot sector hexdump", buf, size);
 		}
 	}
-
+	FREE(&Stream);
 	exit(0);
 }

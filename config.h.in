@@ -84,6 +84,9 @@
 /* Define when you have an LLSEEK prototype */
 #undef HAVE_LLSEEK_PROTOTYPE
 
+/* Define when you have an LSEEK64 prototype */
+#undef HAVE_LSEEK64_PROTOTYPE
+
 /* Define if you have the atexit function.  */
 #undef HAVE_ATEXIT
 
@@ -143,6 +146,9 @@
 
 /* Define if you have the srandom function.  */
 #undef HAVE_SRANDOM
+
+/* Define if you have the stat64 function.  */
+#undef HAVE_STAT64
 
 /* Define if you have the strcasecmp function.  */
 #undef HAVE_STRCASECMP
@@ -284,6 +290,9 @@
 
 /* Define if you have the <utime.h> header file.  */
 #undef HAVE_UTIME_H
+
+/* Define if you have the bsd library (-lbsd).  */
+#undef HAVE_LIBBSD
 
 /* Define if you have the cam library (-lcam).  */
 #undef HAVE_LIBCAM

@@ -13,6 +13,8 @@
  * Rewritten in C by Alain Knaff.  Apparently C++ is still not as
  * portable as C.  */
 
+#define DEBUG 0
+
 #include "config.h"
 
 #ifdef USE_FLOPPYD
@@ -91,7 +93,6 @@ typedef unsigned long Dword;
 
 #define MAX_XAUTHORITY_LENGTH    3000
 #define MAX_DATA_REQUEST         3000000
-#define FLOPPYD_PROTOCOL_VERSION 10
 #define BUFFERED_IO_SIZE         16348
 
 
@@ -227,7 +228,7 @@ Dword byte2dword(Byte* val) {
 	Dword l;
 	l = (val[0] << 24) + (val[1] << 16) + (val[2] << 8) + val[3];
 	
-#ifdef DEBUG
+#if DEBUG
 	fprintf(stderr, "byte2dword(): %ld, 0x%x\n", l, (unsigned int) l);
 #endif		
 	
@@ -291,6 +292,7 @@ void make_new(Packet packet, unsigned long l) {
 	kill_packet(packet);
 	packet->len = packet->alloc_size = l;
 	packet->data = malloc(l);
+	memset(packet->data, 0, l);
 }
 
 char send_packet(Packet packet, io_buffer fp) {
@@ -298,18 +300,18 @@ char send_packet(Packet packet, io_buffer fp) {
 		write_dword(fp, packet->len);
 		buf_write(fp, packet->data, packet->len);
 		flush(fp);
-#ifdef DEBUG
+#if DEBUG
 		fprintf(stderr, "send_packet(): Size: %li\n", packet->len);
 #endif
-#if 0
-#ifdef DEBUG
+
+#if DEBUG
 		fprintf(stderr, "send_packet(): ");
 		for (int i = 0; i < packet->len; i++) {
 			fprintf(stderr, "%d ", packet->data[i]);
 		}
 		fprintf(stderr, "\n");
 #endif		
-#endif
+
 	}
 	return (packet->data != NULL);
 }
@@ -318,7 +320,7 @@ char recv_packet(Packet packet, io_buffer fp, Dword maxlength) {
 	int start;
 	int l;
 	Dword length = read_dword(fp);
-#ifdef DEBUG
+#if DEBUG
 	fprintf(stderr, "recv_packet(): Size: %li\n", length);
 #endif
 	if (length > maxlength || length == 0xffffffff ) {
@@ -335,29 +337,27 @@ char recv_packet(Packet packet, io_buffer fp, Dword maxlength) {
 	if (packet->len == 0) {
 		return 0;
 	}
-#ifdef DEBUG
+#if DEBUG
 	fprintf(stderr, "*** read: %li\n", packet->len);
 #endif
 	
-#if 0		
-#ifdef DEBUG
+#if DEBUG
 	fprintf(stderr, "recv_packet(): ");
 	for (i = 0; i < packet->len; i++) {
 		fprintf(stderr, "%d ", packet->data[i]);
 	}
 	fprintf(stderr, "\n");
 #endif		
-#endif
 	return 1;
 }
 
-void read_packet(Packet packet, FILE* fp, int length) {
+void read_packet(Packet packet, int fd, int length) {
 	make_new(packet, length);
-	packet->len = fread(packet->data, 1, packet->len, fp);
+	packet->len = read(fd, packet->data, packet->len);
 }
 
-int write_packet(Packet packet, FILE* fp) {
-	return (fwrite(packet->data, 1, packet->len, fp));
+int write_packet(Packet packet, int fd) {
+	return (write(fd, packet->data, packet->len));
 }
 
 void put_dword(Packet packet, int index, Dword val) {
@@ -386,7 +386,7 @@ int eat(char **ptr, int *len, unsigned char c) {
 }
 
 
-char do_auth(io_buffer sock) 
+char do_auth(io_buffer sock, int *version) 
 {
 	int fd;
 	Display* displ;
@@ -396,7 +396,6 @@ char do_auth(io_buffer sock)
 	int len;
 
 	char template[4096];
-	/*= { 0, 0, 0, 4, 127, 0, 0, 1, 0, 1, '0', 0 };*/
 
 	Packet reply = newPacket();
 
@@ -410,7 +409,10 @@ char do_auth(io_buffer sock)
 		return 0;
 	}
 
-	if (get_dword(proto_version, 0) != FLOPPYD_PROTOCOL_VERSION) {
+	*version = get_dword(proto_version, 0);
+	if (*version > FLOPPYD_PROTOCOL_VERSION || 
+	    *version < FLOPPYD_PROTOCOL_VERSION_OLD) {
+		/* fail if client requests a newer version than us */
 		put_dword(reply, 0, AUTH_WRONGVERSION);
 		send_packet(reply, sock);
 		destroyPacket(reply);
@@ -418,11 +420,18 @@ char do_auth(io_buffer sock)
 		return 0;
 	}
 
-	put_dword(reply, 0, AUTH_SUCCESS);
+	if(*version == FLOPPYD_PROTOCOL_VERSION_OLD) {
+		put_dword(reply, 0, AUTH_SUCCESS);
+	} else {
+		make_new(reply, 12);
+		put_dword(reply, 0, AUTH_SUCCESS);
+		put_dword(reply, 4, FLOPPYD_PROTOCOL_VERSION);
+		put_dword(reply, 8, FLOPPYD_CAP_EXPLICIT_OPEN);
+	}
 	send_packet(reply, sock);
 	destroyPacket(proto_version);
 
-
+	make_new(reply, 4);
 	mit_cookie = newPacket();
 	if (!recv_packet(mit_cookie, sock, MAX_XAUTHORITY_LENGTH)) {
 		put_dword(reply, 0, AUTH_PACKETOVERSIZE);
@@ -523,7 +532,7 @@ static short getportnum(char *portnum)
 			endservent();
 		}
 
-#ifdef DEBUG
+#if DEBUG
 	fprintf(stderr, "Port lookup %s -> %hd\n", portnum, port);
 #endif
 
@@ -549,7 +558,7 @@ static IPaddr_t getipaddress(char *ipaddr)
 			endhostent();
 		}
 
-#ifdef DEBUG
+#if DEBUG
 	fprintf(stderr, "IP lookup %s -> 0x%08lx\n", ipaddr, ip);
 #endif
 
@@ -577,7 +586,7 @@ static uid_t getuserid(char *user)
 			uid = 65535;
 		}
 
-#ifdef DEBUG
+#if DEBUG
 	fprintf(stderr, "User lookup %s -> %d\n", user, uid);
 #endif
 
@@ -603,7 +612,7 @@ static uid_t getgroupid(uid_t uid)
 			gid = 65535;
 		}
 
-#ifdef DEBUG
+#if DEBUG
 	fprintf(stderr, "Group lookup %d -> %d\n", uid, gid);
 #endif
 
@@ -673,7 +682,6 @@ static int sockethandle_now = -1;
  */
 static void alarm_signal(int a)
 {
-	printf("timeout %d\n", a);
 	if (sockethandle_now != -1) {
 		close(sockethandle_now);
 		sockethandle_now = -1;
@@ -707,7 +715,7 @@ static void server_main_loop(int sock, char* device_name)
 		/*
 		 * Create a new process to handle the connection.
 		 */
-#ifndef DEBUG
+#if DEBUG == 0
 		switch (fork()) {
 			case -1:
 				/*
@@ -722,7 +730,7 @@ static void server_main_loop(int sock, char* device_name)
 #endif
 				serve_client(new_sock,device_name);
 				exit(0);
-#ifndef DEBUG
+#if DEBUG == 0
 		}
 #endif
 		/*
@@ -771,7 +779,7 @@ char *makeDisplayName(char *base, int port)
 
 int main (int argc, char** argv) 
 {
-	FILE* sockfp = stdin;
+	int sockfd = 0;
 	int			arg;
 	int			run_as_server = 0;
 	IPaddr_t		bind_ip = INADDR_ANY;
@@ -903,7 +911,7 @@ int main (int argc, char** argv)
 			 * Start a server process. When DEBUG is defined, just run
 			 * in the foreground.
 			 */
-#ifdef DEBUG
+#if DEBUG
 			switch (0)
 #else
 				switch (fork())
@@ -918,7 +926,7 @@ int main (int argc, char** argv)
 							 * Ignore some signals.
 							 */
 							signal(SIGHUP, SIG_IGN);
-#ifndef DEBUG
+#if DEBUG
 							signal(SIGINT, SIG_IGN);
 #endif
 							signal(SIGQUIT, SIG_IGN);
@@ -943,7 +951,7 @@ int main (int argc, char** argv)
 #else
 							setpgrp(0,0);
 #endif
-#ifndef DEBUG
+#if DEBUG
 							close(2);
 							open("/dev/null", O_WRONLY);
 #endif
@@ -965,7 +973,7 @@ int main (int argc, char** argv)
 		}
 
 	signal(SIGHUP, alarm_signal);
-#ifndef DEBUG
+#if DEBUG == 0
 	signal(SIGINT, alarm_signal);
 #endif
 	signal(SIGQUIT, alarm_signal);
@@ -975,22 +983,22 @@ int main (int argc, char** argv)
 	signal(SIGPIPE, alarm_signal);
 	/*signal(SIGALRM, alarm_signal);*/
 
-#ifndef DEBUG
+#if DEBUG == 0
 	close(2);
 	open("/dev/null", O_WRONLY);
 #endif
 	/* Starting from inetd */
 
-	serve_client(fileno(sockfp), device_name);
+	serve_client(sockfd, device_name);
 	return 0;
 }
 
-void send_reply(FILE* fp, io_buffer sock, int len) {
+void send_reply(int rval, io_buffer sock, int len) {
 	Packet reply = newPacket();
 
 	make_new(reply, 8);
 	put_dword(reply, 0, len);
-	if (!fp || !ferror(fp)) {
+	if (rval == -1) {
 		put_dword(reply, 4, 0);
 	} else {
 		put_dword(reply, 4, errno);
@@ -999,12 +1007,23 @@ void send_reply(FILE* fp, io_buffer sock, int len) {
 	destroyPacket(reply);
 }
 
+void cleanup(int x) {
+	unlink(XauFileName());
+	exit(-1);
+}
+
 void serve_client(int sockhandle, char* device_name) {
 	Packet opcode;
 	Packet parm;
 
-	FILE* dev;
+	int readOnly;
+	int devFd;
 	io_buffer sock;
+	int stopLoop;
+	int version;
+	int needSendReply=0;
+	int rval=0;
+	
 	/*
 	 * Set the keepalive socket option to on.
 	 */
@@ -1021,17 +1040,18 @@ void serve_client(int sockhandle, char* device_name) {
 	 */
 	alarm(60);
 	
-	if (!do_auth(sock)) {
+	version = 0;
+	if (!do_auth(sock, &version)) {
 		free_io_buffer(sock);
 		return;
 	}
 	alarm(0);
 
-	dev = fopen(device_name, "r+");
 
-	if (!dev) {
-		dev = fopen(device_name, "r");
-	}
+	signal(SIGTERM, cleanup);
+	signal(SIGALRM, cleanup);
+
+
 
 	sockethandle_now = sockhandle;
 
@@ -1039,93 +1059,140 @@ void serve_client(int sockhandle, char* device_name) {
 	opcode = newPacket();
 	parm = newPacket();
 
-	while (dev) {
-		int rval = 0;
+	devFd = -1;
+	readOnly = 1;
 
+	stopLoop = 0;
+	if(version == FLOPPYD_PROTOCOL_VERSION_OLD) {
+				/* old protocol */
+		readOnly = 0;
+		devFd = open(device_name, O_RDWR);
+		
+		if (devFd < 0) {
+			readOnly = 1;
+			devFd = open(device_name, 
+				     O_RDONLY);
+		}
+		if(devFd < 0) {
+			send_reply(0, sock, devFd);
+			stopLoop = 1;
+		}
+	}
+
+
+	while(!stopLoop) {
+		int rval = 0;
 		/*
 		 * Allow 60 seconds for any activity.
 		 */
 		/*alarm(60);*/
 
 		if (!recv_packet(opcode, sock, 1)) {
+		    fprintf(stderr, "No Recv packet\n");
 			break;
 		}
-		if (!recv_packet(parm, sock, MAX_DATA_REQUEST)) {
-			break;
-		}
-			
+/*		if(opcode->data[0] != OP_CLOSE)*/
+		    recv_packet(parm, sock, MAX_DATA_REQUEST);
+
 		switch(opcode->data[0]) {
+			case OP_OPRO:
+				devFd = open(device_name, O_RDONLY);
+#if DEBUG
+				fprintf(stderr, "Device opened\n");
+#endif
+				send_reply(0, sock, devFd);
+				readOnly = 1;
+				break;
+			case OP_OPRW:
+				devFd = open(device_name, O_RDWR);
+				send_reply(0, sock, devFd);
+				readOnly = 0;
+				break;
 			case OP_READ:
-#ifdef DEBUG
+#if DEBUG
 				fprintf(stderr, "READ:\n");
 #endif
-				read_packet(parm, dev, get_dword(parm, 0));
-				send_reply(dev, sock, get_length(parm));
+				read_packet(parm, devFd, get_dword(parm, 0));
+				send_reply(devFd, sock, get_length(parm));
 				send_packet(parm, sock);
 				
 				break;
 			case OP_WRITE:
-#ifdef DEBUG
+#if DEBUG
 				fprintf(stderr, "WRITE:\n");
 #endif
-				rval = write_packet(parm, dev);
-				send_reply(dev, sock, rval);
+				if(readOnly) {
+					errno = -EROFS;
+					rval = -1;
+				} else {
+					rval = write_packet(parm, devFd);
+				}
+				send_reply(devFd, sock, rval);
 				break;
 			case OP_SEEK:
-#ifdef DEBUG
+#if DEBUG
 				fprintf(stderr, "SEEK:\n");
 #endif
 
-				fseek(dev, get_dword(parm, 0), get_dword(parm, 4));
-				send_reply(dev, sock, ftell(dev));
+				lseek(devFd, 
+				      get_dword(parm, 0), get_dword(parm, 4));
+				send_reply(devFd, 
+					   sock, 
+					   lseek(devFd, 0, SEEK_CUR));
 				break;
 			case OP_FLUSH:
-#ifdef DEBUG
+#if DEBUG
 				fprintf(stderr, "FLUSH:\n");
 #endif
-
-				fflush(dev);
-				send_reply(dev, sock, 0);
+				fsync(devFd);
+				send_reply(devFd, sock, 0);
 				break;
 			case OP_CLOSE:
-#ifdef DEBUG
+#if DEBUG
 				fprintf(stderr, "CLOSE:\n");
 #endif
 
-				fclose(dev);
-				dev = NULL;
-				send_reply(dev, sock, 0);
+				close(devFd);
+				needSendReply = 1;
+				rval = devFd;
+				devFd = -1;
+				stopLoop = 1;
 				break;
 			case OP_IOCTL:
 				/* Unimplemented for now... */
 				break;
 			default:
-#ifdef DEBUG
+#if DEBUG
 				fprintf(stderr, "Invalid Opcode!\n");
 #endif
+				errno = EINVAL;
+				send_reply(devFd, sock, -1);
 				break;
 		}
 		kill_packet(parm);
 		alarm(0);
 	}
 
-	destroyPacket(opcode);
-	destroyPacket(parm);
 	
 
-#ifdef DEBUG
+#if DEBUG
 	fprintf(stderr, "Closing down...\n");
 #endif
 
-	if (dev) {
-		fclose(dev);
-		dev = NULL;
+	if (devFd >= 0) {
+		close(devFd);
+		devFd = -1;
 	}
 
 	free_io_buffer(sock);
 
 	/* remove "Lock"-File  */
 	unlink(XauFileName());
+
+	if(needSendReply)
+	    send_reply(rval, sock, 0);
+	destroyPacket(opcode);
+	destroyPacket(parm);
 }
 
 #else

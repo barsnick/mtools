@@ -147,9 +147,9 @@ UNUSED(static inline int RR_TRACK(struct floppy_raw_cmd *request))
 
 UNUSED(static inline int GET_DRIVE(int fd))
 {
-	struct stat statbuf;
+	struct MT_STAT statbuf;
 
-	if (fstat(fd, &statbuf) < 0 ){
+	if (MT_FSTAT(fd, &statbuf) < 0 ){
 		perror("stat");
 		return -1;
 	}

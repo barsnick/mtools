@@ -28,10 +28,19 @@ int unix_loop(Stream_t *Stream, MainParam_t *mp, char *arg, int follow_dir_link)
 {
 	int ret;
 	int isdir;
+	int unixNameLength;
 
 	mp->File = NULL;
 	mp->direntry = NULL;
-	mp->unixSourceName = arg;
+	unixNameLength = strlen(arg);
+	if(unixNameLength > 1 && arg[unixNameLength-1] == '/') {
+	    // names ending in slash, and having at least two characters
+	    char *name = strdup(arg);
+	    name[unixNameLength-1]='\0';
+	    mp->unixSourceName = name;
+	} else {
+	    mp->unixSourceName = arg;
+	}
 	/*	mp->dir.attr = ATTR_ARCHIVE;*/
 	mp->loop = _unix_loop;
 	if((mp->lookupflags & DO_OPEN)){
@@ -47,12 +56,12 @@ int unix_loop(Stream_t *Stream, MainParam_t *mp, char *arg, int follow_dir_link)
 		}
 		GET_DATA(mp->File, 0, 0, &isdir, 0);
 		if(isdir) {
-			struct stat buf;
+			struct MT_STAT buf;
 
 			FREE(&mp->File);
 #ifndef __EMX__
 			if(!follow_dir_link &&
-			   lstat(arg, &buf) == 0 &&
+			   MT_LSTAT(arg, &buf) == 0 &&
 			   S_ISLNK(buf.st_mode)) {
 				/* skip links to directories in order to avoid
 				 * infinite loops */
@@ -496,7 +505,7 @@ static int dispatchToFile(direntry_t *entry, MainParam_t *mp)
 void init_mp(MainParam_t *mp)
 {
 	fix_mcwd(mp->mcwd);
-	mp->openflags = 0;
+	mp->openflags = O_RDONLY;
 	mp->targetName = 0;
 	mp->targetDir = 0;
 	mp->unixTarget = 0;
@@ -546,8 +555,8 @@ char *mpBuildUnixFilename(MainParam_t *mp)
 	if(*target) {
 #if 1 /* fix for 'mcopy -n x:file existingfile' -- H. Lermen 980816 */
 		if(!mp->targetName && !mp->targetDir) {
-			struct stat buf;
-			if (!stat(ret, &buf) && !S_ISDIR(buf.st_mode))
+			struct MT_STAT buf;
+			if (!MT_STAT(ret, &buf) && !S_ISDIR(buf.st_mode))
 				return ret;
 		}
 #endif

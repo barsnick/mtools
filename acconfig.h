@@ -46,3 +46,6 @@
 
 /* Define when you have an LLSEEK prototype */
 #undef HAVE_LLSEEK_PROTOTYPE
+
+/* Define when you have an LSEEK64 prototype */
+#undef HAVE_LSEEK64_PROTOTYPE

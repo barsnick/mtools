@@ -491,7 +491,7 @@ void mpartition(int argc, char **argv, int dummy)
 	if(initialize) {
 		if (bootSector) {
 			int fd;
-			fd = open(bootSector, O_RDONLY);
+			fd = open(bootSector, O_RDONLY | O_LARGEFILE);
 			if (fd < 0) {
 				perror("open boot sector");
 				exit(1);
@@ -701,7 +701,7 @@ void mpartition(int argc, char **argv, int dummy)
 		}
 		if(verbose>=3)
 			print_sector("Sector written", buf, 512);
-		FREE(&Stream);
 	}
+	FREE(&Stream);
 	exit(0);
 }

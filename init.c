@@ -105,29 +105,34 @@ Stream_t *find_device(char drive, int mode, struct device *out_dev,
 #endif
 
 		Stream = 0;
+		if(out_dev->misc_flags & FLOPPYD_FLAG) {
+		    Stream = 0;
+#ifdef USE_FLOPPYD
+		    Stream = FloppydOpen(out_dev, dev, name, mode, 
+					 errmsg, 0, 1);
+		    if(Stream && maxSize)
+			*maxSize = max_off_t_31;
+#endif
+		} else {
+
 #ifdef USE_XDF
-		Stream = XdfOpen(out_dev, name, mode, errmsg, 0);
-		if(Stream) {
+		    Stream = XdfOpen(out_dev, name, mode, errmsg, 0);
+		    if(Stream) {
 			out_dev->use_2m = 0x7f;
 			if(maxSize)
 			    *maxSize = max_off_t_31;
-		}
+		    }
 #endif
 
-#ifdef USE_FLOPPYD
-		if(!Stream) {
-			Stream = FloppydOpen(out_dev, dev, name, mode, errmsg, 0, 1);
-			if(Stream && maxSize)
-				*maxSize = max_off_t_31;
-		}
-#endif
-
-		if (!Stream)
+		    
+		    if (!Stream)
 			Stream = SimpleFileOpen(out_dev, dev, name, mode,
 						errmsg, 0, 1, maxSize);
+		    
+		}
 
 		if( !Stream)
-			continue;
+		    continue;
 
 		/* read the boot sector */
 		if ((r=read_boot(Stream, boot, out_dev->blocksize)) < 0){

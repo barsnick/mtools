@@ -1,6 +1,6 @@
-.TH mcat 1 "27May01" mtools-pre6-3.9.8
+.TH minfo 1 "27May01" mtools-pre6-3.9.8
 .SH Name
-mcat - dump raw disk image
+minfo - print the parameters of a MSDOS filesystem
 '\" t
 .de TQ
 .br
@@ -18,28 +18,24 @@ documentation, and may not be entirely accurate or complete.  See the
 end of this man page for details.
 .PP
 .SH Description
+.iX "p minfo"
+.iX "c mformat parameters"
+.iX "c getting parameters of a Dos fs"
 .PP
-The \fR\&\f(CWmcat\fR command is used to copy an entire disk image from or
-to the floppy device. It uses the following syntax:
+The \fR\&\f(CWminfo\fR command prints the parameters of a Dos filesystem, such
+as number of sectors, heads and cylinders.  It also prints an mformat
+command line which can be used to create a similar Dos filesystem on
+another media.  However, this doesn't work with 2m or Xdf media, and
+with Dos 1.0 filesystems
+.(l I
+\&\fR\&\f(CWminfo\fR \fIdrive\fR:
+.)l
+ 
 .PP
-\&\fR\&\f(CWmcat\fR [\fR\&\f(CW-w\fR] \fIdrive\fR\fR\&\f(CW:\fR
-.iX "p mcat"
-.iX "c Copying an entire disk image"
-.iX "c Disk image"
-.iX "c Floppyd cat"
-.PP
-\&\fR\&\f(CWMcat\fR performs the same task as the unix \fR\&\f(CWcat\fR command. It
-is included into the mtools package, since \fR\&\f(CWcat\fR cannot access
-remote floppy devices offered by the mtools floppy daemon.
-Now it is possible to create boot floppies remotely.
-.PP
-The default operation is reading. The output is written to stdout.
-.PP
-If the \fR\&\f(CW-w\fR option is specified, mcat reads a disk-image from 
-stdin and writes it to the given device. 
-\&\fBUse this carefully!\fR Because of the lowlevel nature of this 
-command, it will happily destroy any data written before on the
-disk without warning!
+Mlabel supports the following option:
+.TP
+\&\fR\&\f(CWv\fR\ 
+Prints a hexdump of the bootsector, in addition to the other information
 .PP
 .SH See\ Also
 Mtools' texinfo doc

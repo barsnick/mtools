@@ -1,4 +1,4 @@
-.TH mzip 1 "01jun00" mtools-3.9.7
+.TH mzip 1 "27May01" mtools-pre6-3.9.8
 .SH Name
 mzip - change protection mode and eject disk on Zip/Jaz drive
 '\" t
@@ -29,7 +29,7 @@ end of this man page for details.
 .iX "c password protected Zip disks"
 .PP
 The \fR\&\f(CWmzip\fR command is used to issue ZIP disk specific commands on
-Solaris or HPUX. Its syntax is:
+Linux, Solaris or HPUX. Its syntax is:
 .PP
 .(l I
 \&\fR\&\f(CWmzip\fR [\fR\&\f(CW-epqrwx\fR]
@@ -82,6 +82,14 @@ formatted in a special way so as to be usable both in a PC and in a Mac.
 On a PC, the Mac filesystem appears as a hidden file named
 \&\fR\&\f(CW\(ifpartishn.mac\(is\fR.  You may erase it to reclaim the 50 Megs of space
 taken up by the Mac filesystem.
+.PP
+.SH Bugs
+.PP
+This command is a big kludge.  A proper implementation would take a
+rework of significant parts of mtools, but unfortunately I don't have
+the time for this right now. The main downside of this implementation is
+that it is inefficient on some architectures (several successive calls
+to mtools, which defeats mtools' caching).
 .PP
 .SH See\ Also
 Mtools' texinfo doc

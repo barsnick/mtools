@@ -11,7 +11,13 @@ Stream_t *FloppydOpen(struct device *dev, struct device *dev2,
 					  int mode2, int locked);
 
 #define FLOPPYD_DEFAULT_PORT 5703
-#define FLOPPYD_PROTOCOL_VERSION 10
+
+#define FLOPPYD_PROTOCOL_VERSION_OLD 10
+#define FLOPPYD_PROTOCOL_VERSION 11
+
+#define FLOPPYD_CAP_EXPLICIT_OPEN 1 /* explicit open. Useful for 
+				     * clean signalling of readonly disks */
+#define FLOPPYD_CAP_LARGE_SEEK 2    /* large seeks */
 
 enum FloppydOpcodes {
 	OP_READ,
@@ -19,7 +25,9 @@ enum FloppydOpcodes {
 	OP_SEEK,
 	OP_FLUSH,
 	OP_CLOSE,
-	OP_IOCTL
+	OP_IOCTL,
+	OP_OPRO,
+	OP_OPRW
 };
 
 enum AuthErrorsEnum {

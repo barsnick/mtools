@@ -56,14 +56,14 @@ int test_mounted ( char *dev )
 {
 #ifdef HAVE_MNTENT_H
 	struct mntent	*mnt;
-	struct stat	st_dev, st_mnt;
+	struct MT_STAT	st_dev, st_mnt;
 	FILE		*mtab;
 /*
  * Now check if any partition of this device is already mounted (this
  * includes checking if the device is mounted under a different name).
  */
 	
-	if (stat (dev, &st_dev)) {
+	if (MT_STAT (dev, &st_dev)) {
 		fprintf (stderr, "%s: stat(%s) failed: %s.\n",
 			 progname, dev, strerror (errno));
 		exit(1);
@@ -96,7 +96,7 @@ int test_mounted ( char *dev )
 			)
 			continue;
 
-		if (stat (mnt->mnt_fsname, &st_mnt)) {
+		if (MT_STAT (mnt->mnt_fsname, &st_mnt)) {
 			continue;
 		}
 		
@@ -327,7 +327,7 @@ void mzip(int argc, char **argv, int type)
 			continue;
 		}
 		
-#ifdef DEBUG
+#if DEBUG
 		fprintf(stderr, "device: %s\n\tvendor: %.8s\n\tproduct: %.16s\n"
 			"\trevision: %.4s\n", name, inq_data.vendor,
 			inq_data.product, inq_data.revision);
@@ -338,6 +338,8 @@ void mzip(int argc, char **argv, int type)
 		    (strncasecmp("ZIP 100         ",
 				 inq_data.product, sizeof inq_data.product) &&
 		     strncasecmp("ZIP 100 PLUS    ",
+				 inq_data.product, sizeof inq_data.product) &&
+		     strncasecmp("ZIP 250         ",
 				 inq_data.product, sizeof inq_data.product) &&
 		     strncasecmp("JAZ 1GB         ",
 				 inq_data.product, sizeof inq_data.product) &&

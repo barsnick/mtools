@@ -3,7 +3,11 @@
 #ifndef SYSINCLUDES_H
 #define SYSINCLUDES_H
 
+#define _LARGEFILE64_SOURCE
+#define _GNU_SOURCE
+
 #include "config.h"
+
 
 /* OS/2 needs __inline__, but for some reason is not autodetected */
 #ifdef __EMX__
@@ -84,6 +88,14 @@
 /* Include files                                                       */
 /*                                                                     */
 /***********************************************************************/
+
+#define _LARGEFILE64_SOURCE
+#define _GNU_SOURCE
+
+
+#ifdef HAVE_FEATURES_H
+# include <features.h>
+#endif
 
 
 #include <sys/types.h>
@@ -474,20 +486,26 @@ struct utimbuf
 #endif
 
 
-#if 0
+#ifdef OS_aix
+/* AIX has an offset_t time, but somehow it is not scalar ==> forget about it
+ */
+# undef HAVE_OFFSET_T
+#endif
 
-#define malloc(x) mymalloc(x)
-#define calloc(x,y) mycalloc(x,y)
-#define free(x) myfree(x)
-#define realloc(x,y) myrealloc(x,y)
-#define strdup(a) mystrdup(a)
 
-void *mycalloc(size_t nmemb, size_t size);
-void *mymalloc(size_t size);
-void myfree(void *ptr);
-void *myrealloc(void *ptr, size_t size);
-char *mystrdup(char *a);
+#ifdef HAVE_STAT64
+#define MT_STAT stat64
+#define MT_LSTAT lstat64
+#define MT_FSTAT fstat64
+#else
+#define MT_STAT stat
+#define MT_LSTAT lstat
+#define MT_FSTAT fstat
+#endif
 
+
+#ifndef O_LARGEFILE
+#define O_LARGEFILE 0
 #endif
 
 #endif

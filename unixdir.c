@@ -14,7 +14,7 @@ typedef struct Dir_t {
 	Stream_t *Next;
 	Stream_t *Buffer;
 
-	struct stat stat;
+	struct MT_STAT statbuf;
 	char *pathname;
 	DIR *dir;
 #ifdef HAVE_FCHDIR
@@ -30,9 +30,9 @@ static int get_dir_data(Stream_t *Stream, time_t *date, mt_size_t *size,
 	DeclareThis(Dir_t);
 
 	if(date)
-		*date = This->stat.st_mtime;
+		*date = This->statbuf.st_mtime;
 	if(size)
-		*size = (mt_size_t) This->stat.st_size;
+		*size = (mt_size_t) This->statbuf.st_size;
 	if(type)
 		*type = 1;
 	if(address)
@@ -127,7 +127,7 @@ Stream_t *OpenDir(Stream_t *Stream, const char *filename)
 	}
 	strcpy(This->pathname, filename);
 
-	if(stat(filename, &This->stat) < 0) {
+	if(MT_STAT(filename, &This->statbuf) < 0) {
 		Free(This->pathname);
 		Free(This);
 		return NULL;

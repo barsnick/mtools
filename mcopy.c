@@ -56,6 +56,7 @@ typedef struct Arg_t {
 	int nowarn;
 	int verbose;
 	int type;
+	int convertCharset;
 	MainParam_t mp;
 	ClashHandling_t ch;
 } Arg_t;
@@ -67,7 +68,7 @@ static int unix_write(direntry_t *entry, MainParam_t *mp, int needfilter)
 	time_t mtime;
 	Stream_t *File=mp->File;
 	Stream_t *Target, *Source;
-	struct stat stbuf;
+	struct MT_STAT stbuf;
 	int ret;
 	char errmsg[80];
 	char *unixFile;
@@ -96,7 +97,8 @@ static int unix_write(direntry_t *entry, MainParam_t *mp, int needfilter)
 			}
 			
 			/* sanity checking */
-			if (!stat(unixFile, &stbuf) && !S_ISREG(stbuf.st_mode)) {
+			if (!MT_STAT(unixFile, &stbuf) && 
+			    !S_ISREG(stbuf.st_mode)) {
 				fprintf(stderr,"\"%s\" is not a regular file\n",
 					unixFile);
 				
@@ -122,7 +124,7 @@ static int unix_write(direntry_t *entry, MainParam_t *mp, int needfilter)
 				     errmsg, 0, 0, 0))) {
 		ret = 0;
 		if(needfilter && arg->textmode){
-			Source = open_filter(COPY(File));
+			Source = open_filter(COPY(File),arg->convertCharset);
 			if (!Source)
 				ret = -1;
 		} else
@@ -157,8 +159,8 @@ static int makeUnixDir(char *filename)
 	if(!mkdir(filename, 0777))
 		return 0;
 	if(errno == EEXIST) {
-		struct stat buf;
-		if(stat(filename, &buf) < 0)
+		struct MT_STAT buf;
+		if(MT_STAT(filename, &buf) < 0)
 			return -1;
 		if(S_ISDIR(buf.st_mode))
 			return 0;
@@ -288,7 +290,7 @@ static int writeit(char *dosname,
 		exit(1);
 	}
 	if (arg->needfilter & arg->textmode)
-		Target = open_filter(Target);
+		Target = open_filter(Target,arg->convertCharset);
 
 
 
@@ -444,9 +446,9 @@ static void usage(void)
 	fprintf(stderr,
 		"Mtools version %s, dated %s\n", mversion, mdate);
 	fprintf(stderr,
-		"Usage: %s [-spatnmQVB] [-D clash_option] sourcefile targetfile\n", progname);
+		"Usage: %s [-spatnmQVBT] [-D clash_option] sourcefile targetfile\n", progname);
 	fprintf(stderr,
-		"       %s [-spatnmQVB] [-D clash_option] sourcefile [sourcefiles...] targetdirectory\n", 
+		"       %s [-spatnmQVBT] [-D clash_option] sourcefile [sourcefiles...] targetdirectory\n", 
 		progname);
 	exit(1);
 }
@@ -470,9 +472,10 @@ void mcopy(int argc, char **argv, int mtype)
 	arg.nowarn = 0;
 	arg.textmode = 0;
 	arg.verbose = 0;
+	arg.convertCharset = 0;
 	arg.type = mtype;
 	fastquit = 0;
-	while ((c = getopt(argc, argv, "abB/sptnmvQD:o")) != EOF) {
+	while ((c = getopt(argc, argv, "abB/sptTnmvQD:o")) != EOF) {
 		switch (c) {
 			case 's':
 			case '/':
@@ -481,6 +484,8 @@ void mcopy(int argc, char **argv, int mtype)
 			case 'p':
 				arg.preserveAttributes = 1;
 				break;
+			case 'T':
+				arg.convertCharset = 1;
 			case 'a':
 			case 't':
 				arg.textmode = 1;

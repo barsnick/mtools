@@ -86,13 +86,15 @@ void write_dword(int handle, Dword parm)
 
 /* ######################################################################## */
 
-int authenticate_to_floppyd(char fullauth, int sock, char *display)
+int authenticate_to_floppyd(char fullauth, int sock, char *display, 
+			    int protoversion)
 {
 	off_t filelen=0;
 	Byte buf[16];
 	char *command[] = { "xauth", "xauth", "extract", "-", 0, 0 };
 	char *xcookie = NULL;
 	Dword errcode;
+	int bytesRead;
 
 	if (fullauth) {
 		command[4] = display;
@@ -103,21 +105,32 @@ int authenticate_to_floppyd(char fullauth, int sock, char *display)
 		xcookie = (char *) safe_malloc(filelen+4);
 		filelen = safePopenOut(command, xcookie+4, filelen);
 		if(filelen < 1)
-			return AUTH_AUTHFAILED;
+		    return AUTH_AUTHFAILED;
 	}
 	dword2byte(4,buf);
-	dword2byte(FLOPPYD_PROTOCOL_VERSION,buf+4);
+	dword2byte(protoversion,buf+4);
 	write(sock, buf, 8);
 
-	if (read_dword(sock) != 4) {
+	bytesRead = read_dword(sock);
+
+	if (bytesRead != 4 && bytesRead != 12) {
 		return AUTH_WRONGVERSION;
 	}
+
 
 	errcode = read_dword(sock);
 
 	if (errcode != AUTH_SUCCESS) {
 		return errcode;
 	}
+
+
+	if(bytesRead == 8) {
+	    protoversion = read_dword(sock);
+	    read_dword(sock);
+	}
+	
+	fprintf(stderr, "Protocol Version=%d\n", protoversion);
 
 	if (fullauth) {
 		dword2byte(filelen, xcookie);
@@ -193,7 +206,7 @@ static IPaddr_t getipaddress(char *ipaddr)
 		endhostent();
 	}
 	
-#ifdef DEBUG
+#if DEBUG
 	fprintf(stderr, "IP lookup %s -> 0x%08lx\n", ipaddr, ip);
 #endif
 	  
@@ -257,6 +270,7 @@ int main (int argc, char** argv)
 	int sock;
 	int reply;
 	int rval;
+	int protoversion;
 	char fullauth = 0;
 	Byte opcode = OP_CLOSE;
 
@@ -285,7 +299,19 @@ int main (int argc, char** argv)
 		return -1;
 	}
 	
-	reply = authenticate_to_floppyd(fullauth, sock, display);
+	protoversion = FLOPPYD_PROTOCOL_VERSION;
+	while(1) {
+	    reply = authenticate_to_floppyd(fullauth, sock, display,
+					    protoversion);
+	    if(protoversion == FLOPPYD_PROTOCOL_VERSION_OLD)
+		break;
+	    if(reply == AUTH_WRONGVERSION) {
+		/* fall back on old version */
+		protoversion = FLOPPYD_PROTOCOL_VERSION_OLD;
+		continue;
+	    }
+	    break;
+	}
 
 	if (reply != 0) {
 		fprintf(stderr, 

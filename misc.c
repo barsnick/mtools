@@ -78,13 +78,13 @@ void unlink_mcwd()
 
 FILE *open_mcwd(const char *mode)
 {
-	struct stat sbuf;
+	struct MT_STAT sbuf;
 	char file[MAXPATHLEN+1];
 	time_t now;
 	
 	get_mcwd_file_name(file);
 	if (*mode == 'r'){
-		if (stat(file, &sbuf) < 0)
+		if (MT_STAT(file, &sbuf) < 0)
 			return NULL;
 		/*
 		 * Ignore the info, if the file is more than 6 hours old

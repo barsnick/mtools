@@ -1,2 +1,2 @@
-const char *mversion="3.9.7";
-const char *mdate = "1 jun 2000";
+const char *mversion="pre6-3.9.8";
+const char *mdate = "27 May 2001";

@@ -109,6 +109,21 @@ if test "$mtools_cv_have_llseek_prototype" = yes; then
    AC_DEFINE(HAVE_LLSEEK_PROTOTYPE)
 fi
 
+AC_MSG_CHECKING(whether lseek64 declared in unistd.h)
+AC_CACHE_VAL(mtools_cv_have_lseek64_prototype,
+        AC_TRY_COMPILE(
+[
+#include "sysincludes.h"
+#include <unistd.h>
+], [extern int lseek64(int);],
+        [mtools_cv_have_lseek64_prototype=no],
+        [mtools_cv_have_lseek64_prototype=yes]))
+AC_MSG_RESULT($mtools_cv_have_lseek64_prototype)
+if test "$mtools_cv_have_lseek64_prototype" = yes; then
+   AC_DEFINE(HAVE_LSEEK64_PROTOTYPE)
+fi
+
+
 
 
 dnl
@@ -149,7 +164,7 @@ AC_CHECK_FUNCS(strerror random srandom strchr strrchr lockf flock \
 strcasecmp strncasecmp atexit on_exit getpass memmove \
 strdup strcspn strspn strtoul strtol memcpy strpbrk memset seteuid setresuid \
 tcsetattr tcflush basename fchdir media_oldaliases llseek lseek64 \
-snprintf)
+snprintf stat64)
 AC_FUNC_SETPGRP
 
 dnl
@@ -275,7 +290,10 @@ if [ "X$GCC" = "Xyes" ] ; then
     if [ "$host_os3" = aux ] ; then
 	    CFLAGS="$CFLAGS -ZP"
 	    MACHDEPLIBS="-lposix -UTIL"
-    fi	
+    fi
+    case "${host}" in
+       arm*-*-linux) CFLAGS="$CFLAGS -mstructure-size-boundary=8";;
+    esac
     CFLAGS="$CFLAGS $Wall"
 else
     if [ $host_os3 = hpux ] ; then
@@ -339,6 +357,7 @@ fi])
 
 AC_CHECK_LIB(socket,main)
 AC_CHECK_LIB(nsl,main)
+AC_CHECK_LIB(bsd,main)
 AC_CHECK_HEADERS(sys/socket.h arpa/inet.h netdb.h)
 
 if test $use_floppyd = undef -a X$no_x = X ; then

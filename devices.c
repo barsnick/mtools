@@ -160,7 +160,7 @@ static inline int get_parameters(int fd, struct generic_floppy_struct *floppy)
 #define FD_SET_SECTSIZE(floppy,v) { floppy.fg.sector_size = v; }
 
 static inline int set_parameters(int fd, struct generic_floppy_struct *floppy, 
-				 struct stat *buf)
+				 struct MT_STAT *buf)
 {
 	if (ioctl(fd, FLOPPY_SET_GEOMETRY, &(floppy->fg)) != 0) {
 		perror("");
@@ -267,7 +267,7 @@ static int get_parameters(int fd, struct generic_floppy_struct *floppy)
 #define FD_SET_SECTSIZE(floppy,v) { (floppy).dp_secsiz = (v); }
 
 static int set_parameters(int fd, struct generic_floppy_struct *floppy,
-	struct stat *buf)
+	struct MT_STAT *buf)
 {
 	return 1;
 }
@@ -394,7 +394,7 @@ static inline int get_parameters(int fd, struct generic_floppy_struct *floppy)
 #define FD_SET_SECTSIZE(floppy,v) { floppy.fdchar.fdc_sec_size = v; }
 
 static inline int set_parameters(int fd, struct generic_floppy_struct *floppy, 
-				 struct stat *buf)
+				 struct MT_STAT *buf)
 {
 	if (ioctl(fd, FDIOSCHAR, &(floppy->fdchar)) != 0) {
 		ioctl(fd, FDEJECT, NULL);
@@ -508,7 +508,7 @@ static inline int get_parameters(int fd, struct generic_floppy_struct *floppy)
 #define FD_SET_SECTSIZE(floppy,v) { floppy.dkbuf.sec_size = v; }
 
 static inline int set_parameters(int fd, struct generic_floppy_struct *floppy, 
-				 struct stat *buf)
+				 struct MT_STAT *buf)
 {
 	if (ioctl(fd, FDKIOSCHAR, &(floppy->dkbuf)) != 0) {
 		ioctl(fd, FDKEJECT, NULL);
@@ -757,7 +757,7 @@ static inline void set_ssize(struct floppy_struct *floppy, int value)
 #define SET_SSIZE set_ssize
 
 static inline int set_parameters(int fd, struct floppy_struct *floppy, 
-				 struct stat *buf)
+				 struct MT_STAT *buf)
 {
 	if ( ( MINOR(buf->st_rdev ) & 0x7f ) > 3 )
 		return 1;
@@ -786,12 +786,13 @@ struct device devices[] = {
 
 
 /*** /jes -- for D.O.S. 486 BL DX2/80 ***/
+/*** Jean-Marc Zucconi <jmz@FreeBSD.org> 2001/03/30 ***/
 #ifdef OS_freebsd
 #define predefined_devices
 struct device devices[] = {
-	{"/dev/rfd0.1440", 'A', FHD312},
-	{"/dev/rfd0.720",  'A', FDD312},
-	{"/dev/rfd1.1200", 'B', MHD514},
+	{"/dev/fd0.1440", 'A', FHD312},
+	{"/dev/fd0.720",  'A', FDD312},
+	{"/dev/fd1.1200", 'B', MHD514},
 	{"/dev/sd0s1",     'C', GENHD},
 	REMOTE
 };
@@ -839,7 +840,7 @@ struct device devices[] = {
 
 #undef INIT_NOOP
 int init_geom(int fd, struct device *dev, struct device *orig_dev,
-	      struct stat *stat)
+	      struct MT_STAT *statbuf)
 {
 	struct gdctl gdbuf;
 
@@ -951,7 +952,7 @@ struct device devices[] = {
 
 #undef INIT_NOOP
 int init_geom(int fd, struct device *dev, struct device *orig_dev,
-	      struct stat *stat)
+	      struct MT_STAT *statbuf)
 {
 	struct generic_floppy_struct floppy;
 	int change;
@@ -960,9 +961,11 @@ int init_geom(int fd, struct device *dev, struct device *orig_dev,
 	 * succeed if we don't have a floppy
 	 * this is the case for dosemu floppy image files for instance
 	 */
-	if (!((S_ISBLK(stat->st_mode) && major(stat->st_rdev) == BLOCK_MAJOR)
+	if (!((S_ISBLK(statbuf->st_mode) && 
+	       major(statbuf->st_rdev) == BLOCK_MAJOR)
 #ifdef CHAR_MAJOR
-	      || (S_ISCHR(stat->st_mode) && major(stat->st_rdev) == CHAR_MAJOR) 
+	      || (S_ISCHR(statbuf->st_mode) && 
+		  major(statbuf->st_rdev) == CHAR_MAJOR) 
 #endif
 		))
 		return compare_geom(dev, orig_dev);
@@ -1055,13 +1058,13 @@ int init_geom(int fd, struct device *dev, struct device *orig_dev,
 		STRETCH(floppy) = 1;
 #endif
 	
-	return set_parameters( fd, &floppy, stat) ;
+	return set_parameters( fd, &floppy, statbuf);
 }
 #endif /* INIT_GENERIC */  
 
 #ifdef INIT_NOOP
 int init_geom(int fd, struct device *dev, struct device *orig_dev,
-			  struct stat *stat)
+			  struct MT_STAT *statbuf)
 {
 	return compare_geom(dev, orig_dev);
 }

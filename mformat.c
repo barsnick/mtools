@@ -124,7 +124,7 @@ static int init_geometry_boot(struct bootsector *boot, struct device *dev,
 			boot->jump[0] = 0xeb;
 			boot->jump[1] = 0;
 			boot->jump[2] = 0x90;
-			strncpy(boot->banner, "MTOOL397", 8);
+			strncpy(boot->banner, "MTOOL398", 8);
 			/* It looks like some versions of DOS are
 			 * rather picky about this, and assume default
 			 * parameters without this, ignoring any
@@ -355,13 +355,13 @@ static void calc_fat_size(Fs_t *Fs, unsigned int tot_sectors)
 
 	if ( Fs->num_clus > FAT12 && Fs->fat_bits == 12 ){
 		fprintf(stderr,"Too many clusters for this fat size."
-			" Please choose a 16-bit fat in your /etc/mtools"
+			" Please choose a 16-bit fat in your /etc/mtools.conf"
 			" or .mtoolsrc file\n");
 		exit(1);
 	}
 	if ( Fs->num_clus <= FAT12 && Fs->fat_bits > 12 ){
 		fprintf(stderr,"Too few clusters for this fat size."
-			" Please choose a 12-bit fat in your /etc/mtools"
+			" Please choose a 12-bit fat in your /etc/mtools.conf"
 			" or .mtoolsrc file\n");
 		exit(1);
 	}
@@ -843,9 +843,9 @@ void mformat(int argc, char **argv, int dummy)
 		if ((!used_dev.tracks || !used_dev.heads || !used_dev.sectors) &&
 			(!IS_SCSI(dev))) {
 			int fd= get_fd(Fs.Direct);
-			struct stat buf;
+			struct MT_STAT buf;
 
-			if (fstat(fd, &buf) < 0) {
+			if (MT_FSTAT(fd, &buf) < 0) {
 				sprintf(errmsg, "Could not stat file (%s)", strerror(errno));
 				continue;						
 			}
@@ -944,7 +944,7 @@ void mformat(int argc, char **argv, int dummy)
 	if(bootSector) {
 		int fd;
 
-		fd = open(bootSector, O_RDONLY);
+		fd = open(bootSector, O_RDONLY | O_LARGEFILE);
 		if(fd < 0) {
 			perror("open boot sector");
 			exit(1);

@@ -85,7 +85,7 @@ extern const char *short_illegals, *long_illegals;
 } while(0) 
 
 int init_geom(int fd, struct device *dev, struct device *orig_dev,
-	      struct stat *stat);
+	      struct MT_STAT *statbuf);
 
 int readwrite_sectors(int fd, /* file descriptor */
 		      int *drive,
@@ -117,7 +117,7 @@ int match(const char *, const char *, char *, int, int);
 
 char *unix_name(char *name, char *ext, char Case, char *answer);
 void *safe_malloc(size_t size);
-Stream_t *open_filter(Stream_t *Next);
+Stream_t *open_filter(Stream_t *Next,int convertCharset);
 
 extern int got_signal;
 /* int do_gotsignal(char *, int);

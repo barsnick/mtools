@@ -1,3 +1,40 @@
+010526	Released pre6-3.9.8 : getting rid of linux-gnu references is
+	almost as difficult as exorcising the devil...
+010526	Released pre5-3.9.8 after fixing a couple of version numbers
+010526	Applied Adrian Bunk's patches, minus the Stallmanisms.
+	De-stallmanized config.gues and config.sub files
+	pre4-3.9.8
+010521	Fixed DELMARK translation of mcopy's -T option, pre3-3.9.8
+010521	Fixed #ifdef DEBUG statements, pre2-3.9.8
+010520	Released pre-3.9.8
+010507	Updated config.guess/config.sub to support Darwin
+	Patch for converting contents of files from/to Dos' version of
+	8bit Ascii
+	Fixed bug in to_unix function
+010330	Updated freebsd floppy device definitions
+010325	Fixes for floppyd to work with current protocol version of floppyd
+010325	Fixed parsing of Unix filenames ending with slash
+010325	Fixed file closing of floppyd
+001213	Fixed a cindex entry in documentation
+001113	Rewrote PDF rule to use pdflatex, rather than go through dvi
+	(pdflatex output looks nicer)
+001113	Fixed JAZ Zip file overwrite bug (actually, this bug could occur
+	on any disk reasonably full...)
+001018	Fix mzip manpage to include Linux in the list of supported OS'es
+001009	Protect against division by zero when reading BSD disks...
+000829	Documentation fixes
+000820	Hurd openflags fix in mainloop.c
+	Added description for t option to mcopy man page
+	Added -lbsd to list of libraries to be tested for LynxOS
+	Unset LANG in mkmanpages
+	Updated config.gues/config.sub
+	Removed stale documentation for xcopy
+	Fixed typo in mformat man page
+000810	Zip 250 support in mzip
+000708	Floppyd robustness
+000703	Variable initialization in mdir.c
+000623	Do not use offset_t on AIX ==> broken
+000610	Large disk fixes, especially for Solaris
 000601	Released Mtools-3.9.7
 000528	Mtools-pre2-3.9.7 released: some potential buffer overflows	
 000521	Mtools-pre-3.9.7 released

@@ -17,12 +17,13 @@
 #include "partition.h"
 #include "llong.h"
 
+
 typedef struct SimpleFile_t {
     Class_t *Class;
     int refs;
     Stream_t *Next;
     Stream_t *Buffer;
-    struct stat stat;
+    struct MT_STAT statbuf;
     int fd;
     mt_off_t offset;
     mt_off_t lastwhere;
@@ -197,6 +198,10 @@ static int file_geom(Stream_t *Stream, struct device *dev,
 		tot_sectors = DWORD(bigsect);
 		SET_INT(tot_sectors, WORD(psect));
 		sect_per_track = dev->heads * dev->sectors;
+		if(sect_per_track == 0) {
+		    fprintf(stderr, "The devil is in the details: zero number of heads or sectors\n");
+		    exit(1);
+		}
 		tot_sectors += sect_per_track - 1; /* round size up */
 		dev->tracks = tot_sectors / sect_per_track;
 
@@ -245,7 +250,7 @@ static int file_geom(Stream_t *Stream, struct device *dev,
 	       media, dev->tracks, dev->heads, dev->sectors, dev->ssize,
 	       dev->use_2m);
 #endif
-	ret = init_geom(This->fd,dev, orig_dev, &This->stat);
+	ret = init_geom(This->fd,dev, orig_dev, &This->statbuf);
 	dev->sectors = sectors;
 #ifdef JPD
 	printf("f_geom: after init_geom(), sects=%d\n", dev->sectors);
@@ -260,11 +265,11 @@ static int file_data(Stream_t *Stream, time_t *date, mt_size_t *size,
 	DeclareThis(SimpleFile_t);
 
 	if(date)
-		*date = This->stat.st_mtime;
+		*date = This->statbuf.st_mtime;
 	if(size)
-		*size = This->stat.st_size;
+		*size = This->statbuf.st_size;
 	if(type)
-		*type = S_ISDIR(This->stat.st_mode);
+		*type = S_ISDIR(This->statbuf.st_mode);
 	if(address)
 		*address = 0;
 	return 0;
@@ -491,7 +496,7 @@ APIRET rc;
 		This->refs = 1;
 		This->Next = 0;
 		This->Buffer = 0;
-		if (fstat(This->fd, &This->stat) < 0) {
+		if (MT_FSTAT(This->fd, &This->statbuf) < 0) {
 		    Free(This);
 		    if(errmsg)
 #ifdef HAVE_SNPRINTF
@@ -531,13 +536,13 @@ APIRET rc;
 			OPEN_ACTION_OPEN_IF_EXISTS, DOSOPEN_FLAGS |
 			(IS_NOLOCK(dev)?DOSOPEN_HD_ACCESS:DOSOPEN_FD_ACCESS),
 			0L);
-#ifdef DEBUG
+#if DEBUG
 		if (rc != NO_ERROR) fprintf (stderr, "DosOpen() returned %d\n", rc);
 #endif
 		if (!IS_NOLOCK(dev)) {
 			rc = DosDevIOCtl(
 			FileHandle, 0x08L, DSK_LOCKDRIVE, 0, 0, 0, 0, 0, 0);
-#ifdef DEBUG
+#if DEBUG
 			if (rc != NO_ERROR) fprintf (stderr, "DosDevIOCtl() returned %d\n", rc);
 #endif
 		}
@@ -550,7 +555,8 @@ APIRET rc;
 		    This->fd = scsi_open(name, mode, IS_NOLOCK(dev)?0444:0666,
 					 &This->extra_data);
 		else
-		    This->fd = open(name, mode, IS_NOLOCK(dev)?0444:0666);
+		    This->fd = open(name, mode | O_LARGEFILE, 
+				    IS_NOLOCK(dev)?0444:0666);
 	    }
 
 	if(IS_PRIVILEGED(dev) && !(mode2 & NO_PRIV))
@@ -575,7 +581,7 @@ APIRET rc;
 #ifdef __EMX__
 	if (*(name+1) != ':')
 #endif
-	if (fstat(This->fd, &This->stat) < 0){
+	if (MT_FSTAT(This->fd, &This->statbuf) < 0){
 		Free(This);
 		if(errmsg) {
 #ifdef HAVE_SNPRINTF
@@ -616,7 +622,7 @@ APIRET rc;
 	/* set default parameters, if needed */
 	if (dev){		
 		if ((IS_MFORMAT_ONLY(dev) || !dev->tracks) &&
-			init_geom(This->fd, dev, orig_dev, &This->stat)){
+			init_geom(This->fd, dev, orig_dev, &This->statbuf)){
 			close(This->fd);
 			Free(This);
 			if(errmsg)

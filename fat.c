@@ -82,18 +82,25 @@ static inline int locate(Fs_t *Stream, int offset, int *slot, int *bit)
 }
 
 static inline int fatReadSector(Fs_t *This, int sector, int slot, 
-				int bit, int dupe)
+				int bit, int dupe, fatBitMask bitmap)
 {
 	int fat_start, ret;
+	int nr_sectors;
 
 	dupe = (dupe + This->primaryFat) % This->num_fat;
 	fat_start = This->fat_start + This->fat_len * dupe;
 	
+	if(bitmap == 0) {
+	    nr_sectors = SECT_PER_ENTRY - bit%SECT_PER_ENTRY;
+	} else {
+	    nr_sectors = 1;
+	}
+
 	/* first, read as much as the buffer can give us */
 	ret = readSector(This,
 					 (char *)(This->FatMap[slot].data+(bit<<This->sectorShift)),
 					 fat_start+sector,
-					 (SECT_PER_ENTRY - bit%SECT_PER_ENTRY));
+					 nr_sectors);
 	if(ret < 0)
 		return 0;
 
@@ -163,13 +170,19 @@ static unsigned char *loadSector(Fs_t *This,
 		ret = -1;
 		for(i=0; i< This->num_fat; i++) {
 			/* read the sector */
-			ret = fatReadSector(This, sector, slot, bit, i);
+			ret = fatReadSector(This, sector, slot, bit, i,
+					    This->FatMap[slot].valid);
 
 			if(ret == 0) {
 				fprintf(stderr,
 					"Error reading fat number %d\n", i);
 				continue;
 			}
+			if(This->FatMap[slot].valid)
+			    /* Set recurs if there have already been
+			     * sectors loaded in this bitmap long
+			     */
+			    recurs = 1;
 			break;
 		}
 

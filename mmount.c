@@ -55,7 +55,7 @@ void mmount(int argc, char **argv, int type)
 		exit(1);
 	case 0:
 		close(2);
-		open("/dev/null", O_RDWR);
+		open("/dev/null", O_RDWR | O_LARGEFILE);
 		argv[1] = strdup("mount");
 		if ( argc > 2 )
 			execvp("mount", argv + 1 );

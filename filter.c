@@ -1,6 +1,7 @@
 #include "sysincludes.h"
 #include "msdos.h"
 #include "mtools.h"
+#include "codepage.h"
 
 typedef struct Filter_t {
 	Class_t *Class;
@@ -13,6 +14,7 @@ typedef struct Filter_t {
 	int mode;
 	int rw;
 	int lastchar;
+	int convertCharset;
 } Filter_t;
 
 #define F_READ 1
@@ -24,6 +26,7 @@ static int read_filter(Stream_t *Stream, char *buf, mt_off_t iwhere, size_t len)
 {
 	DeclareThis(Filter_t);
 	int i,j,ret;
+	unsigned char newchar;
 
 	off_t where = truncBytes32(iwhere);
 
@@ -47,7 +50,9 @@ static int read_filter(Stream_t *Stream, char *buf, mt_off_t iwhere, size_t len)
 			continue;
 		if (buf[i] == 0x1a)
 			break;
-		This->lastchar = buf[j++] = buf[i];	
+		newchar = buf[i];
+		if (This->convertCharset) newchar = contents_to_unix(newchar);
+		This->lastchar = buf[j++] = newchar;
 	}
 
 	This->dospos += i;
@@ -61,7 +66,8 @@ static int write_filter(Stream_t *Stream, char *buf, mt_off_t iwhere,
 	DeclareThis(Filter_t);
 	int i,j,ret;
 	char buffer[1025];
-
+	unsigned char newchar;
+	
 	off_t where = truncBytes32(iwhere);
 
 	if(This->unixpos == -1)
@@ -86,7 +92,9 @@ static int write_filter(Stream_t *Stream, char *buf, mt_off_t iwhere,
 			j++;
 			continue;
 		}
-		buffer[i++] = buf[j++];
+		newchar = buf[j++];
+		if (This->convertCharset) newchar = to_dos(newchar);
+		buffer[i++] = newchar;
 	}
 	This->unixpos += j;
 
@@ -123,7 +131,7 @@ static Class_t FilterClass = {
 	0
 };
 
-Stream_t *open_filter(Stream_t *Next)
+Stream_t *open_filter(Stream_t *Next, int convertCharset)
 {
 	Filter_t *This;
 
@@ -135,6 +143,7 @@ Stream_t *open_filter(Stream_t *Next)
 	This->Next = Next;
 	This->refs = 1;
 	This->Buffer = 0;
+	This->convertCharset = convertCharset;
 
 	return (Stream_t *) This;
 }

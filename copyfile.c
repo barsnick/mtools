@@ -11,9 +11,9 @@
 int copyfile(Stream_t *Source, Stream_t *Target)
 {
 	char buffer[8*16384];
-	int pos;
+	mt_off_t pos;
 	int ret, retw;
-	size_t len;
+/*	size_t len;*/
 	mt_size_t mt_len;
 
 	if (!Source){
@@ -28,11 +28,6 @@ int copyfile(Stream_t *Source, Stream_t *Target)
 
 	pos = 0;
 	GET_DATA(Source, 0, &mt_len, 0, 0);
-	if (mt_len & ~max_off_t_31) {
-		fprintf(stderr, "File too big\n");
-		return -1;
-	}
-	len = truncBytes32(mt_len);
 	while(1){
 		ret = READS(Source, buffer, (mt_off_t) pos, 8*16384);
 		if (ret < 0 ){
