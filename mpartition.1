@@ -1,4 +1,4 @@
-.TH mpartition 1 "27May01" mtools-pre6-3.9.8
+.TH mpartition 1 "03Mar03" mtools-3.9.9
 .SH Name
 mpartition - partition an MSDOS hard disk
 '\" t
@@ -29,7 +29,8 @@ i.e. systems where fdisk and easy access to Scsi devices are not
 available.  This command only works on drives whose partition variable
 is set.
 .PP
-.(l I
+.ft I
+.nf
 \&\fR\&\f(CWmpartition\fR \fR\&\f(CW-p\fR \fIdrive\fR
 \&\fR\&\f(CWmpartition\fR \fR\&\f(CW-r\fR \fIdrive\fR
 \&\fR\&\f(CWmpartition\fR \fR\&\f(CW-I\fR [\fR\&\f(CW-B\fR \fIbootSector\fR] \fIdrive\fR 
@@ -39,7 +40,8 @@ is set.
 [\fR\&\f(CW-t\fR \fIcylinders\fR] [\fR\&\f(CW-v\fR [\fR\&\f(CW-T\fR \fItype\fR] [\fR\&\f(CW-b\fR
 \&\fIbegin\fR] [\fR\&\f(CW-l\fR length] [\fR\&\f(CW-f\fR]
 \&\&
-.)l
+.fi
+.ft R
  
 .PP
 Mpartition supports the following operations:

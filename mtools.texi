@@ -17,9 +17,9 @@ mtools - utilities to access DOS disks in Unix.
 @end ignore
 
 
-@set EDITION pre-3.9.8
-@set VERSION pre-3.9.8
-@set UPDATED May 2001
+@set EDITION 3.9.9
+@set VERSION 3.9.9
+@set UPDATED March 2003
 
 @iftex
 @finalout
@@ -163,9 +163,9 @@ click "Cancel" to refuse the cookie and protect your privacy.
 
 Mtools can be found at the following places (and their mirrors):
 @example
-http://mtools.linux.lu/mtools-3.9.8.tar.gz
-ftp://www.tux.org/pub/knaff/mtools/mtools-3.9.8.tar.gz
-ftp://metalab.unc.edu/pub/Linux/utils/disk-management/mtools-3.9.8.tar.gz
+http://mtools.linux.lu/mtools-3.9.9.tar.gz
+ftp://www.tux.org/pub/knaff/mtools/mtools-3.9.9.tar.gz
+ftp://ibiblio.unc.edu/pub/Linux/utils/disk-management/mtools-3.9.9.tar.gz
 @end example
 
 Before reporting a bug, make sure that it has not yet been fixed in the
@@ -255,6 +255,17 @@ drive is assumed to be at Scsi target 4, and the Zip at Scsi target 5
 second drive on the Scsi bus (/dev/sdb). The default settings can be
 changes using a configuration file (@pxref{Configuration}).
 
+The drive letter : (colon) has a special meaning. It is used to access
+image files which are directly specified on the command line using the
+@code{-i} options.
+
+Example:
+@example
+ mcopy -i my-image-file.bin ::file1 ::file2 .
+@end example
+
+This copies @code{file1} and @code{file2} from the image file
+(@code{my-image-file.bin}) to the @code{/tmp} directory.
 
 @node directory, long names, drive letters, Common features
 @section Current working directory
@@ -363,9 +374,8 @@ A @code{-}@var{n} number is generated,
 When writing a file to disk, its long name or short name may collide
 with an already existing file or directory. This may happen for all
 commands which create new directory entries, such as @code{mcopy},
-@code{mmd}, @code{mren}, @code{mmove}, @code{mwrite} and
-@code{mread}. When a name clash happens, mtools asks you what it should
-do. It offers several choices:
+@code{mmd}, @code{mren}, @code{mmove}. When a name clash happens, mtools
+asks you what it should do. It offers several choices:
 
 @table @code
 @item overwrite
@@ -467,7 +477,7 @@ specific tool. For Linux, suitable floppy tools can be found in the
 @code{fdutils} package at the following locations~:
 @example
 @code{ftp://www.tux.org/pub/knaff/fdutils/}.
-@code{ftp://metalab.unc.edu/pub/Linux/utils/disk-management/fdutils-*}
+@code{ftp://ibiblio.unc.edu/pub/Linux/utils/disk-management/fdutils-*}
 @end example
 
 See the manpages included in that package for further detail: Use
@@ -1074,6 +1084,12 @@ real filename using the @code{media_findname()} and
 @code{media_oldaliases()} functions of the @code{volmgt} library.  This
 flag is only available if you configured mtools with the
 @code{--enable-new-vold} option before compilation.
+
+@item swap
+@cindex Atari
+@cindex Wordswapped
+
+Consider the media as a word-swapped Atari disk.
 
 @item use_xdf
 @cindex XDF disks (how to configure)

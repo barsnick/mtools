@@ -4,7 +4,7 @@
  * written by:
  *
  * Alain L. Knaff			
- * alain@linux.lu
+ * alain@knaff.lu
  *
  */
 
@@ -34,6 +34,7 @@ typedef struct SimpleFile_t {
 #endif
     int scsi_sector_size;
     void *extra_data; /* extra system dependant information for scsi */
+    int swap; /* do the word swapping */
 } SimpleFile_t;
 
 
@@ -97,6 +98,16 @@ int lock_dev(int fd, int mode, struct device *dev)
 typedef int (*iofn) (int, char *, int);
 
 
+static void swap_buffer(char *buf, size_t len)
+{
+	int i;
+	for (i=0; i<len; i+=2) {
+		char temp = buf[i];
+		buf[i] = buf[i+1];
+		buf[i+1] = temp;
+	}
+}
+
 
 static int file_io(Stream_t *Stream, char *buf, mt_off_t where, int len,
 				   iofn io)
@@ -147,13 +158,33 @@ static int file_io(Stream_t *Stream, char *buf, mt_off_t where, int len,
 
 
 static int file_read(Stream_t *Stream, char *buf, mt_off_t where, size_t len)
-{	
-	return file_io(Stream, buf, where, len, (iofn) read);
+{
+	DeclareThis(SimpleFile_t);
+
+	int result = file_io(Stream, buf, where, len, (iofn) read);
+
+	if ( This->swap )
+		swap_buffer( buf, len );
+	return result;
 }
 
 static int file_write(Stream_t *Stream, char *buf, mt_off_t where, size_t len)
 {
-	return file_io(Stream, buf, where, len, (iofn) write);
+	DeclareThis(SimpleFile_t);
+
+	if ( !This->swap )
+		return file_io(Stream, buf, where, len, (iofn) write);
+	else {
+		int result;
+		char *swapping = malloc( len );
+		memcpy( swapping, buf, len );
+		swap_buffer( swapping, len );
+
+		result = file_io(Stream, swapping, where, len, (iofn) write);
+
+		free(swapping);
+		return result;
+	}
 }
 
 static int file_flush(Stream_t *Stream)
@@ -199,8 +230,20 @@ static int file_geom(Stream_t *Stream, struct device *dev,
 		SET_INT(tot_sectors, WORD(psect));
 		sect_per_track = dev->heads * dev->sectors;
 		if(sect_per_track == 0) {
-		    fprintf(stderr, "The devil is in the details: zero number of heads or sectors\n");
-		    exit(1);
+		    if(mtools_skip_check) {
+			/* add some fake values if sect_per_track is
+			 * zero. Indeed, some atari disks lack the
+			 * geometry values (i.e. have zeroes in their
+			 * place). In order to avoid division by zero
+			 * errors later on, plug 1 everywhere
+			 */
+			dev->heads = 1;
+			dev->sectors = 1;
+			sect_per_track = 1;
+		    } else {
+			fprintf(stderr, "The devil is in the details: zero number of heads or sectors\n");
+			exit(1);
+		    }
 		}
 		tot_sectors += sect_per_track - 1; /* round size up */
 		dev->tracks = tot_sectors / sect_per_track;
@@ -668,6 +711,15 @@ APIRET rc;
 		if(This->privileged)
 			drop_privs();
 	}
+
+	This->swap = DO_SWAP( dev );
+
+	if(!(mode2 & NO_OFFSET) &&
+	   dev && (dev->partition > 4 || dev->partition < 0))
+	    fprintf(stderr, 
+		    "Invalid partition %d (must be between 0 and 4), ignoring it\n", 
+		    dev->partition);
+
 	while(!(mode2 & NO_OFFSET) &&
 	      dev && dev->partition && dev->partition <= 4) {
 		int has_activated, last_end, j;
@@ -709,7 +761,9 @@ APIRET rc;
 			dev->tracks = cyl(partTable[dev->partition].end) -
 				cyl(partTable[dev->partition].start)+1;
 		}
-		dev->hidden=dev->sectors*head(partTable[dev->partition].start);
+		dev->hidden=
+			dev->sectors*head(partTable[dev->partition].start) +
+			sector(partTable[dev->partition].start)-1;
 		if(!mtools_skip_check &&
 		   consistencyCheck((struct partition *)(buf+0x1ae), 0, 0,
 				    &has_activated, &last_end, &j, dev, 0)) {
@@ -742,9 +796,14 @@ APIRET rc;
 
 int get_fd(Stream_t *Stream)
 {
+	Class_t *clazz;
 	DeclareThis(SimpleFile_t);
-	
-	return This->fd;
+	clazz = This->Class;
+	if(clazz != &ScsiClass &&
+	   clazz != &SimpleFileClass)
+	  return -1;
+	else
+	  return This->fd;
 }
 
 void *get_extra_data(Stream_t *Stream)

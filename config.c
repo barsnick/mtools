@@ -43,7 +43,7 @@ unsigned int mtools_no_vfat=0;
 unsigned int mtools_numeric_tail=1;
 unsigned int mtools_dotted_dir=0;
 unsigned int mtools_twenty_four_hour_clock=1;
-char *mtools_date_string="mm-dd-yyyy";
+char *mtools_date_string="yyyy-mm-dd";
 char *country_string=0;
 
 typedef struct switches_l {
@@ -101,7 +101,8 @@ static flags_t misc_flags[] = {
     { "filter",			FILTER_FLAG },
     { "privileged",		PRIV_FLAG },
     { "vold",			VOLD_FLAG },
-    { "remote",			FLOPPYD_FLAG }
+    { "remote",			FLOPPYD_FLAG },
+    { "swap",			SWAP_FLAG },
 };
 
 static struct {
@@ -490,6 +491,17 @@ static void get_toupper(void)
 	mstoupper[i] = get_number();
 }
 
+void set_cmd_line_image(char *img, int flags) {
+  prepend();
+  devices[cur_dev].drive = ':';
+  devices[cur_dev].name = strdup(img);
+  devices[cur_dev].fat_bits = 0;
+  devices[cur_dev].tracks = 0;
+  devices[cur_dev].heads = 0;
+  devices[cur_dev].sectors = 0;
+  devices[cur_dev].offset = 0;
+}
+
 static void parse_old_device_line(char drive)
 {
     char name[MAXPATHLEN];
@@ -713,6 +725,8 @@ void mtoolstest(int argc, char **argv, int type)
 	if(dev->misc_flags)
 	    printf("\t");
 
+	if(DO_SWAP(dev))
+	    printf("swap ");
 	if(IS_SCSI(dev))
 	    printf("scsi ");
 	if(IS_PRIVILEGED(dev))

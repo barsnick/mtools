@@ -1,3 +1,34 @@
+030213	Released 3.9.9 : Identical to pre-3.9.9 except for the version number
+030213	Released 3.9.9 Pre-1
+	Fixed max numbers of sectors for FAT12 and FAT16 (was off by one...)
+	Improved fat_len calculation
+	Fixed plain_io.c bug (Swap byte applied after partition stuff,
+	instead of before)
+030118	Fixed mcat end-of-file bugs (mcat went on writing, and writing,
+	and writing, even after end of file)
+030105	If "standard" CHS specified, but non-standard root dir size do not
+	use table-lookup based geometry ("old-dos media descriptor")
+021118	David's new uz script, that can use commands other than gzip for
+	compression
+021116	Fixed vold support for mpartition
+021105	Added PACKED to unicode_char declaration (Arm)
+	Mpartition can now create the image if -I is specified.
+021104	Support for geometry-less Atari disks
+	Support for byte-swapping disks
+021102b	Avoid .(l and .)l in generated man pages
+021102	-i flag
+	Fix mformat for 2m
+	Fix [] wildcard off-by-one error
+	Avoid overwriting (Unix) file by itself in mcopy
+	Avoid cloberring any file if implicit target is used (the
+	one-argument syntax of mcopy)
+	Added Zip 750 entry to mzip.c
+	SCO Scsi fix
+020125	Fixes for cygwin
+	Fixes in buffer.c for oddly sized image files
+	Mformat.c fixes to avoid makeing images which would not be
+	readable in windows.
+010908	Warn for invalid partition numbers
 010526	Released pre6-3.9.8 : getting rid of linux-gnu references is
 	almost as difficult as exorcising the devil...
 010526	Released pre5-3.9.8 after fixing a couple of version numbers

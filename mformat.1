@@ -1,4 +1,4 @@
-.TH mformat 1 "27May01" mtools-pre6-3.9.8
+.TH mformat 1 "03Mar03" mtools-3.9.9
 .SH Name
 mformat - add an MSDOS filesystem to a low-level formatted floppy disk
 '\" t
@@ -26,7 +26,8 @@ end of this man page for details.
 The \fR\&\f(CWmformat\fR command is used to add an MS-DOS filesystem to a
 low-level formatted diskette. Its syntax is:
 .PP
-.(l I
+.ft I
+.nf
 \&\fR\&\f(CWmformat\fR [\fR\&\f(CW-t\fR \fIcylinders\fR] [\fR\&\f(CW-h\fR \fIheads\fR] [\fR\&\f(CW-n\fR \fIsectors\fR]
   [\fR\&\f(CW-f\fR \fIsize\fR] [\fR\&\f(CW-1\fR] [\fR\&\f(CW-4\fR] [\fR\&\f(CW-8\fR]
   [\fR\&\f(CW-v\fR \fIvolume_label\fR]
@@ -39,7 +40,8 @@ low-level formatted diskette. Its syntax is:
   [\fR\&\f(CW-r\fR \fIroot_sectors\fR] [\fR\&\f(CW-L\fR \fIfat_len\fR] 
   [\fR\&\f(CW-B\fR \fIboot_sector\fR] [\fR\&\f(CW-k\fR]
   \fIdrive:\fR
-.)l
+.fi
+.ft R
  
 .PP
 \&\fR\&\f(CWMformat\fR adds a minimal MS-DOS filesystem (boot sector, FAT, and

@@ -21,7 +21,7 @@ typedef struct FatMap_t {
 #define SECT_PER_ENTRY (sizeof(fatBitMask)*8)
 #define ONE ((fatBitMask) 1)
 
-static inline int readSector(Fs_t *This, char *buf, unsigned int off,
+static __inline__ int readSector(Fs_t *This, char *buf, unsigned int off,
 					  size_t size)
 {
 	return READS(This->Next, buf, sectorsToBytes((Stream_t *)This, off), 
@@ -29,23 +29,23 @@ static inline int readSector(Fs_t *This, char *buf, unsigned int off,
 }
 
 
-static inline int forceReadSector(Fs_t *This, char *buf, unsigned int off,
-								  size_t size)
+static __inline__ int forceReadSector(Fs_t *This, char *buf, unsigned int off,
+				      size_t size)
 {
 	return force_read(This->Next, buf, sectorsToBytes((Stream_t *)This, off), 
 					  size << This->sectorShift);
 }
 
 
-static inline int writeSector(Fs_t *This, char *buf, unsigned int off,
-							  size_t size)
+static __inline__ int writeSector(Fs_t *This, char *buf, unsigned int off,
+				  size_t size)
 {
 	return WRITES(This->Next, buf, sectorsToBytes((Stream_t*)This, off), 
 				  size << This->sectorShift);
 }
 
-static inline int forceWriteSector(Fs_t *This, char *buf, unsigned int off,
-					  size_t size)
+static __inline__ int forceWriteSector(Fs_t *This, char *buf, unsigned int off,
+				       size_t size)
 {
 	return force_write(This->Next, buf, sectorsToBytes((Stream_t*)This, off), 
 					   size << This->sectorShift);
@@ -72,7 +72,7 @@ static FatMap_t *GetFatMap(Fs_t *Stream)
 	return map;
 }
 
-static inline int locate(Fs_t *Stream, int offset, int *slot, int *bit)
+static __inline__ int locate(Fs_t *Stream, int offset, int *slot, int *bit)
 {
 	if(offset >= Stream->fat_len)
 		return -1;
@@ -81,8 +81,8 @@ static inline int locate(Fs_t *Stream, int offset, int *slot, int *bit)
 	return 0;
 }
 
-static inline int fatReadSector(Fs_t *This, int sector, int slot, 
-				int bit, int dupe, fatBitMask bitmap)
+static __inline__ int fatReadSector(Fs_t *This, int sector, int slot, 
+				    int bit, int dupe, fatBitMask bitmap)
 {
 	int fat_start, ret;
 	int nr_sectors;
@@ -347,16 +347,19 @@ static void fast_fat16_encode(Fs_t *Stream, unsigned int num, unsigned int code)
 /*
  * Fat 32 encoding
  */
+#define FAT32_HIGH 0xf0000000
+#define FAT32_ADDR 0x0fffffff
+
 static unsigned int fat32_decode(Fs_t *Stream, unsigned int num)
 {
 	unsigned char *address = getAddress(Stream, num << 2, FAT_ACCESS_READ);
-	return _DWORD(address);
+	return _DWORD(address) & FAT32_ADDR;
 }
 
 static void fat32_encode(Fs_t *Stream, unsigned int num, unsigned int code)
 {       
 	unsigned char *address = getAddress(Stream, num << 2, FAT_ACCESS_WRITE);
-	set_dword(address, code);
+	set_dword(address,(code&FAT32_ADDR) | (_DWORD(address)&FAT32_HIGH));
 }
 
 
@@ -365,7 +368,7 @@ static unsigned int fast_fat32_decode(Fs_t *Stream, unsigned int num)
 	unsigned int *address = 
 		(unsigned int *) getAddress(Stream, num << 2, 
 					    FAT_ACCESS_READ);
-	return *address;
+	return (*address) & FAT32_ADDR;
 }
 
 static void fast_fat32_encode(Fs_t *Stream, unsigned int num, unsigned int code)
@@ -373,7 +376,7 @@ static void fast_fat32_encode(Fs_t *Stream, unsigned int num, unsigned int code)
 	unsigned int *address = 
 		(unsigned int *) getAddress(Stream, num << 2, 
 					    FAT_ACCESS_WRITE);
-	*address = code;
+	*address = (*address & FAT32_HIGH) | (code & FAT32_ADDR);
 }
 
 
@@ -691,7 +694,7 @@ static int old_fat_read(Fs_t *This, struct bootsector *boot,
 	if(check_media_type(This,boot, tot_sectors))
 		return -1;
 
-	if(This->num_clus > FAT12) {
+	if(This->num_clus >= FAT12) {
 		set_fat16(This);
 		/* third FAT byte must be 0xff */
 		if(!mtools_skip_check && readByte(This, 3) != 0xff)

@@ -136,7 +136,7 @@ int authenticate_to_floppyd(RemoteFile_t *floppyd, int sock, char *display)
 	if(l >= 12)
 		floppyd->capabilities = read_dword(sock);
 
-	dword2byte(filelen, xcookie);
+	dword2byte(filelen, (Byte *)xcookie);
 	write(sock, xcookie, filelen+4);
 
 	if (read_dword(sock) != 4) {

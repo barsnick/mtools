@@ -59,6 +59,7 @@ typedef struct Arg_t {
 	int convertCharset;
 	MainParam_t mp;
 	ClashHandling_t ch;
+	int noClobber;
 } Arg_t;
 
 /* Write the Unix file */
@@ -90,21 +91,40 @@ static int unix_write(direntry_t *entry, MainParam_t *mp, int needfilter)
 	/* if we are creating a file, check whether it already exists */
 	if(!arg->type) {
 		if (!arg->nowarn && &arg->type && !access(unixFile, 0)){
+			if(arg->noClobber) {
+				fprintf(stderr, "File \"%s\" exists. To overwrite, try again, and explicitly specify target directory\n",unixFile);
+				return ERROR_ONE;
+			}
+
+			/* sanity checking */
+			if (!MT_STAT(unixFile, &stbuf)) {
+				struct MT_STAT srcStbuf;
+				int sFd; /* Source file descriptor */
+				if(!S_ISREG(stbuf.st_mode)) {
+					fprintf(stderr,"\"%s\" is not a regular file\n",
+						unixFile);
+				
+					free(unixFile);
+					return ERROR_ONE;
+				}
+				sFd = get_fd(File);
+				if(sFd == -1) {
+					fprintf(stderr, "Not ok Unix file ==> good\n");
+				}
+				if((!MT_FSTAT(sFd, &srcStbuf)) &&
+				   stbuf.st_dev == srcStbuf.st_dev &&
+				   stbuf.st_ino == srcStbuf.st_ino) {
+					fprintf(stderr, "Attempt to copy file on itself\n");
+					return ERROR_ONE;
+				}
+			}
+
 			if( ask_confirmation("File \"%s\" exists, overwrite (y/n) ? ",
 					     unixFile,0)) {
 				free(unixFile);
 				return ERROR_ONE;
 			}
 			
-			/* sanity checking */
-			if (!MT_STAT(unixFile, &stbuf) && 
-			    !S_ISREG(stbuf.st_mode)) {
-				fprintf(stderr,"\"%s\" is not a regular file\n",
-					unixFile);
-				
-				free(unixFile);
-				return ERROR_ONE;
-			}
 		}
 	}
 
@@ -475,8 +495,11 @@ void mcopy(int argc, char **argv, int mtype)
 	arg.convertCharset = 0;
 	arg.type = mtype;
 	fastquit = 0;
-	while ((c = getopt(argc, argv, "abB/sptTnmvQD:o")) != EOF) {
+	while ((c = getopt(argc, argv, "i:abB/sptTnmvQD:o")) != EOF) {
 		switch (c) {
+			case 'i':
+				set_cmd_line_image(optarg, 0);
+				break;
 			case 's':
 			case '/':
 				arg.recursive = 1;
@@ -528,6 +551,7 @@ void mcopy(int argc, char **argv, int mtype)
 	arg.mp.fast_quit = fastquit;
 	arg.mp.arg = (void *) &arg;
 	arg.mp.openflags = O_RDONLY;
+	arg.noClobber = 0;
 
 	/* last parameter is "-", use mtype mode */
 	if(!mtype && !strcmp(argv[argc-1], "-")) {
@@ -547,6 +571,7 @@ void mcopy(int argc, char **argv, int mtype)
 		if (argc - optind == 1) {
 			/* copying to the current directory */
 			target = ".";
+			arg.noClobber = 1;
 		} else {
 			/* target is the last item mentioned */
 			argc--;
