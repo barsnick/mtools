@@ -41,8 +41,6 @@ typedef struct directory * (write_data_callback)(char *,char *,
 						  void *, struct directory *);
 
 int mwrite_one(Stream_t *Dir,
-	       Stream_t *Fs,
-	       char *progname,
 	       char *argname,
 	       char *shortname,
 	       write_data_callback *cb,

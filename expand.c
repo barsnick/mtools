@@ -5,46 +5,59 @@
 #define EXPAND_BUF	2048
 
 #include "sysincludes.h"
+#include "mtools.h"
 
-char *expand(char *input, char *ans)
+const char *expand(const char *input, char *ans)
 {
-	FILE *fp;
+	int pipefd[2];
+	int pid;
 	int last;
 	char buf[256];
+	int status;
 
 	if (input == NULL)
 		return(NULL);
 	if (*input == '\0')
 		return("");
 					/* any thing to expand? */
-	if (!strpbrk(input, "$*{}[]\\?~")) {
+	if (!strpbrk(input, "$*(){}[]\\?~")) {
 		strcpy(ans, input);
 		return(ans);
 	}
 					/* popen an echo */
 	sprintf(buf, "echo %s", input);
-
-	fp = popen(buf, "r");
-	fgets(ans, EXPAND_BUF, fp);
-	pclose(fp);
-
-	if (!strlen(ans)) {
-		strcpy(ans, input);
-		return(ans);
+	
+	if(pipe(pipefd)) {
+		perror("Could not open expand pipe");
+		exit(1);
 	}
-
-	/*
-	 * A horrible kludge...  if the last character is not a line feed,
-	 * then the csh has returned an error message.  Otherwise zap the
-	 * line feed.
-	 */
-	last = strlen(ans) - 1;
-	if (ans[last] != '\n') {
-		strcpy(ans, input);
-		return(ans);
+	switch((pid=fork())){
+		case -1:
+			perror("Could not fork");
+			exit(1);
+			break;
+		case 0: /* the son */
+			close(pipefd[0]);
+			destroy_privs();
+			close(1);
+			dup(pipefd[1]);
+			close(pipefd[1]);
+			execl("/bin/sh", "sh", "-c", buf, 0);
+			break;
+		default:
+			close(pipefd[1]);
+			break;
 	}
+	last=read(pipefd[0], ans, EXPAND_BUF);
+	kill(pid,9);
+	wait(&status);
+	if(last<0) {
+		perror("Pipe read error");
+		exit(1);
+	}
+	if(last)
+		ans[last-1] = '\0';
 	else
-		ans[last] = '\0';
-
-	return(ans);
+		strcpy(ans, input);
+	return ans;
 }

@@ -11,12 +11,12 @@
 
 /* #define DEBUG */
 
-char *short_illegals=";+=[]',\"*\\<>/?:|";
-char *long_illegals = "\"*\\<>/?:|\005";
+const char *short_illegals=";+=[]',\"*\\<>/?:|";
+const char *long_illegals = "\"*\\<>/?:|\005";
 
 /* Automatically derive a new name */
 static void autorename(char *name,
-		       char tilda, char dot, char *illegals,
+		       char tilda, char dot, const char *illegals,
 		       int limit, int bump)
 {
 	int tildapos, dotpos;
@@ -162,7 +162,7 @@ int check_vfat(struct vfat_state *v, struct directory *dir)
 }
 
 
-void clear_vses(Stream_t *Dir, int entry, int last)
+void clear_vses(Stream_t *Dir, int entry, size_t last)
 {
 	struct directory dir;
 
@@ -228,11 +228,10 @@ start + num_vses - vse_id, start + num_vses);
  * if applicable, the file is opened and its stream is returned in File
  */
 
-int vfat_lookup(Stream_t *Dir, Stream_t *Fs, struct directory *dir,
+int vfat_lookup(Stream_t *Dir, struct directory *dir,
 		int *entry, int *vfat_start,
-		char *filename, 
-		int flags, char *outname, char *shortname, char *longname,
-		Stream_t **File)
+		const char *filename, 
+		int flags, char *outname, char *shortname, char *longname)
 {
 	int found;
 	struct vfat_state vfat;
@@ -268,11 +267,9 @@ int vfat_lookup(Stream_t *Dir, Stream_t *Fs, struct directory *dir,
 		 * thus we should make sure that the vfat structure will be
 		 * cleared before the next loop run */
 
-		/* entry of non-requested type */
+		/* deleted file */
 		if ( (dir->name[0] == DELMARK) ||
-		     ((dir->attr & 0x10) && !(flags & ACCEPT_DIR)) ||
-		     ((dir->attr & 0x8) && !(flags & ACCEPT_LABEL)) ||
-		     (( !(dir->attr & 0x18)) && !(flags & ACCEPT_PLAIN))){
+		     ((dir->attr & 0x8) && !(flags & ACCEPT_LABEL))){
 			clear_vfat(&vfat);
 			continue;
 		}
@@ -293,32 +290,53 @@ int vfat_lookup(Stream_t *Dir, Stream_t *Fs, struct directory *dir,
 			unix_name(dir->name, dir->ext, dir->Case, newfile);
 		
 
-		if(flags & MATCH_ANY){
-			found = 1;
-			break;
-		}
-
-
 		/*---------- multiple files ----------*/
 #ifdef DEBUG
 		printf(
 	"!single, vfat_present=%d, vfat.name=%s, newfile=%s, filename=%s.\n",
 			vfat_present, vfat.name, newfile, filename);
 #endif						
-		if ((vfat_present && match(vfat.name, filename, outname, 0)) ||
-		    match(newfile, filename, outname, 1)) {
-			found = 1;
-			break;
+		if(!((flags & MATCH_ANY) ||
+		     (vfat_present && match(vfat.name, filename, outname, 0)) ||
+		     match(newfile, filename, outname, 1))) {
+			clear_vfat(&vfat);
+			continue;
 		}
-		clear_vfat(&vfat);
+
+
+		/* entry of non-requested type */
+		if((dir->attr & 0x10) && !(flags & ACCEPT_DIR)) {
+			if(!(flags & (ACCEPT_LABEL|MATCH_ANY|NO_MSG)))
+				fprintf(stderr,
+					"Skipping \"%s\", is a directory\n",
+					newfile);
+			clear_vfat(&vfat);
+			continue;
+		}
+
+
+		if((!(dir->attr & 0x18)) && !(flags & ACCEPT_PLAIN)) {
+			if(!(flags & (ACCEPT_LABEL|MATCH_ANY|NO_MSG)))
+				fprintf(stderr,
+					"Skipping \"%s\", is not a directory\n",
+					newfile);
+			clear_vfat(&vfat);
+			continue;
+		}
+
+
+		found = 1;
+		break;
 	}
 
 	if(found){
+#if 0
 		if((flags & DO_OPEN) && Fs && File){
 			*File = open_file(COPY(Fs), dir);
 			if (! *File)
 				FREE( &Fs);
 		}
+#endif
 		if(longname){
 			if(vfat_present)
 				strcpy(longname, vfat.name);

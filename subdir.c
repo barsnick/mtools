@@ -28,11 +28,9 @@ static void bufferize(Stream_t **Dir)
 }
 	
 	
-Stream_t *descend(Stream_t *Dir, Stream_t *Fs, char *path, int barf,
-		  char *outname)
+Stream_t *descend(Stream_t *Dir, char *path, int barf,char *outname, int lock)
 {
 	/* this function makes its own copy of the Next pointers */
-
 	int entry;
 	struct directory dir;
 	Stream_t *SubDir;
@@ -44,12 +42,14 @@ Stream_t *descend(Stream_t *Dir, Stream_t *Fs, char *path, int barf,
 		return COPY(Dir);
 
 	entry = 0;
-	ret = vfat_lookup(Dir, Fs, &dir, &entry, 0, path,
-			  ACCEPT_DIR | SINGLE | DO_OPEN,
-			  outname, 0, 0,
-			  & SubDir);
+	ret = vfat_lookup(Dir, &dir, &entry, 0, path,
+			  ACCEPT_DIR | SINGLE | DO_OPEN | (barf ? 0 : NO_MSG),
+			  outname, 0, 0);
 
 	if(ret == 0){
+		SubDir = open_file(Dir, &dir);
+		if(lock)
+			LockFile(SubDir);
 		bufferize(&SubDir);
 		return SubDir;
 	}
@@ -59,10 +59,10 @@ Stream_t *descend(Stream_t *Dir, Stream_t *Fs, char *path, int barf,
 	 * at root.
 	 */
 	if (!strcmp(path, "..")){
-		SubDir = open_root(COPY(Fs));
+		SubDir = open_root(Dir);
 		bufferize(&SubDir);
-		if(!SubDir)
-			FREE(&Fs);
+		if(lock)
+			LockFile(SubDir);
 		return SubDir;
 	}
 	if (barf)
@@ -76,7 +76,7 @@ Stream_t *descend(Stream_t *Dir, Stream_t *Fs, char *path, int barf,
  * Descends the directory tree.  Returns 1 on error.  Attempts to optimize by
  * remembering the last path it parsed
  */
-Stream_t *subdir(Stream_t *Fs, char *pathname)
+Stream_t *subdir(Stream_t *Fs, char *pathname, int lock)
 {
 	/* this function makes its own copy of the Next pointers */
 
@@ -88,7 +88,7 @@ Stream_t *subdir(Stream_t *Fs, char *pathname)
 	strcpy(tbuf, pathname);
 
 	/* start at root */
-	Dir = open_root(COPY(Fs));
+	Dir = open_root(Fs);
 	bufferize(&Dir);
 	if (!Dir){
 		FREE(&Fs);
@@ -102,8 +102,8 @@ Stream_t *subdir(Stream_t *Fs, char *pathname)
 			path = tmp;
 			terminator = *s;
 			*s = '\0';
-			if (s != tmp && strcmp(path,".")){
-				NewDir = descend(Dir, Fs, path, 1, 0);
+			if (s != tmp && strcmp(path,".") && path[0]){
+				NewDir = descend(Dir, path, 1, 0, lock);
 				FREE(&Dir);
 				if(!NewDir)
 					return NewDir;

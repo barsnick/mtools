@@ -8,9 +8,16 @@
 @setchapternewpage off
 @c %**end of header
 
-@set EDITION 3.0
-@set VERSION 3.0
-@set UPDATED May 1996
+@ignore
+@unnumbered Name
+mtools - utilities to access DOS disks in Unix.
+@end ignore
+
+@c MANskip
+
+@set EDITION 3.4
+@set VERSION 3.4
+@set UPDATED March 1997
 
 @iftex
 @finalout
@@ -19,7 +26,7 @@
 @ifinfo
 @format
 START-INFO-DIR-ENTRY
-* Mtools: (mtools).        Mtools: utilities to access DOS disks in Unix
+* Mtools: (mtools).        Mtools: utilities to access DOS disks in Unix.
 END-INFO-DIR-ENTRY
 @end format
 @end ifinfo
@@ -41,9 +48,13 @@ notice identical to this one except for the removal of this paragraph
 @end ignore
 
 Permission is granted to copy and distribute modified versions of this
-manual under the conditions for verbatim copying, provided that the entire
-resulting derived work is distributed under the terms of a permission
-notice identical to this one.
+manual under the conditions for verbatim copying, provided that the
+entire resulting derived work is distributed under the terms of a
+permission notice identical to this one, and provided that the privacy
+of any reader of the resulting derived work is respected. In particular
+is it strictly forbidden to make this documentation available on a World
+Wide Web server which deals cookies. However, keeping access statistics
+is allowed.
 
 Permission is granted to copy and distribute translations of this manual
 into another language, under the above conditions for modified versions,
@@ -67,14 +78,19 @@ this manual provided the copyright notice and this permission notice
 are preserved on all copies.
 
 Permission is granted to copy and distribute modified versions of this
-manual under the conditions for verbatim copying, provided that the entire
-resulting derived work is distributed under the terms of a permission
-notice identical to this one.
+manual under the conditions for verbatim copying, provided that the
+entire resulting derived work is distributed under the terms of a
+permission notice identical to this one and provided that the privacy of
+any reader of the resulting derived work is respected. In particular is
+it strictly forbidden to make this documentation available on a World
+Wide Web server which deals cookies. However, keeping access statistics
+is allowed.
 
 Permission is granted to copy and distribute translations of this manual
 into another language, under the above conditions for modified versions,
 except that this permission notice may be stated in a translation approved
 by the Free Software Foundation.
+
 @end titlepage
 
 @ifinfo
@@ -82,14 +98,15 @@ by the Free Software Foundation.
 
 @end ifinfo
 
+@c MANend-skip
+
 @unnumbered Introduction
-Mtools is a collection of tools for manipulating MS-DOS files.  Mtools is
-a public domain collection of programs to allow Unix systems to read,
-write, and manipulate files on an MS-DOS filesystem (typically a floppy
-disk).  Where reasonable, each program attempts to emulate the MS-DOS
-equivalent command. However, unnecessary restrictions and oddities of
-DOS are not emulated. For instance, it is possible to move
-subdirectories from one subdirectory to another.
+Mtools is a public domain collection of tools to allow Unix systems to
+manipulate MS-DOS files: read, write, and move around files on an MS-DOS
+filesystem (typically a floppy disk).  Where reasonable, each program
+attempts to emulate the MS-DOS equivalent command. However, unnecessary
+restrictions and oddities of DOS are not emulated. For instance, it is
+possible to move subdirectories from one subdirectory to another.
 
 @menu
 * Common features::   Common features of all mtools commands
@@ -104,21 +121,45 @@ subdirectories from one subdirectory to another.
 * Concept Index::     Concept Index
 @end menu
 
+@c MANskip
+
+@unnumbered Warning, beware of the cookie monster!
+
+If you are reading this documentation on the World Wide Web, this
+section might interest you.  If you are reading it using info, or as a
+printed document, or on one of our own sites (linux.wauug.org and
+www.club.innet.lu) you do not need to worry.
+
+It has come to my attention that some of the Web sites which display
+this documentation deal so called "cookies".  These "cookies" are tags
+sent from the server to the browser, which enable the server to keep
+track of the sites that the user visits, and thus compromise his
+privacy.  If you use netscape, you can enable confirmation messages for
+any cookies sent to your browser by going into
+Options->Network_Preferences->Protocols and checking the box for "Show
+an Alert before Accepting a cookie". Then, when the alert box pops up,
+click "Cancel" to refuse the cookie and protect your privacy.
+
+@c MANend-skip
+
 @node Common features, Configuration, Top, Top
 @chapter Common features of all mtools commands
 
 @menu
-* arguments::         What the command line parameters of mtools mean
-* directory::         Current working directory
-* long names::        VFAT-style long filenames
-* name clashes::      Name clash handling, and associated command line options
-* case sensitivity::  Case sensitivity
-* XDF disks::         Support for OS/2's eXtended Density Format disks (Linux only)
-* exit codes::        Exit codes
-* bugs::              Happens to everybody
+* arguments::              What the command line parameters of mtools
+                           mean
+* drive letters::          Which drives are defined by default
+* directory::              Current working directory
+* long names::             VFAT-style long filenames
+* name clashes::           Name clash handling, and associated command
+                           line options
+* case sensitivity::       Case sensitivity
+* high capacity formats::  How to fit more data on your floppies
+* exit codes::             Exit codes
+* bugs::                   Happens to everybody
 @end menu
 
-@node arguments, directory, Common features, Common features
+@node arguments, drive letters, Common features, Common features
 @section Options and filenames
 @cindex Filenames
 @cindex Options
@@ -151,7 +192,22 @@ mode, these commands print out the name of the MS-DOS files upon which
 they act, unless stated otherwise. @xref{Commands}, for a description of
 the options which are specific to each command.
 
-@node directory, long names, arguments, Common features
+
+@node drive letters, directory, arguments, Common features
+@section Drive letters
+
+The meaning of the drive letters depends on the target architectures.
+However, on most target architectures, drive A is the first floppy
+drive, drive B is the second floppy drive (if available), drive J is a
+Jaz drive (if available), and drive Z is a Zip drive (if available).  On
+those systems where the device name is derived from the SCSI id, the Jaz
+drive is assumed to be at Scsi target 4, and the Zip at Scsi target 5
+(factory default settings).  On Linux, both drives are assumed to be the
+second drive on the Scsi bus (/dev/sdb). The default settings can be
+changes using a configuration file (@xref{Configuration}).
+
+
+@node directory, long names, drive letters, Common features
 @section Current working directory
 @pindex mcd (introduction)
 @cindex Directory
@@ -170,8 +226,8 @@ per drive.
 @cindex Long file name
 @cindex Windows 95-style file names
 @cindex VFAT-style file names
-@cindex Primary file name
-@cindex Secondary file name
+@cindex Primary file name (long names)
+@cindex Secondary file name (long names)
 
 This version of mtools supports VFAT style long filenames. If a Unix
 filename is too long to fit in a short DOS name, it is stored as a
@@ -194,7 +250,7 @@ hot+cold        HOT_CO~1        illegal character
 name:
 @itemize @bullet
 @item
-Illegal characters are replaces by underscores. The illegal characters
+Illegal characters are replaced by underscores. The illegal characters
 are @code{;+=[]',\"*\\<>/?:|}.
 @item
 Extra dots, which cannot be interpreted as a main name/extension
@@ -252,8 +308,8 @@ A @code{-}@var{n} number is generated,
 @cindex Name clashes
 @cindex Duplicate file names
 @cindex Overwriting files
-@cindex Primary file name
-@cindex Secondary file name
+@cindex Primary file name (name clashes)
+@cindex Secondary file name (name clashes)
 
 When writing a file to disk, its long name (primary name) or short name
 may collide with an already existing file or directory. This may happen
@@ -312,7 +368,7 @@ secondary name is autorenamed.
 If a name clash occurs in a Unix directory, mtools only asks whether
 to overwrite the file, or to skip it.
 
-@node case sensitivity, XDF disks, name clashes, Common features
+@node case sensitivity, high capacity formats, name clashes, Common features
 @section Case sensitivity of the VFAT filesystem
 @cindex Case sensitivity
 
@@ -334,11 +390,106 @@ Indeed, the old style filenames map to all upper case. This is different
 from the behavior of the old version of mtools which used to generate
 lower case Unix filenames.
 
-@node XDF disks, exit codes, case sensitivity, Common features
-@section XDF Disks (Only available on Linux)
+@node high capacity formats, exit codes, case sensitivity, Common features
+@section high capacity formats
+@cindex Special formats
+@cindex High capacity formats
+@cindex Odd formats
+@cindex Weird formats
+@cindex Formats, high capacity
+@cindex Linux enhancements (High Capacity Formats)
+
+Mtools supports a number of formats which allow to store more data on
+disk as usual. Due to different operating system abilities, these
+formats are not supported on all OS'es. Mtools recognizes these formats
+transparently where supported.
+
+In order to format these disks, you need to use an operating system
+specific tool. For Linux, suitable floppy tools can be found in the
+@code{fdutils} package at the following locations~:
+@example
+@code{ftp://linux.wauug.org/pub/knaff/fdutils/}.
+@code{ftp://tsx-11.mit.edu/pub/linux/sources/sbin/fdutils-*}
+@code{ftp://sunsite.unc.edu/pub/Linux/system/Misc/fdutils-*}
+@end example
+
+See the manpages included in that package for further detail: Use
+@code{superformat} to format all formats except XDF, and use
+@code{xdfcopy} to format XDF.
+
+@menu
+* more sectors::      Putting more sectors per track on the disk
+* bigger sectors::    Use bigger sectors to save header space
+* 2m::                Use a standard first track
+* XDF::               OS/2's eXtended density format
+@end menu
+
+@node more sectors, bigger sectors, high capacity formats, high capacity formats
+@subsection More sectors
+@cindex fdformat
+@cindex vgacopy
+@cindex DMF disks
+@cindex Windows 95 (DMF disks)
+
+The oldest method of fitting more data on a disk is to use more sectors
+and more tracks. Although the standard format uses 80 tracks and 18
+sectors (on a 3 1/2 high density disk), it is possible to use up to 83
+tracks (on most drives) and up to 21 sectors. This method allows to
+store up to 1743K on a 3 1/2 HD disk. However, 21 sector disks are twice
+as slow as the standard 18 sector disks because the sectors are packed
+so close together that we need to interleave them. This problem doesn't
+exist for 20 sector formats.
+
+These formats are supported by numerous DOS shareware utilities such as
+@code{fdformat} and @code{vgacopy}. In his infinite hybris, Bill Gate$
+believed that he invented this, and called it @samp{DMF disks}, or
+@samp{Windows formatted disks}. But in reality, it has already existed
+years before! Mtools supports these formats on Linux, on SunOs and on
+the DELL Unix PC.
+
+@node bigger sectors, 2m, more sectors, high capacity formats
+@subsection Bigger sectors
+@cindex 2m
+By using bigger sectors it is possible to go beyond the capacity which
+can be obtained by the standard 512-byte sectors. This is because of the
+sector header. The sector header has the same size, regardless of how
+many data bytes are in the sector. Thus, we save some space by using
+@emph{fewer}, but bigger sectors. For example, 1 sector of 4K only takes
+up header space once, whereas 8 sectors of 512 bytes have also 8
+headers, for the same amount of useful data.
+
+This method allows to store up to 1992K on a 3 1/2 HD disk.
+
+Mtools supports these formats only on Linux.
+
+@node 2m, XDF, bigger sectors, high capacity formats
+@subsection 2m
+@cindex 2m
+
+The 2m format was originally invented by Ciriaco Garcia de Celis. It
+also uses bigger sectors than usual in order to fit more data on the
+disk.  However, it uses the standard format (18 sectors of 512 bytes
+each) on the first cylinder, in order to make these disks easyer to
+handle by DOS. Indeed this method allows to have a standard sized
+bootsector, which contains a description of how the rest of the disk
+should be read.
+
+However, the drawback of this is that the first cylinder can hold less
+data than the others. Unfortunately, DOS can only handle disks where
+each track contains the same amount of data. Thus 2m hides the fact that
+the first track contains less data by using a @dfn{shadow
+FAT}. (Usually, DOS stores the FAT in two identical copies, for
+additional safety.  XDF stores only one copy, and it tells DOS that it
+stores two. Thus the same that would be taken up by the second FAT copy
+is saved.) This also means that your should @strong{never use a 2m disk
+to store anything else than a DOS fs}.
+
+Mtools supports these format only on Linux.
+
+@node XDF, , 2m, high capacity formats
+@subsection XDF
 @cindex XDF disks
 @cindex OS/2 (XDF disks)
-@cindex Linux enhancements (XDF disks)
 
 XDF is a high capacity format used by OS/2. It can hold 1840 K per
 disk. That's lower than the best 2m formats, but its main advantage is
@@ -350,6 +501,8 @@ configuration file. @xref{Compiling mtools} and @ref{misc variables},
 for details on how to do this. Fast XDF access is only available for
 Linux kernels which are more recent than 1.1.34.
 
+Mtools supports this format only on Linux.
+
 @strong{Caution / Attention distributors}: If mtools is compiled on a
 Linux kernel more recent than 1.3.34, it won't run on an older
 kernel. However, if it has been compiled on an older kernel, it still
@@ -360,7 +513,7 @@ be out, mtools binaries compiled on newer kernels may (and should) be
 distributed. Mtools binaries compiled on kernels older than 1.3.34 won't
 run on any 2.1 kernel or later.
 
-@node exit codes, bugs, XDF disks, Common features
+@node exit codes, bugs, high capacity formats, Common features
 @section Exit codes
 All the Mtools commands return 0 on success, 1 on utter failure, or 2
 on partial failure.  All the Mtools commands perform a few sanity
@@ -381,19 +534,18 @@ mtools. Set the environmental variable MTOOLS_FAT_COMPATIBILITY (or the
 corresponding configuration file variable, @ref{global variables}) to
 bypass the fat checking.
 
-The support for non-Linux OS variants has not been tested for a long
-time. It may contain bugs, or even not work at all.
-
-
 @node Configuration, Commands, Common features, Top
 @chapter How to configure mtools for your environment
 @section Description
 @cindex Configuration files
+@vindex MTOOLSRC
 
  This sections explains the syntax of the configurations files for
-mtools. The configuration files are called @file{/etc/mtools.conf} and
-@file{~/.mtoolsrc}. These configuration files describe the following
-items:
+mtools. The configuration files are called
+@file{/usr/local/etc/mtools.conf} and @file{~/.mtoolsrc}. If the
+environmental variable @code{MTOOLSRC} is set, its contents is used as
+the filename for a third configuration file. These configuration files
+describe the following items:
 
 @itemize @bullet
 @item Global configuration flags and variables
@@ -420,8 +572,8 @@ items:
 @cindex Name of configuration files
 @cindex Location of configuration files
 
-@file{/etc/mtools.conf} is the system-wide configuration file, and
-@file{~/.mtoolsrc} is the user's private configuration file.
+@file{/usr/local/etc/mtools.conf} is the system-wide configuration file,
+and @file{~/.mtoolsrc} is the user's private configuration file.
 
 On some systems, the system-wide configuration file is called
 @file{/etc/defaults/mtools.conf} instead.
@@ -436,9 +588,9 @@ The configuration files is made up of sections. Each section starts
 with a keyword identifying the section followed by a colon.
 Then follow variable assignments and flags. Variable assignments take
 the following form:
-@example
+@display
 name=value
-@end example
+@end display
 Flags are lone keywords without an equal sign and value following
 them.  A section either ends at the end of the file or where the next
 section begins.
@@ -468,6 +620,9 @@ dosemu image files.
 @vindex MTOOLS_SKIP_CHECK
 @vindex MTOOLS_FAT_COMPATIBILITY
 @vindex MTOOLS_LOWER_CASE
+@vindex MTOOLS_NO_VFAT
+@cindex FreeDos
+@cindex Caldera FreeDos
 
 Global variables may be set to 1 or to 0.
 
@@ -486,6 +641,11 @@ option is not set.
 If this is set to 1, mtools displays all-upper-case short filenames as
 lowercase. This has been done to allow a behavior which is consistent
 with older versions of mtools which didn't know about the case bits.
+@item MTOOLS_NO_VFAT
+If this is set to 1, mtools won't generate VFAT entries for filenames
+which are mixed-case, but otherwise legal dos filenames.  This is useful
+when working with DOS versions which can't grok VFAT longnames, such as
+Caldera's FreeDos.
 @end table
 
 Example:
@@ -617,22 +777,22 @@ The following shorthand geometry descriptions are available:
 @table @code
 @item 1.44m
 high density 3 1/2 disk. Equivalent to:
-@code{fat_bits=12 tracks=80 heads=2 sectors=18}
+@code{fat_bits=12 cylinders=80 heads=2 sectors=18}
 @item 1.2m
 high density 5 1/4 disk. Equivalent to:
-@code{fat_bits=12 tracks=80 heads=2 sectors=15}
+@code{fat_bits=12 cylinders=80 heads=2 sectors=15}
 @item 720k
 double density 3 1/2 disk. Equivalent to:
-@code{fat_bits=12 tracks=80 heads=2 sectors=9}
+@code{fat_bits=12 cylinders=80 heads=2 sectors=9}
 @item 360k
 double density 5 1/4 disk. Equivalent to:
-@code{fat_bits=12 tracks=40 heads=2 sectors=9}
+@code{fat_bits=12 cylinders=40 heads=2 sectors=9}
 @end table
 
 The shorthand format descriptions may be amended. For example,
 @code{360k sectors=8}
 describes a 320k disk and is equivalent to:
-@code{fat_bits=12 tracks=40 heads=2 sectors=8}
+@code{fat_bits=12 cylinders=40 heads=2 sectors=8}
 
 @node open flags, misc variables, geometry description, per drive variables
 @subsection Open Flags
@@ -678,10 +838,11 @@ mandatory. The file name should be enclosed in quotes.
 @vindex use_xdf
 If this is set to a non-zero value, mtools also tries to access this
 disk as an XDF disk. XDF is a high capacity format used by OS/2. This
-is off by default. @xref{XDF disks} for more details.
+is off by default. @xref{XDF} for more details.
 @item partition
 @cindex Dosemu hard disk image
-@cindex Zip disks
+@cindex Zip disks (partitions)
+@cindex Jaz disks (partitions)
 @cindex Syquest disks
 @cindex Magneto-optical disks
 @cindex OS/2 (layout of removable media)
@@ -699,12 +860,66 @@ unpartitioned, OS/2 and Windows NT treat them like hard disks,
 i.e. partioned devices. The @code{partition} flag is also useful DOSEMU
 hdimages. It is not recommended for hard disks for which direct access
 to partitions is available through mounting.
+@item scsi
+@cindex setuid installation (needed for raw SCSI I/O)
+@cindex Solaris (Raw access to SCSI devices such as Zip & Jaz)
+@cindex SunOS (Raw access to SCSI devices such as Zip & Jaz)
+@cindex Zip disks (raw Scsi access)
+@cindex Jaz disks (raw Scsi access)
+@cindex Syquests (raw Scsi access)
+@cindex SCSI devices
+When set to 1, this option tells mtools to use raw SCSI I/O instead of
+the standard read/write calls to access the device. Currently, this is
+supported on HP/UX, Solaris and SunOs.  This is needed because on some
+architectures, such as SunOs or Solaris, PC media can't be accessed
+using the @code{read} and @code{write} syscalls, because the OS expects
+them to contain a Sun specific "disk label".
+
+As raw Scsi access always uses the whole device, you need to specify the
+"partition" flag in addition
+
+On some architectures, such as Solaris, mtools needs root privileges to
+be able to use the @code{scsi=1} option.  Thus mtools should be
+installed set uid root on Solaris if you want to access Zip/Jaz drives.
+Mtools uses its root privileges to open the device, and to issue the
+actual SCSI I/O calls.  Moreover, root privileges are only used for
+drives described in a system-wide configuration file such as
+@file{/usr/local/etc/mtools.conf}, and not for those described in
+@file{~/.mtoolsrc} or @file{$MTOOLSRC}.
+
+@item privileged
+@cindex setuid installation
+@cindex setgid installation
+When set to 1, this instructs mtools to use its set-uid and set-gid
+privileges for opening the given drive.  This option is only valid for
+drives described in the system-wide configuration files (such as
+@file{/usr/local/etc/mtools.conf}, not @file{~/.mtoolsrc} or
+@file{$MTOOLSRC}).  Obviously, this option is also a no op if mtools is
+not installed setuid or setgid.  This option is implied by 'scsi=1', but
+again only for drives defined in system-wide configuration files.
+Privileged may also be set explicitely to 0, in order to tell mtools not
+to use its privileges for a given drive even if @code{scsi=1} is set.
+
+Mtools only needs to be installed setuid if you use the
+@code{privileged} or @code{scsi} drive variables.  If you do not use
+these options, mtools works perfectly well even when not installed
+setuid root.
+
+@item nolock
+@cindex disable locking
+@cindex locking (disabling it)
+@cindex plain floppy: device xxx busy
+Instruct mtools to not use locking on this drive.  This is needed on
+systems with buggy locking semantics.  However, enabling this makes
+operation less safe in cases where several users may access the same
+drive at the same time.
+
 @item offset
 @cindex Ram disk
 @cindex Atari Ram disk
 Describes where in the file the MS-DOS filesystem starts. This is useful
 for logical partitions in DOSEMU hdimages, and for ATARI ram disks. By
-default, this is zero, meaning that the filesystem start right at the
+default, this is zero, meaning that the filesystem starts right at the
 beginning of the device or file.
 @item fat_bits
 @vindex fat_bits
@@ -714,11 +929,20 @@ boot sector. On the contrary, describing the number of fat bits may
 actually be harmful if you get it wrong. You should only use it if
 mtools gets the autodetected number of fat bits wrong, or if you want
 to mformat a disk with a weird number of fat bits.
+@item precmd
+@cindex Solaris (volcheck)
+@cindex Executing commands before opening the device
+
+On some variants of Solaris, it is necessary to call 'volcheck -v'
+before opening a floppy device, in order for the system to notice that
+there is indeed a disk in the drive. @code{precmd="volcheck -v"} in the
+drive clause establishes the desired behavior.
 @end table
 
 Only the @code{file} variable is mandatory. The other parameters may
 be left out. In that case a default value or an autodetected value is
 used.
+
 
 @node multiple descriptions, , misc variables, per drive variables
 @subsection Supplying multiple descriptions for a drive
@@ -858,7 +1082,7 @@ thus mtools always uses compiled-in defaults for those. Thus, only a
 limited amount of code pages are supported. If your preferred code page
 is missing, or if you know the name of the Windows 95 file which
 contains this mapping, could you please drop me a line at
-@code{Alain.Knaff@@inrialpes.fr}.
+@code{Alain.Knaff@@poboxes.com}.
 
 The @code{COUNTRY} variable can also be set using the environment.
 
@@ -956,7 +1180,7 @@ The configuration files are parsed in the following order:
 @item
 compiled-in defaults
 @item
-@file{/etc/mtools.conf}
+@file{/usr/local/etc/mtools.conf}
 @item
 @file{/etc/mtools}
 This is for backwards compatibility only, and is only parsed if
@@ -964,17 +1188,21 @@ This is for backwards compatibility only, and is only parsed if
 doesn't exist.
 @item
 @file{~/.mtoolsrc}.
+@item
+@file{$MTOOLSRC} (file pointed by the @code{MTOOLSRC} environmental
+variable)
 @end enumerate
 
 Options described in the later files override those described in the
 earlier files. Drives defined in earlier files persist if they are not
 overridden in the later files. For instance, drives A and B may be
-defined in @file{/etc/mtools.conf} and drives C and D may be defined
-in @file{~/.mtoolsrc} However, if @file{~/.mtoolsrc} also defines
-drive A, this new description would override the description of drive A
-in @file{/etc/mtools.conf} instead of adding to it. If you want to add
-a new description to a drive already described in an earlier file, you
-need to use either the @code{+drive} or @code{drive+} keyword.
+defined in @file{/usr/local/etc/mtools.conf} and drives C and D may be
+defined in @file{~/.mtoolsrc} However, if @file{~/.mtoolsrc} also
+defines drive A, this new description would override the description of
+drive A in @file{/usr/local/etc/mtools.conf} instead of adding to it. If
+you want to add a new description to a drive already described in an
+earlier file, you need to use either the @code{+drive} or @code{drive+}
+keyword.
 
 @node old style config, , parsing order, Configuration
 @section Backwards compatibility with old configuration file syntax
@@ -1010,15 +1238,19 @@ description of those.
 * mdeltree::          recursively delete an MS-DOS directory
 * mdir::              display an MS-DOS directory
 * mformat::           add an MS-DOS filesystem to a low-level formatted floppy disk
+* minfo::             get information about an MS-DOS filesystem.
 * mlabel::            make an MS-DOS volume label
 * mkmanifest::        makes a list of short name equivalents
 * mmd::               make an MS-DOS subdirectory
 * mmount::            mount an MS-DOS disk
+* mpartition::        create an MS-DOS as a partition
 * mrd::               remove an MS-DOS subdirectory
 * mmove::             move or rename an MS-DOS file or subdirectory
 * mren::              rename an existing MS-DOS file
-* mtest::             tests and displays the configuration
+* mtoolstest::        tests and displays the configuration
 * mtype::             display contents of an MS-DOS file
+* mzip::              zip disk specific commands
+* xcopy::             recursively copy a dos directory into another
 @end menu
 
 @node mattrib, mbadblocks, Commands, Commands
@@ -1077,10 +1309,10 @@ bad.
 @node mcd, mcopy, mbadblocks, Commands
 @section Mcd
 @pindex mcd
-@cindex Directory
+@cindex Directory (changing)
 @cindex Working directory
-@cindex Current working directory
-@cindex Default directory
+@cindex Current working directory (changing the)
+@cindex Default directory (changing the)
 @cindex Mcwd file
 
 The @code{mcd} command is used to change the mtools working directory
@@ -1145,12 +1377,16 @@ on its position on the command line.
 @code{Mcopy} accepts the following command line options:
 
 @table @code
+@item Q
+When mcopying multiple files, quits as soon as one copy fails (for
+example due to lacking storage space on the target disk)
 @item t
 Text file transfer.  @code{Mcopy} translates incoming carriage
 return/line feeds to line feeds.
 @item n
-No warning.  @code{Mcopy} doesn't warn the user when overwriting an
-existing file.
+No confirmation when overwriting Unix files.  @code{Mcopy} doesn't warn
+the user when overwriting an existing Unix file.  In order to switch off
+confirmation for DOS files, use @code{-o}.
 @item m
 Preserve the file modification time. If the target file already exists,
 and the @code{-n} option is not in effect, @code{mcopy} asks whether to
@@ -1176,9 +1412,9 @@ mtype a:file1 a:file2 a:file3 | mcopy - a:msdosfile
 The @code{mdel} command is used to delete an MS-DOS file. Its syntax
 is:
 
-@example
+@display
 @code{mdel} [@code{-v}] @var{msdosfile} [ @var{msdosfiles} @dots{}  ]
-@end example
+@end display
 
 @code{Mdel} deletes files on an MS-DOS filesystem.
 
@@ -1195,9 +1431,9 @@ is:
 The @code{mdeltree} command is used to delete an MS-DOS file. Its syntax
 is:
 
-@example
+@display
 @code{mdeltree} [@code{-v}] @var{msdosdirectory} [@var{msdosdirectories}@dots{}]
-@end example
+@end display
 
 @code{Mdeltree} removes a directory and all the files and subdirectories
 it contains from an MS-DOS filesystem. An error occurs if the directory
@@ -1215,7 +1451,7 @@ syntax is:
 
 @code{mdir} [@code{-w}] @var{msdosdirectory}
 
-@code{mdir} [@code{-w}] [@code{-a}] @var{msdosfile} [ @var{msdosfiles}@dots{}] 
+@code{mdir} [@code{-f}] [@code{-w}] [@code{-a}] @var{msdosfile} [ @var{msdosfiles}@dots{}] 
 
 @code{Mdir}
 displays the contents of an MS-DOS directory.
@@ -1228,6 +1464,12 @@ Wide output.  With this option, @code{mdir} prints the filenames across
 the page without displaying the file size or creation date.
 @item a
 Also list hidden files.
+@item f
+Fast.  Do not try to find out free space.  On larger disks, finding out
+the amount of free space takes up some non trivial amount of time, as
+the whole FAT must be read in and scanned.  The @code{-f} flag bypasses
+this step.  This flag is not needed on FAT32 filesystems, which store
+the size explicitely.
 @end table
 
 An error occurs if a component of the path is not a directory.
@@ -1242,28 +1484,34 @@ An error occurs if a component of the path is not a directory.
 The @code{mformat} command is used to add an MS-DOS filesystem to a
 low-level formatted diskette. Its syntax is:
 
-@example
-@code{mformat} [@code{-t} @var{tracks}] [@code{-h} @var{heads}] [@code{-s} @var{sectors}] [@code{-l} @var{volume_label}] [@code{-S} @var{sizecode}]
-[@code{-2} @var{sectors_on_track_0}] [@code{-M} @var{software_sector_size}] [@code{-a}] [@code{-X}] [@code{-C}] [@code{-H} @var{hidden_sectors}]
-@var{drive:}
-@end example
+@display
+@code{mformat} [@code{-t} @var{cylinders}] [@code{-h} @var{heads}]
+[@code{-s} @var{sectors}] [@code{-l} @var{volume_label}] [@code{-F}]
+[@code{-I} @var{fsVersion}] [@code{-S} @var{sizecode}] [@code{-2}
+@var{sectors_on_track_0}] [@code{-M} @var{software_sector_size}]
+[@code{-a}] [@code{-X}] [@code{-C}] [@code{-H} @var{hidden_sectors}]
+[@code{-r} @var{root_sectors}] @var{drive:}
+@end display
 
 @code{Mformat} adds a minimal MS-DOS filesystem (boot sector, FAT, and
 root directory) to a diskette that has already been formatted by a Unix
 low-level format.
 
 
-The follow options are supported: (The S, 2, 1 and M options may not exist
-if this copy of mtools has been compiled without the USE_2M option)
+The following options are supported: (The S, 2, 1 and M options may not
+exist if this copy of mtools has been compiled without the USE_2M
+option)
+
+@c xMANoptions
 
 @table @code
 @item t
-The number of tracks (not cylinders).
+The number of cylinders.
 @item h
 The number of heads (sides).
 @item s
 The number of sectors per track. If the 2m option is given, number of
-512-byte sector equivalents on generic tracks (i.e. not head 0 track).
+512-byte sector equivalents on generic tracks (i.e. not head 0 track 0).
 If the 2m option is not given, number of physical sectors per track
 (which may be bigger than 512 bytes).
 @item l
@@ -1284,7 +1532,7 @@ by the MS-DOS filesystem. By default it is the physical sector size.
 If this option is given, an Atari style serial number is generated.
 Ataris store their serial number in the OEM label.
 @item X
-formats the disk as an XDF disk. @xref{XDF disks} for more details. The
+formats the disk as an XDF disk. @xref{XDF} for more details. The
 disk has first to be low-level formatted using the xdfcopy utility
 included in the fdutils package.
 @item C
@@ -1298,7 +1546,20 @@ head of first track doesn't belong to the partition, but contains a
 partition table). In that case the number of hidden sectors is in
 general the number of sectors per cylinder. This is untested.
 @item n
-serial number.
+serial number
+@item F
+Format the partition as FAT32 (experimental).
+@item I
+Sets the fsVersion id when formatting a FAT32 drive.  In order to find
+this out, run minfo on an existing FAT32 drive, and mail me about it, so
+I can include the correct value in future versions of mtools.
+@item c
+Sets the size of a cluster (in sectors).  If this cluster size would
+generate a FAT that too big for its number of bits, mtools automatically
+increases the cluster size, until the FAT is small enough.
+@item r
+Sets the size of the root directory (in sectors).  Only applicable to 12
+and 16 bit FATs.
 @end table
 
 To format a diskette at a density other than the default, you must supply
@@ -1310,7 +1571,7 @@ default.
 It doesn't record bad block information to the Fat, use
 @code{mkmanifest} for that.
 
-@node mkmanifest, mlabel, mformat, Commands
+@node mkmanifest, minfo, mformat, Commands
 @section Mkmanifest
 @pindex mkmanifest
 @cindex packing list
@@ -1383,16 +1644,39 @@ files, it could be used to convert the filenames.
 The short names generated by @code{mkmanifest} follow the old convention
 (from mtools-2.0.7) and not the one from Windows 95 and mtools-3.0.
 
-@node mlabel, mmd, mkmanifest, Commands
+
+@node minfo, mlabel, mkmanifest, Commands
+@section Minfo
+@pindex mlabel
+@cindex mformat parameters
+@cindex getting parameters of a Dos fs
+
+The @code{minfo} command prints the parameters of a Dos filesystem, such
+as number of sectors, heads and cylinders.  It also prints an mformat
+command line which can be used to create a similar Dos filesystem on
+another media.  However, this doesn't work with 2m or Xdf media, and
+with Dos 1.0 filesystems
+@display
+@code{minfo} @var{drive}:
+@end display
+
+Mlabel supports the following option:
+@table @code
+@item v
+Prints a hexdump of the bootsector, in addition to the other information
+@end table
+
+
+@node mlabel, mmd, minfo, Commands
 @section Mlabel
 @pindex mlabel
 @cindex Labeling a disk
 @cindex Disk label
 
 The @code{mlabel} command adds a volume label to a disk. Its syntax is:
-@example
+@display
 @code{mlabel} [@code{-vcs}] @var{drive}:[@var{new_label}]
-@end example
+@end display
 
 @code{Mlabel} displays the current volume label, if present. If
 @var{new_label} is not given, and if neither the @code{c} nor the
@@ -1453,7 +1737,7 @@ used. If the disk is write protected, it is automatically mounted read
 only.
 
 
-@node mmove, mrd, mmount, Commands
+@node mmove, mpartition, mmount, Commands
 @section Mmove
 @pindex mmove
 @cindex Moving files (mmove)
@@ -1461,15 +1745,112 @@ only.
 
 The @code{mmove} command is used to moves or renames an existing MS-DOS
 file or subdirectory.
-@example
+@display
 @code{mmove} [@code{-voOsSrRA}] @var{sourcefile} @var{targetfile}
 @code{mmove} [@code{-voOsSrRA}] @var{sourcefile} [ @var{sourcefiles}@dots{} ] @var{targetdirectory}
-@end example
+@end display
 @code{Mmove} moves or renames an existing MS-DOS file or
 subdirectory. Unlike the MS-DOS version of @code{MOVE}, @code{mmove} is
 able to move subdirectories.
 
-@node mrd, mren, mmove, Commands
+
+@node mpartition, mrd, mmove, Commands
+@section Mpartition
+@pindex mpartition
+@cindex partitions (creating)
+@cindex Zip disks (partitioning them)
+@cindex Jaz disks (partitioning them)
+
+The @code{mpartition} command is used to create MS-DOS filesystems as
+partitions.  This is intended to be used on non-Linux systems,
+i.e. systems where fdisk and easy access to Scsi devices are not
+available.  This command only works on drives whose partition variable
+is set.
+
+@display
+@code{mpartition} @code{-p} @var{drive}
+@code{mpartition} @code{-r} @var{drive}
+@code{mpartition} @code{-I} @var{drive}
+@code{mpartition} @code{-a} @var{drive}
+@code{mpartition} @code{-d} @var{drive}
+@code{mpartition} @code{-c} [@code{-s} @var{sectors}] [@code{-h} @var{heads}]
+[@code{-t} @var{cylinders}] [@code{-v} [@code{-T} @var{type}] [@code{-b}
+@var{begin}] [@code{-l} length] [@code{-f}]
+
+@end display
+
+Mpartition supports the following operations:
+
+@table @code
+@item p
+Prints a command line to recreate the partition for the drive.  Nothing
+is printed if the partition for the drive is not defined, or an
+inconsistency has been detected.  If verbose (@code{-v}) is also set,
+prints the current partition table.
+@item r
+Removes the partition described by @var{drive}.
+@item I
+Initializes the partition table, and removes all partitions.
+@item c
+Creates the partition described by @var{drive}.
+@item a
+"Activates" the partition, i.e. makes it bootable.  Only one partition
+can be bootable at a time.
+@item d
+"Desactivates" the partition, i.e. makes it unbootable.
+@end table
+
+If no operation is given, the current settings are printed.
+
+For partition creations, the following options are available:
+@table @code
+@item s @var{sectors}
+The number of sectors per track of the partition (which is also the
+number of sectors per track for the whole drive).
+@item h @var{heads}
+The number of heads of the partition (which is also the number of heads
+for the whole drive).  By default, the geometry information (number of
+sectors and heads) is figured out from neighbouring partition table
+entries, or guessed from the size.
+@item t @var{cylinders}
+The number of cylinders of the partition (not the number of cylinders of
+the whole drive.
+@item b @var{begin}
+The starting offset of the partition, expressed in sectors. If begin is
+not given, mpartition lets the partition begin at the start of the disk
+(partition number 1), or immediately after the end of the previous
+partition.
+@item l @var{length}
+The size (length) of the partition, expressed in sectors.  If end is not
+given, mpartition figures out the size from the number of sectors, heads
+and cylinders.  If these are not given either, it gives the partition
+the biggest possible size, considering disk size and start of the next
+partition.
+@end table
+
+The following option is available for all operation which modify the
+partition table:
+@table @code
+@item f
+Usually, before writing back any changes to the partition, mpartition
+performs certain consistenct checks, such as checking for overlaps and
+proper alignment of the partitions.  If any of these checks fails, the
+partition table is not changes.  The @code{-f} allows you to override
+these safeguards.
+@end table
+
+The following option is available for all operations:
+@table @code
+@item v
+Together with @code{-p} prints the partition table as it is now (no
+change operation), or as it is after it is modified.
+@item vv
+If the verbosity flag is given twice, mpartition will print out a
+hexdump of the partition table when reading it from and writing it to
+the device.
+@end table
+
+@node mrd, mren, mpartition, Commands
 @section Mrd
 @pindex mrd
 @cindex Removing a directory
@@ -1481,14 +1862,14 @@ able to move subdirectories.
 The @code{mrd} command is used to remove an MS-DOS subdirectory. Its
 syntax is:
 
-@example
+@display
 @code{mrd} [@code{-v}] @var{msdosdirectory} [ @var{msdosdirectories}@dots{} ]
-@end example
+@end display
 
 @code{Mrd} removes a directory from an MS-DOS filesystem. An error occurs
 if the directory does not exist or is not empty.
 
-@node mren, mtest, mrd, Commands
+@node mren, mtoolstest, mrd, Commands
 @section Mren
 @pindex mren
 @cindex Renaming files (mren)
@@ -1497,9 +1878,9 @@ if the directory does not exist or is not empty.
 The @code{mren} command is used to rename or move an existing MS-DOS
 file or subdirectory. Its syntax is:
 
-@example
+@display
 @code{mren} [@code{-voOsSrRA}] @var{sourcefile} @var{targetfile}
-@end example
+@end display
 
 @code{Mren}
 renames an existing file on an MS-DOS filesystem.
@@ -1514,30 +1895,30 @@ is renamed in the same directory, instead of being moved to the current
 MS-DOS version of @code{REN}, @code{mren} can be used to rename
 directories.
 
-@node mtest, mtype, mren, Commands
-@section Mtest
-@pindex mtest
+@node mtoolstest, mtype, mren, Commands
+@section Mtoolstest
+@pindex mtoolstest
 @cindex Testing configuration file for correctness
 @cindex Checking configuration file
 @cindex Verifying configuration file
 
-The @code{mtest} command is used to tests the mtools configuration
-files. To invoke it, just type @code{mtest} without any arguments.
-@code{Mtest} reads the mtools configuration files, and prints the
+The @code{mtoolstest} command is used to tests the mtools configuration
+files. To invoke it, just type @code{mtoolstest} without any arguments.
+@code{Mtoolstest} reads the mtools configuration files, and prints the
 cumulative configuration to @code{stdout}. The output can be used as a
 configuration file itself (although you might want to remove redundant
 clauses).  You may use this program to convert old-style configuration
 files into new style configuration files.
 
-@node mtype, , mtest, Commands
+@node mtype, mzip, mtoolstest, Commands
 @section Mtype
 
 The @code{mtype} command is used to display contents of an MS-DOS
 file. Its syntax is:
 
-@example
+@display
 @code{mtype} [@code{-ts}] @var{msdosfile} [ @var{msdosfiles}@dots{} ]
-@end example
+@end display
 
 @code{Mtype} displays the specified MS-DOS file on the screen.
 
@@ -1562,6 +1943,85 @@ failure.
 Unlike the MS-DOS version of @code{TYPE}, @code{mtype} allows multiple
 arguments.
 
+
+@node mzip, xcopy, mtype, Commands
+@section Mzip
+@cindex Zip disk (utilities)
+@cindex Jaz disk (utilities)
+@cindex Ejecting a Zip/Jaz disk
+@cindex Write protecting a Zip/Jaz disk
+@pindex mzip
+@cindex ZipTools disk
+@cindex password protected Zip disks
+
+The @code{mzip} command is used to issue ZIP disk specific commands on
+Solaris or HPUX. Its syntax is:
+
+@display
+@code{mzip} [@code{-epqrwx}]
+@end display
+
+@code{Mzip} allows the following
+command line options:
+
+@table @code
+@item e
+Ejects the disk.
+@item f
+Force eject even if the disk is mounted.
+@item r
+Write protect the disk.
+@item w
+Remove write protection.
+@item p
+Password write protect.
+@item x
+Password protect
+@item q
+Queries the status
+@end table
+
+To remove the password, set it to one of the passwordless modes
+@code{-r} or @code{-w}: mzip will then ask you for the password, and
+unlock the disk.  If you have forgotten the password, you can get rid of
+it by low-level formatting the disk (using your SCSI adaptor's BIOS
+setup).  The ZipTools disk included with the drive is also password
+protected.  This password is automatically removed once the ZipTools
+have been installed@footnote{If somebody happens to know the password
+which Iomega uses for the ZipTools disks, could you mail me it, so that
+I can include it in this doc. This would be a great help for those
+people who have an SCSI controller which is unsupported by Iomega, and
+thus can't install the ZipTools. I ended up low-level formatting mine
+@dots{}}.
+
+@node xcopy, , mzip, Commands
+@section Xcopy
+@cindex recursive copy
+@cindex xcopy
+@pindex xcopy
+
+
+The @code{xcopy} script is used to recursively copy one directory to
+another. Its syntax is:
+
+@display
+@code{xcopy} @var{sourcedirectory} @var{targetdirectory}
+@end display
+
+
+If targetdirectory does not exist, it is created.  If it does exist, the
+files of sourcedirectory are directly copied into it, and no
+subdirectory called @var{sourcedirectory} is created, unlike with
+@code{cp -rf}.
+
+@subsection Bugs
+
+This command is a big kludge.  A proper implementation would take a
+rework of significant parts of mtools, but unfortunately I don't have
+the time for this right now. The main downside of this implementation is
+that it is inefficient on some architectures (several successive calls
+to mtools, which defeats mtools' caching).
+
 @node Compiling mtools, Porting mtools, Commands, Top
 @chapter Architecture specific compilation flags
 @cindex XDF disks (compile time configuration)
@@ -1576,7 +2036,7 @@ there are two architecture specific flags available.
 @table @code
 @item ./configure --enable-xdf
 @itemx ./configure --disable-xdf
-Enables support for XDF disks. This is on by default. @xref{XDF disks},
+Enables support for XDF disks. This is on by default. @xref{XDF},
 for details.
 @item ./configure --enable-vold
 @itemx ./configure --disable-vold
@@ -1598,10 +2058,13 @@ of the form cpu-vendor-os (for example sparc-sun-sunos). The cpu and
 the os parts are passed to the compiler as preprocessor flags.
  The OS part is passed to the compiler in three forms.
 @enumerate
-@item The complete os name, with dots replaced by underscores. sco3.2v2
-would yield sco3_2v2
-@item The base os name. Sco3.2v2 would yield Sco
-@item The base os name plus its major version. Sco3.2v2 would yield Sco3
+@item
+The complete os name, with dots replaced by underscores.  sco3.2v2 would
+yield sco3_2v2
+@item
+The base os name. Sco3.2v2 would yield Sco
+@item
+The base os name plus its major version. Sco3.2v2 would yield Sco3
 @end enumerate
 
  All three versions are passed, if they are different.
@@ -1648,11 +2111,22 @@ generic floppy drive (12 bit FAT)
 generic hard disk (16 bit FAT)
 @item GEN
 generic device (all parameters match)
+@item ZIPJAZ(flags)
+generic ZIP drive using normal access. This uses partition 4.
+@code{Flags} are any special flags to be passed to open.
+@item RZIPJAZ(flags)
+generic ZIP drive using raw SCSI access. This uses partition 4.
+@code{Flags} are any special flags to be passed to open.
 @end table
 
  Entries may be described in more detail:
 @example
- fat_bits,open_flags,tracks,heads,sectors,offset,DEF_ARG
+ fat_bits,open_flags,cylinders,heads,sectors,DEF_ARG
+@end example
+ or, if you need to describe an offset (filesystem doesn't start at
+beginning of filesystem)
+@example
+ fat_bits, open_flags, cylinders, heads, sectors, offset, DEF_ARG0
 @end example
 
 @table @code
@@ -1662,8 +2136,8 @@ FAT.
 @item open_flags
 may include flags such as O_NDELAY, or O_RDONLY, which might be
 necessary to open the device. 0 means no special flags are needed.
-@item tracks,heads,sectors
-describe the geometry of the disk. If tracks is 0, the heads and sectors
+@item cylinders,heads,sectors
+describe the geometry of the disk. If cylinders is 0, the heads and sectors
 parameters are ignored, and the drive accepts any geometry.
 @item offset 
 is used if the DOS filesystem doesn't begin at the start of the device
@@ -1672,10 +2146,12 @@ their device driver at the beginning of the file) or for DOS emulator
 images (which may represent a partitioned device.
 @end table
 
- Definition of defaults in the devices file should only be done if
-these same devices are found on a large number of hosts of this
-type. For purely local file, I recommend that you use the
-/etc/mtools.conf and ~/.mtoolsrc configuration files.
+ Definition of defaults in the devices file should only be done if these
+same devices are found on a large number of hosts of this type. In that
+case, could you also let me know about your new definitions, so that I
+can include them into the next release.  For purely local file, I
+recommend that you use the @code{/usr/local/etc/mtools.conf} and
+@code{~/.mtoolsrc} configuration files.
 
  However, the devices files also allows to supply geometry setting
 routines. These are necessary if you want to access high capacity
@@ -1700,7 +2176,7 @@ filled in stat structure, which may be useful.
 Setting new parameters
 @example
 static inline int set_parameters(int fd, struct generic_floppy_struct *floppy)
-                                 struct stat buf)
+                                 struct stat *buf)
 @end example
  This configures the geometry contained in floppy on the file descriptor
 fd. Buf is the result of a stat call (already filled in).  This should
@@ -1716,8 +2192,9 @@ refers to the track field in the floppy structure
 refers to the heads field in the floppy structure
 @item SECTORS(floppy)
 refers to the sectors per track field in the floppy structure
-@item SECTORS_PER_DISK(floppy) refers to the sectors per disk field in the
-floppy structure (if applicable, otherwise leave undefined)
+@item SECTORS_PER_DISK(floppy)
+refers to the sectors per disk field in the floppy structure (if
+applicable, otherwise leave undefined)
 
 @item BLOCK_MAJOR
 major number of the floppy device, when viewed as a block device
@@ -1731,6 +2208,7 @@ doesn't have raw devices)
  For the truly high capacity formats (XDF, 2m, etc), there is no clean
 and documented interface yet.
 
+@c MANskip
 
 @node Command Index, Variable Index,  Porting mtools, Top
 @unnumbered Command Index
@@ -1744,4 +2222,7 @@ and documented interface yet.
 @unnumbered Concept index
 @printindex cp
 
+@contents
+
+@c MANend-skip
 @bye

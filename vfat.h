@@ -25,18 +25,15 @@ struct unicode_char {
 #define VSE3SIZE 2
 
 struct vfat_subentry {
-#if 0
-	unsigned char ix;		/* 0x40 = last; & 0x1f = VSE ID */
-#endif
 	unsigned char id;		/* 0x40 = last; & 0x1f = VSE ID */
-	struct unicode_char text1[VSE1SIZE];
+	struct unicode_char text1[VSE1SIZE] PACKED;
 	unsigned char attribute;	/* 0x0f for VFAT */
 	unsigned char hash1;		/* Always 0? */
 	unsigned char sum;		/* Checksum of short name */
-	struct unicode_char text2[VSE2SIZE];
+	struct unicode_char text2[VSE2SIZE] PACKED;
 	unsigned char sector_l;		/* 0 for VFAT */
 	unsigned char sector_u;		/* 0 for VFAT */
-	struct unicode_char text3[VSE3SIZE];
+	struct unicode_char text3[VSE3SIZE] PACKED;
 };
 
 /* Enough size for a worst case number of full VSEs plus a null */
@@ -77,17 +74,16 @@ int unicode_read(struct unicode_char *, char *, int num);
 int unicode_write(char *, struct unicode_char *, int num, int *end);
 unsigned char sum_shortname(char *);
 int write_vfat(Stream_t *, char *, char *, int);
-void clear_vses(Stream_t *, int, int);
+void clear_vses(Stream_t *, int, size_t);
 void autorename_short(char *, int);
 void autorename_long(char *, int);
 
-int vfat_lookup(Stream_t *Dir, Stream_t *Fs,
+int vfat_lookup(Stream_t *Dir,
 		struct directory *dir, int *entry,
 		int *beginpos,
-		char *filename,
+		const char *filename,
 		int flags, char *outname,
-		char *shortname, char *longname,
-		Stream_t **File);
+		char *shortname, char *longname);
 
 struct directory *dir_read(Stream_t *Stream,
 			   struct directory *dir, 
@@ -95,9 +91,12 @@ struct directory *dir_read(Stream_t *Stream,
 			   struct vfat_state *v);
 
 #define DO_OPEN 1
+#define ACCEPT_NO_DOTS 0x4
 #define ACCEPT_PLAIN 0x20
 #define ACCEPT_DIR 0x10
 #define ACCEPT_LABEL 0x08
 #define SINGLE 2
 #define MATCH_ANY 0x40
+#define NO_MSG 0x80
+#define NO_DOTS 0x100
 #endif

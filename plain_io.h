@@ -5,8 +5,12 @@
 #include "msdos.h"
 
 /* plain io */
-Stream_t *SimpleFloppyOpen(struct device *dev, struct device *orig_dev,
-			   char *name, int mode, char *errms);
+#define NO_PRIV 1
+#define NO_OFFSET 2
+
+Stream_t *SimpleFileOpen(struct device *dev, struct device *orig_dev,
+			 const char *name, int mode, char *errmsg, int mode2);
 int check_parameters(struct device *ref, struct device *testee);
 
+int get_fd(Stream_t *Stream);
 #endif

@@ -53,13 +53,13 @@ static void TranslateToDos(char *s, char *t, int count,
 			*t = '_';
 		} else if (islower(*s)) {
 			*t = toupper(*s);
-			if(*Case == UPPER)
+			if(*Case == UPPER && !mtools_no_vfat)
 				*mangled |= 1;
 			else
 				*Case = LOWER;
 		} else if (isupper(*s)) {
 			*t = *s;
-			if(*Case == LOWER)
+			if(*Case == LOWER && !mtools_no_vfat)
 				*mangled |= 1;
 			else
 				*Case = UPPER;
@@ -121,8 +121,10 @@ char *dos_name(char *name, int verbose, int *mangled, char *ans)
 			*mangled |= BASECASE;
 		if(ExtCase == LOWER)
 			*mangled |= EXTCASE;
-		if(BaseCase == LOWER || ExtCase == LOWER)
-			*mangled |= 1;
+		if((BaseCase == LOWER || ExtCase == LOWER) &&
+		   !mtools_no_vfat) {
+		  *mangled |= 1;
+		}
 	}
 	return ans;
 }

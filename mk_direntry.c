@@ -66,7 +66,7 @@ static inline clash_action ask_namematch(char *name, int isprimary,
 #define RESERVED 1
 #define ILLEGALS 2
 
-	static char *reasons[]= {
+	static const char *reasons[]= {
 		"already exists",
 		"is reserved",
 		"contains illegal character(s)"};
@@ -257,10 +257,10 @@ static int scan_dir(Stream_t *Dir,
 		}
 		if (ssp->longmatch > -1)
 			return 1; /* Name match, process and try again */
-		ret=vfat_lookup(Dir, 0, &dir, &entry, &vse_start, 0,
+		ret=vfat_lookup(Dir, &dir, &entry, &vse_start, 0,
 				ACCEPT_PLAIN | ACCEPT_DIR | ACCEPT_LABEL |
 				MATCH_ANY,
-				0, readshortname, readlongname, 0);
+				0, readshortname, readlongname);
 		if(!ssp->got_slots){
 			ssp->free_size = vse_start - ssp->free_start;
 			if(ssp->free_size >= ssp->size_needed){
@@ -315,7 +315,7 @@ static int scan_dir(Stream_t *Dir,
 } /* scan_dir */
 
 
-static int contains_illegals(char *string, char *illegals)
+static int contains_illegals(const char *string, const char *illegals)
 {
 	for(; *string ; string++)
 		if((*string < ' ' && *string != '\005' && !(*string & 0x80)) ||
@@ -327,8 +327,8 @@ static int contains_illegals(char *string, char *illegals)
 static int is_reserved(char *ans, int islong)
 {
 	int i;
-	static char *dev3[] = {"CON", "AUX", "PRN", "NUL", "   "};
-	static char *dev4[] = {"COM", "LPT" };
+	static const char *dev3[] = {"CON", "AUX", "PRN", "NUL", "   "};
+	static const char *dev4[] = {"COM", "LPT" };
 
 	for (i = 0; i < sizeof(dev3)/sizeof(*dev3); i++)
 		if (!strncasecmp(ans, dev3[i], 3) &&
@@ -347,7 +347,6 @@ static int is_reserved(char *ans, int islong)
 }
 
 static inline clash_action get_slots(Stream_t *Dir,
-				     Stream_t *Fs,
 				     char *dosname, char *longname,
 				     struct scan_state *ssp,
 				     ClashHandling_t *ch)
@@ -439,7 +438,7 @@ static inline clash_action get_slots(Stream_t *Dir,
 			return NAMEMATCH_RENAME;
 		
 		/* Free up the file to be overwritten */
-		if (fat_free(Fs,_WORD(dir.start)))
+		if(fatFreeWithDir(Dir,&dir))
 			return NAMEMATCH_ERROR;
 		
 #if 0
@@ -456,7 +455,7 @@ static inline clash_action get_slots(Stream_t *Dir,
 		} else
 #endif
 			{
-			dir.name[0] = (char) 0xe5;
+			dir.name[0] = DELMARK;
 			dir_write(Dir, match, &dir);
 			return NAMEMATCH_RENAME;
 		}
@@ -467,7 +466,6 @@ static inline clash_action get_slots(Stream_t *Dir,
 
 
 static inline int write_slots(Stream_t *Dir,
-			      Stream_t *Fs,
 			      char *dosname, 
 			      char *longname,
 			      struct scan_state *ssp,
@@ -478,7 +476,7 @@ static inline int write_slots(Stream_t *Dir,
 	struct directory dir;
 
 	/* write the file */
-	if ( ((FsPublic_t *)Fs)->fat_error)
+	if (fat_error(Dir))
 		return 0;
 
 	if (cb(dosname, longname, arg, &dir)) {
@@ -510,15 +508,14 @@ static void stripspaces(char *name)
 
 
 int mwrite_one(Stream_t *Dir,
-	       Stream_t *Fs,
-	       char *progname,
 	       char *argname,
 	       char *shortname,
 	       write_data_callback *cb,
 	       void *arg,
 	       ClashHandling_t *ch)
 {
-	char longname[VBUFSIZE], *dstname;
+	char longname[VBUFSIZE];
+	const char *dstname;
 	char dosname[13];
 	int expanded;
 	struct scan_state scan;
@@ -563,7 +560,7 @@ int mwrite_one(Stream_t *Dir,
 	ch->action[1] = ch->namematch_default[1];
 
 	while (1) {
-		switch((ret=get_slots(Dir, Fs, dosname, longname,
+		switch((ret=get_slots(Dir, dosname, longname,
 				      &scan, ch))){
 			case NAMEMATCH_ERROR:
 				return -1;	/* Non-file-specific error, 
@@ -593,7 +590,7 @@ int mwrite_one(Stream_t *Dir,
 				}
 				expanded = 1;
 				
-				if (dir_grow(Dir, Fs, scan.max_entry)) {
+				if (dir_grow(Dir, scan.max_entry)) {
 					fprintf(stderr, "%s: Disk full\n",
 						progname);
 					return -1;
@@ -601,7 +598,7 @@ int mwrite_one(Stream_t *Dir,
 				continue;
 			case NAMEMATCH_OVERWRITE:
 			case NAMEMATCH_SUCCESS:
-				return write_slots(Dir, Fs, dosname, longname,
+				return write_slots(Dir, dosname, longname,
 						   &scan, cb, arg,
 						   ch->use_longname);
 			default:

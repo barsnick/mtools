@@ -14,10 +14,12 @@ typedef struct FsPublic_t {
 	unsigned long serial_number;
 	int cluster_size;
 	int sector_size;
-	int fat_error;
 } FsPublic_t;
 
 Stream_t *fs_init(char drive, int mode);
-int fat_free(Stream_t *Fs, unsigned int fat);
+int fat_free(Stream_t *Dir, unsigned int fat);
+int fatFreeWithDir(Stream_t *Dir, struct directory *dir);
+int fat_error(Stream_t *Dir);
+int fat32RootCluster(Stream_t *Dir);
 
 #endif

@@ -25,7 +25,7 @@ char *mstoupper=0;
 static void bad_country_file(void)
 {
 	fprintf(stderr,"Corrupted country.sys file\n");
-	cleanup_and_exit(1);
+	exit(1);
 }
 
 static void not_found(int country_found, int country, int codepage)
@@ -36,7 +36,7 @@ static void not_found(int country_found, int country, int codepage)
 	else	
 		fprintf(stderr,"Country/codepage combo %03d/%d not supported\n",
 			country, codepage);
-	cleanup_and_exit(1);
+	exit(1);
 }
 
 
@@ -76,10 +76,11 @@ static void set_toupper_from_builtin(int country, int *codepage)
 static void load_toupper(int country, int *codepage, char *filename)
 {
 	int fd, filesize;
-	unsigned char file[65536];
+	unsigned char *file;
 	unsigned short ucase=0, records;
 	int i;
 	int country_found = 0;
+	struct stat buf;
 
 	if(!filename) {
 		set_toupper_from_builtin(country, codepage);
@@ -89,16 +90,24 @@ static void load_toupper(int country, int *codepage, char *filename)
 	fd = open(filename, O_RDONLY);
 	if(fd < 0) {
 		perror("open country.sys");
-		cleanup_and_exit(1);
+		exit(1);
+	}
+
+	fstat(fd, &buf);
+	file = (unsigned char *) malloc(buf.st_size);
+	if(!file) {
+		fprintf(stderr, "Out of memory\n");
+		exit(1);
 	}
 
 	/* load country.sys */
 	filesize=read(fd, (char *) file, 65536);
 	if(filesize < 0) {
 		perror("Read country.sys\n");
-		cleanup_and_exit(1);
+		exit(1);
 	}
-
+	close(fd);
+	
 	if(strcmp((char *)file, "\377COUNTRY"))
 		bad_country_file();
 
@@ -118,18 +127,20 @@ static void load_toupper(int country, int *codepage, char *filename)
 					fprintf(stderr,
 						"No translation table for this"
 						"country and code page\n");
-					cleanup_and_exit(1);
+					exit(1);
 				}
 				if(strncmp((char*)file+ucase+1, "UCASE", 5) &&
 				   strncmp((char*)file+ucase+1, "FUCASE", 6))
 					bad_country_file();
 				mstoupper = (char *) toucase[0];
 				memcpy(mstoupper, file + ucase + 10, 128);
+				free(file);
 				return;
 			}
 		}
 	}
 	not_found(country_found, country, *codepage);
+	free(file);
 }
 
 static void set_codepage(int nr)
@@ -140,7 +151,7 @@ static void set_codepage(int nr)
 		if(Codepage->nr == nr)
 			return;
 	fprintf(stderr,"Unknown code page %d\n", nr);
-	cleanup_and_exit(1);
+	exit(1);
 
 }
 
@@ -149,7 +160,7 @@ static void syntax(void)
 {
 	fprintf(stderr,"Syntax error in COUNTRY environmental variable\n");
 	fprintf(stderr,"Usage: export COUNTRY=countrycode[,[codepage][,filename]]\n");
-	cleanup_and_exit(1);
+	exit(1);
 }
 
 void init_codepage(void)
@@ -203,7 +214,7 @@ void to_unix(char *a, int n)
 	for( ; *a && n >= 0; n--, a++) {
 		/* special case, 0xE5 */
 		if(*a == 0x05)
-			*a = (char) 0xe5;
+			*a = DELMARK;
 		if(*a & 0x80)
 			*a = (char) Codepage->tounix[(*a) & 0x7f];
 	}

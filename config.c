@@ -1,6 +1,7 @@
 #include "sysincludes.h"
 #include "mtools.h"
 #include "codepage.h"
+#include "paths.h"
 
 /* global variables */
 /* they are not really harmful here, because there is only one configuration
@@ -16,13 +17,14 @@ static int token_length; /* length of the token */
 static FILE *fp; /* file pointer for configuration file */
 static int linenumber; /* current line number. Only used for printing
 			* error messages */
-static char *filename; /* current file name. Only used for printing
-			* error messages */
+static const char *filename; /* current file name. Only used for printing
+			      * error messages */
 static int file_nr=0;
 
 /* devices */
 static int cur_devs; /* current number of defined devices */
 static int cur_dev; /* device being filled in. If negative, none */
+static int trusted=0; /* is the currently parsed device entry trusted? */
 static int nr_dev; /* number of devices that the current table can hold */
 struct device *devices; /* the device table */
 static int token_nr; /* number of tokens in line */
@@ -33,28 +35,30 @@ int mtools_fat_compatibility=0;
 int mtools_ignore_short_case=0;
 int mtools_rate_0=0;
 int mtools_rate_any=0;
+int mtools_no_vfat=0;
 char *country_string=0;
 
 typedef struct switches_l {
-    char *name;
-    caddr_t address;
-    enum {
-	INT,
-	STRING
-    } type;
+	const char *name;
+	caddr_t address;
+	enum {
+		INT,
+		STRING
+	} type;
 } switches_t;
 
 static switches_t switches[] = {
     { "MTOOLS_LOWER_CASE", (caddr_t) & mtools_ignore_short_case, INT },
     { "MTOOLS_FAT_COMPATIBILITY", (caddr_t) & mtools_fat_compatibility, INT },
     { "MTOOLS_SKIP_CHECK", (caddr_t) & mtools_skip_check, INT },
+    { "MTOOLS_NO_VFAT", (caddr_t) & mtools_no_vfat, INT },
     { "MTOOLS_RATE_0", (caddr_t) &mtools_rate_0, INT },
     { "MTOOLS_RATE_ANY", (caddr_t) &mtools_rate_any, INT },
     { "COUNTRY", (caddr_t) &country_string, STRING }
 };
 
 static struct {
-    char *name;
+    const char *name;
     int flag;
 } openflags[] = {
 #ifdef O_SYNC
@@ -69,7 +73,7 @@ static struct {
 };
 
 static struct {
-    char *name;
+    const char *name;
     signed char fat_bits;
     int tracks;
     unsigned short heads;
@@ -102,6 +106,9 @@ static switches_t dswitches[]= {
     { "FILE", OFFS(name), STRING },
     { "OFFSET", OFFS(offset), INT },
     { "PARTITION", OFFS(partition), INT },
+    { "SCSI", OFFS(scsi), INT },
+    { "PRIVILEGED", OFFS(privileged), INT },
+    { "NOLOCK", OFFS(nolock), INT },
     { "FAT", OFFS(fat_bits), INT },
     { "FAT_BITS", OFFS(fat_bits), INT },
     { "MODE", OFFS(mode), INT },
@@ -110,13 +117,15 @@ static switches_t dswitches[]= {
     { "HEADS", OFFS(heads), INT },
     { "SECTORS", OFFS(sectors), INT },
     { "USE_XDF", OFFS(use_xdf), INT },
+    { "PRECMD", OFFS(precmd), STRING }
+
 };
 
-static void syntax(char *msg)
+static void syntax(const char *msg)
 {
-    fprintf(stderr,"Syntax error at line %d column %d in file %s: %s\n",
-	    linenumber, token - buffer, filename, msg);
-    cleanup_and_exit(1);
+    fprintf(stderr,"Syntax error at line %d column %ld in file %s: %s\n",
+	    linenumber, (long)(token - buffer), filename, msg);
+    exit(1);
 }
 
 static void get_env_conf(void)
@@ -179,7 +188,7 @@ static char *get_next_token(void)
 	return token;
 }
 
-static int match_token(char *template)
+static int match_token(const char *template)
 {
 	return (strlen(template) == token_length &&
 		!strncasecmp(template, token, token_length));
@@ -248,7 +257,7 @@ static void grow(void)
 		nr_dev = (cur_devs + 2) << 1;
 		if(!(devices=Grow(devices, nr_dev, struct device))){
 			fprintf(stderr,"Out of memory error");
-			cleanup_and_exit(1);
+			exit(1);
 		}
 	}
 }
@@ -286,8 +295,10 @@ static void append(void)
 
 static void finish_drive_clause(void)
 {
-	if(cur_dev == -1)
+	if(cur_dev == -1) {
+		trusted = 0;
 		return;
+	}
 	if(!devices[cur_dev].name)
 		syntax("missing filename");
 	if((devices[cur_dev].tracks ||
@@ -298,6 +309,11 @@ static void finish_drive_clause(void)
 	    !devices[cur_dev].sectors))
 		syntax("incomplete geometry: either indicate all of track/heads/sectors or none of them");
 	devices[cur_dev].file_nr = file_nr;
+	if(devices[cur_dev].privileged == 2)
+		devices[cur_dev].privileged = devices[cur_dev].scsi;
+	if(!trusted)
+		devices[cur_dev].privileged = 0;
+	trusted = 0;
 	cur_dev = -1;
 }
 
@@ -309,10 +325,10 @@ static int set_var(struct switches_l *switches, int nr,
 		if(match_token(switches[i].name)) {
 			expect_char('=');
 			if(switches[i].type == INT)
-				* ((int *)((int)switches[i].address+base_address)) = 
+				* ((int *)((long)switches[i].address+base_address)) = 
 					get_number();
 			else if (switches[i].type == STRING)
-				* ((char**)((int)switches[i].address+base_address))=
+				* ((char**)((long)switches[i].address+base_address))=
 				   strdup(get_string());
 			return 0;
 		}
@@ -384,6 +400,7 @@ static void parse_old_device_line(char drive)
 {
 	char name[MAXPATHLEN];
 	int items;
+	long offset;
 
 	/* finish any old drive */
 	finish_drive_clause();
@@ -396,7 +413,8 @@ static void parse_old_device_line(char drive)
 	items = sscanf(token,"%c %s %i %i %i %i %li",
 		       &devices[cur_dev].drive,name,&devices[cur_dev].fat_bits,
 		       &devices[cur_dev].tracks,&devices[cur_dev].heads,
-		       &devices[cur_dev].sectors, &devices[cur_dev].offset);
+		       &devices[cur_dev].sectors, &offset);
+	devices[cur_dev].offset = offset;
 	switch(items){
 		case 2:
 			devices[cur_dev].fat_bits = 0;
@@ -416,7 +434,7 @@ static void parse_old_device_line(char drive)
 		case 4:
 		case 5:
 			syntax("bad number of parameters");
-			cleanup_and_exit(1);
+			exit(1);
 	}
 	if(!devices[cur_dev].tracks){
 		devices[cur_dev].sectors = 0;
@@ -426,14 +444,13 @@ static void parse_old_device_line(char drive)
 	devices[cur_dev].drive = toupper(devices[cur_dev].drive);
 	if (!(devices[cur_dev].name = strdup(name))) {
 		fprintf(stderr,"Out of memory\n");
-		cleanup_and_exit(1);
+		exit(1);
 	}
-	strcpy(devices[cur_dev].name,name);
 	finish_drive_clause();
 	pos=0;
 }
 
-static int parse_one(void)
+static int parse_one(int privilege)
 {
 	int action=0;
 
@@ -441,10 +458,10 @@ static int parse_one(void)
 	if(!token)
 		return 0;
 
-	if((match_token("drive") && (action = 1))||
-	   (match_token("drive+") && (action = 2)) ||
-	   (match_token("+drive") && (action = 3)) ||
-	   (match_token("clear_drive") && (action = 4)) ) {
+	if((match_token("drive") && ((action = 1)))||
+	   (match_token("drive+") && ((action = 2))) ||
+	   (match_token("+drive") && ((action = 3))) ||
+	   (match_token("clear_drive") && ((action = 4))) ) {
 		/* finish off the previous drive */
 		finish_drive_clause();
 
@@ -462,6 +479,8 @@ static int parse_one(void)
 		else
 			append();
 		memset((char*)(devices+cur_dev), 0, sizeof(*devices));
+		trusted = privilege;
+		devices[cur_dev].privileged = 2;
 		devices[cur_dev].drive = toupper(token[0]);
 		expect_char(':');
 		return 1;
@@ -501,7 +520,7 @@ static int parse_one(void)
 	return 1;
 }
 
-static int parse(char *name)
+static int parse(const char *name, int privilege)
 {
 	filename = name;
 	fp = fopen(filename, "r");
@@ -513,17 +532,16 @@ static int parse(char *name)
 	token = 0;
 	cur_dev = -1; /* no current device */
 
-	while(parse_one());
+	while(parse_one(privilege));
 	finish_drive_clause();
 	fclose(fp);
 	return 1;
 }
 
-#define CFG_FILE1 "/.mtoolsrc"
-
 void read_config(void)
 {
 	char *homedir;
+	char *envConfFile;
 	char conf_file[MAXPATHLEN+sizeof(CFG_FILE1)];
 
 	
@@ -534,16 +552,17 @@ void read_config(void)
 	devices = NewArray(nr_dev, struct device);
 	if(!devices) {
 		fprintf(stderr,"Out of memory error\n");
-		cleanup_and_exit(1);
+		exit(1);
 	}
 	if(nr_const_devices)
 		memcpy(devices, const_devices,
 		       nr_const_devices*sizeof(struct device));
 
-	(void) ((parse("/etc/mtools.conf") | 
-		 parse("/etc/default/mtools.conf")) ||
-		(parse("/etc/mtools") | 
-		 parse("/etc/default/mtools")));
+	(void) ((parse(CONF_FILE,1) | 
+		 parse(LOCAL_CONF_FILE,1) |
+		 parse(SYS_CONF_FILE,1)) ||
+		(parse(OLD_CONF_FILE,1) | 
+		 parse(OLD_LOCAL_CONF_FILE,1)));
 	/* the old-name configuration files only get executed if none of the
 	 * new-name config files were used */
 
@@ -552,9 +571,13 @@ void read_config(void)
 		strncpy(conf_file, homedir, MAXPATHLEN );
 		conf_file[MAXPATHLEN]='\0';
 		strcat( conf_file, CFG_FILE1);
-		parse(conf_file);
+		parse(conf_file,0);
 	}
 	memset((char *)&devices[cur_devs],0,sizeof(struct device));
+
+	envConfFile = getenv("MTOOLSRC");
+	if(envConfFile)
+		parse(envConfFile,0);
 
 	/* environmental variables */
 	get_env_conf();
@@ -563,7 +586,7 @@ void read_config(void)
 	init_codepage();
 }
 
-void mtest(int argc, char **argv, int type)
+void mtoolstest(int argc, char **argv, int type)
 {
 	/* testing purposes only */
 	struct device *dev;
@@ -576,8 +599,12 @@ void mtest(int argc, char **argv, int type)
 		       dev->name,dev->fat_bits);
 		printf("\ttracks=%d heads=%d sectors=%d\n",
 		       dev->tracks, dev->heads, dev->sectors);
-		printf("\toffset=0x%lx\n", dev->offset);
-		printf("\tpartition=0x%lx\n", dev->partition);
+		printf("\toffset=0x%lx\n", (long) dev->offset);
+		printf("\tpartition=0x%x\n", dev->partition);
+		printf("\tscsi=0x%x\n", dev->scsi);
+		printf("\tnolock=0x%x\n", dev->nolock);
+		printf("\tprivileged=0x%x\n", dev->privileged);
+
 #ifdef USE_XDF
 		printf("\tuse_xdf=0x%x\n", dev->use_xdf);
 #endif
@@ -589,7 +616,7 @@ void mtest(int argc, char **argv, int type)
 #endif
 #ifdef O_NDELAY
 		if((dev->mode & O_NDELAY))
-			printf("ndelay ");
+			printf("nodelay ");
 #endif
 #ifdef O_EXCL
 		if((dev->mode & O_EXCL))
@@ -597,6 +624,10 @@ void mtest(int argc, char **argv, int type)
 #endif
 		if(dev->mode)
 			printf("\n");
+
+		if(dev->precmd)
+			printf("\tprecmd=%s\n", dev->precmd);
+
 		printf("\n");
 	}
 	
@@ -622,6 +653,5 @@ void mtest(int argc, char **argv, int type)
 	printf("mtools_skip_check=%d\n",mtools_skip_check);
 	printf("mtools_lower_case=%d\n",mtools_ignore_short_case);
 
-	cleanup_and_exit(0);
+	exit(0);
 }
-

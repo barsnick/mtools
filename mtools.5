@@ -114,13 +114,50 @@ variable is intended for Syquests, ZIP drives, and DOSEMU hdimages. It
 is not recommended for hard disks to which direct access to partitions
 is available.
 .TP
+.B scsi
+When set to 1, this option tells the operating system (SunOS or
+Solaris) that the MS-DOS filesystem exists on an SCSI device (such as
+a Jaz or a Zip drive).  On SunOS/Solaris, these devices can't be
+accessed using the read and write syscalls, because the OS expects
+them to contain a Sun specific "disk label".  Obviously, Zip and Jaz
+disks don't contain any such label as they contain PC-style
+partitions.
+
+On Solaris, mtools needs root privileges to be able to use the scsi=1
+option.  Thus mtools should be installed set uid root on Solaris if
+you want to access Zip/Jaz drives.  Mtools only uses its root
+privileges when issuing these SCSI ioctl's.  The device file and any
+copied files are still opened with the user's rights.  Moreover,
+mtools drops its root privileges whenever mtools performs "shell
+expansion" of a device filename contained in its configuration files.
+For example, if your /etc/mtools.conf file contains a line such
+as the following, then the scsi=1 option does not work for
+drive e:
+
+drive e: file="$HOME/dosimage"
+
+Other drives are not affected: in the following example, the
+scsi=1 option still works for drive d:
+
+drive e: file="$HOME/dosimage"
+
+drive d: file="/dev/zip" scsi=1
+
+
+However, other lines bearing the same drive number are affected:
+
+drive e: file="$HOME/dosimage"
+
+drive e: file="/dev/zip" scsi=1
+
+.TP
 .B offset
 Describes where in the file the MSDOS filesystem starts. This is useful for
 logical partitions in
 .B DOSEMU hdimage\c
 s, and for
 .B ATARI
-ram disks. By default, this is zero, meaning that the filesystem start
+ram disks. By default, this is zero, meaning that the filesystem starts
 right at the beginning of the device or file.
 .TP
 .B fat_bits
@@ -407,7 +444,7 @@ those. Thus, only a limited amount of code pages are supported. If your
 preferred code page is missing, or if you know the name of the Windows
 95 file which contains this mapping, could you please drop me a line
 at
-.B Alain.Knaff@inrialpes.fr
+.B Alain.Knaff@poboxes.com
 \&.
 
 The

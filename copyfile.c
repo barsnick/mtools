@@ -38,7 +38,9 @@ int copyfile(Stream_t *Source, Stream_t *Target)
 			if(retw < 0 )
 				perror("write");
 			else
-				fprintf(stderr,"Short write");
+				fprintf(stderr,
+					"Short write %d instead of %d\n", retw,
+					ret);
 			return ret;
 		}
 		pos += ret;

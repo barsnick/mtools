@@ -8,3 +8,8 @@
 /* Define this if you use mtools together with Solaris' vold */
 #undef USING_VOLD
 
+
+/* Define for debugging messages */
+#undef DEBUG
+
+

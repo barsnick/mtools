@@ -13,15 +13,15 @@ typedef struct Buffer_t {
 	Stream_t *Next;
 	Stream_t *Buffer;
 	
-	unsigned int size;     	/* size of read/write buffer */
+	size_t size;     	/* size of read/write buffer */
 	int dirty;	       	/* is the buffer dirty? */
 	int grain;
 	int grain2;
 	int ever_dirty;	       	/* was the buffer ever dirty? */
 	int dirty_pos;
 	int dirty_end;
-	long current;		/* first sector in buffer */
-	long cur_size;		/* the current size */
+	off_t current;		/* first sector in buffer */
+	size_t cur_size;		/* the current size */
 	char *buf;		/* disk read/write buffer */
 } Buffer_t;
 
@@ -34,8 +34,12 @@ static int _buf_flush(Buffer_t *Buffer)
 {
 	int ret;
 
-	if (!Buffer->Next || Buffer->current < 0L || !Buffer->dirty)
+	if (!Buffer->Next || !Buffer->dirty)
 		return 0;
+	if(Buffer->current < 0L) {
+		fprintf(stderr,"Should not happen\n");
+		return 0;
+	}
 	ret = force_write(Buffer->Next, 
 			  Buffer->buf + Buffer->dirty_pos,
 			  Buffer->current + Buffer->dirty_pos,
@@ -44,21 +48,21 @@ static int _buf_flush(Buffer_t *Buffer)
 		if(ret < 0)
 			perror("buffer_flush: write");
 		else
-			fprintf(stderr,"buffer_flush: short write");
+			fprintf(stderr,"buffer_flush: short write\n");
 		return -1;
 	}
 	Buffer->dirty = 0;
 	return 0;
 }
 
-static void invalidate_buffer(Buffer_t *Buffer, int start)
+static void invalidate_buffer(Buffer_t *Buffer, off_t start)
 {
 	_buf_flush(Buffer);
 	Buffer->current = start - start % Buffer->grain;
 	Buffer->cur_size = 0;
 }
 
-static int buf_read(Stream_t *Stream, char *buf, int start, int len)
+static int buf_read(Stream_t *Stream, char *buf, off_t start, size_t len)
 {
 	int length, offset;
 	char *disk_ptr;
@@ -91,7 +95,7 @@ static int buf_read(Stream_t *Stream, char *buf, int start, int len)
 	return len;
 }
 
-static int buf_write(Stream_t *Stream, char *buf, int start, int len)
+static int buf_write(Stream_t *Stream, char *buf, off_t start, size_t len)
 {
 	char *disk_ptr;
 	DeclareThis(Buffer_t);	
@@ -169,9 +173,6 @@ Stream_t *buf_init(Stream_t *Next, int size, int grain, int grain2)
 	Buffer_t *Buffer;
 	Stream_t *Stream;
 
-#if 0
-	return Next;
-#else
 
 	if(Next->Buffer){
 		Next->refs--;
@@ -198,6 +199,5 @@ Stream_t *buf_init(Stream_t *Next, int size, int grain, int grain2)
 	Buffer->Buffer = 0;
 	Buffer->Next->Buffer = (Stream_t *) Buffer;
 	return Stream;
-#endif
 }
 

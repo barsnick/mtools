@@ -7,121 +7,95 @@
 #include "mtools.h"
 
 
-int casecmp(char a,char b)
+static int casecmp(char a,char b)
 {
 	return toupper(a) == toupper(b);
 }
 
-int exactcmp(char a,char b)
+static int exactcmp(char a,char b)
 {
 	return a == b;
 }
 
 
-
-int match(__const char *s, __const char *p, char *out, int Case)
+static int parse_range(const char **p, const char *s, char *out, 
+		       int (*compfn)(char a, char b))
 {
-	int matched, reverse;
-	char first, last;
+	char table[256];
+	int reverse;
+	int i;
+	short first, last;
 
-	int (*compfn)(char a, char b);
+	if (**p == '^') {
+		reverse = 1;
+		(*p)++;
+	} else
+		reverse=0;	
+	for(i=0; i<256; i++)
+		table[i]=0;
+	while(**p != ']') {
+		if(!**p)
+			return 0;
+		if((*p)[1] == '-') {
+			first = **p;
+			(*p)+=2;
+			if(**p == ']')
+				last = 256;
+			else
+				last = *((*p)++);				
+			for(i=first; i<last; i++)
+				table[i] = 1;
+		} else
+			table[(int) *((*p)++)] = 1;
+	}
+	if(out)
+		*out = *s;
+	if(table[(int) *s])
+		return 1 ^ reverse;
+	if(compfn == exactcmp)
+		return reverse;
+	if(table[tolower(*s)]) {
+		if(out)
+			*out = tolower(*s);
+		return 1 ^ reverse;
+	}
+	if(table[toupper(*s)]) {
+		if(out)
+			*out = toupper(*s);
+		return 1 ^ reverse;
+	}
+	return reverse;
+}
 
-	if(Case)
-		compfn = casecmp;
-	else
-		/*compfn = exactcmp;*/
-		compfn = casecmp;
 
+static int _match(const char *s, const char *p, char *out, int Case,
+		  int (*compfn) (char a, char b))
+{
 	for (; *p != '\0'; ) {
 		switch (*p) {
 			case '?':	/* match any one character */
 				if (*s == '\0')
 					return(0);
 				if(out)
-					*(out++) = *p;
+					*(out++) = *s;
 				break;
 			case '*':	/* match everything */
 				while (*p == '*')
 					p++;
 
-
 					/* search for next char in pattern */
-				matched = 0;
-				while (*s != '\0') {
+				while(*s) {
+					if(_match(s, p, out, Case, compfn))
+						return 1;
 					if(out)
-						*(out++) = *s;
-					if (compfn(*s,*p)) {
-						matched = 1;
-						break;
-					}
+						*out++ = *s;
 					s++;
 				}
-				/* if last char in pattern */
-				if (*p == '\0')
-					continue;
-
-				if (!matched)
-					return(0);
-				break;
+				continue;
 			case '[':	 /* match range of characters */
-				first = '\0';
-				matched = 0;
-				reverse = 0;
-				while (*++p != ']') {
-					if (*p == '^') {
-						reverse = 1;
-						p++;
-					}
-					first = *p;
-					if (first == ']' || first == '\0')
-						return(0);
-
-					/* if 2nd char is '-' */
-					if (*(p + 1) == '-') {
-						p++;
-					/* set last to 3rd char ... */
-						last = *++p;
-						if (last == ']' || last == '\0')
-							return(0);
-					/* test the range of values */
-						if (*s >= first &&
-						    *s <= last) {
-							if(out)
-								*(out++) = *s;
-							matched = 1;
-							p++;
-							break;
-						}
-						if(Case &&
-						   toupper(*s) >= first &&
-						   toupper(*s) <= last){
-							if(out)
-								*(out++) = toupper(*s);
-							matched = 1;
-							p++;
-							break;
-						}
-						if(Case &&
-						   tolower(*s) >= first &&
-						   tolower(*s) <= last){
-							if(out)
-								*(out++) = tolower(*s);
-							matched = 1;
-							p++;
-							break;
-						}
-						return(0);
-					}
-					if (compfn(*s,*p)){
-						if(out)
-							*(out++) = *p;
-						matched = 1;
-					}
-				}
-				if (matched && reverse)
-					return(0);
-				if (!matched)
-					return(0);
+				p++;
+				if(!parse_range(&p, s, out++, compfn))
+					return 0;
 				break;
 			case '\\':	/* Literal match with next character */
 				p++;
@@ -144,4 +118,22 @@ int match(__const char *s, __const char *p, char *out, int Case)
 		return(0);
 	else
 		return(1);
+}
+
+
+int match(const char *s, const char *p, char *out, int Case)
+{
+	int (*compfn)(char a, char b);
+
+	if(Case)
+		compfn = casecmp;
+	else
+		/*compfn = exactcmp;*/
+		compfn = casecmp;
+	return _match(s, p, out, Case, compfn);
+}
+
+int hasWildcards(const char *string)
+{
+	return (int) strpbrk(string, "?*");
 }

@@ -45,18 +45,18 @@ int free_stream(Stream_t **Stream)
 (stream)->Class->get_data( (stream), (date), (size), (type), (address) )
 
 
-int get_data_pass_through(Stream_t *Stream, long *date, unsigned long *size,
+int get_data_pass_through(Stream_t *Stream, long *date, size_t *size,
 			  int *type, int *address)
 {
        return GET_DATA(Stream->Next, date, size, type, address);
 }
 
-int read_pass_through(Stream_t *Stream, char *buf, int start, int len)
+int read_pass_through(Stream_t *Stream, char *buf, off_t start, size_t len)
 {
 	return READS(Stream->Next, buf, start, len);
 }
 
-int write_pass_through(Stream_t *Stream, char *buf, int start, int len)
+int write_pass_through(Stream_t *Stream, char *buf, off_t start, size_t len)
 {
 	return WRITES(Stream->Next, buf, start, len);
 }

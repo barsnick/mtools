@@ -1,39 +1,89 @@
+.TH mmove 1 "21mar97" mtools-3.4
+.SH Name
+mmove - move or rename an MSDOS file or subdirectory
 '\" t
-.\" Note: this must be run through tbl before nroff.
-.\" The magic cookie on the first line triggers this under some man program
-.TH MREN 1 local
-.SH NAME
-mmove \- moves or renames an existing MSDOS file or subdirectory
-.SH SYNOPSIS
-.B mmove
-[
-.B -voOsSrRA
-] sourcefile targetfile
-.PP
-.B mmove
-[
-.B -voOsSrRA
-] sourcefile [ sourcefiles... ] targetdirectory
-.PP
-.SH DESCRIPTION
-.I Mmove
-moves or renames an existing MSDOS file or subdirectory
-.PP
-.I Mmove
-will allow the following command line option:
+.de TQ
+.br
+.ns
+.TP \\$1
+..
+
+.tr \(is'
+.tr \(if`
+.tr \(pd"
+
+.SH Note
+This manpage has been automatically generated from mtools's texinfo
+documentation.  However, this process is only approximative, and some
+items, such as crossreferences, footnotes and indices are lost in this
+translation process.  Indeed, this items have no appropriate
+representation in the manpage format.  Moreover, only the items specific
+to each command have been translated, and the general information about
+mtools has been dropped in the manpage version.  Thus I strongly advise
+you to use the original texinfo doc.
 .TP
-.B v
-Verbose mode.  Display the new filename if the name supplied is
-invalid.
+* \ \ 
+To generate a printable copy from the texinfo doc, run the following
+commands:
+ 
+.nf
+.ft 3
+.in +0.3i
+    ./configure; make dvi; dvips mtools.dvi
+.fi
+.in -0.3i
+.ft R
+.lp
+ 
+\&\fR
+.TP
+* \ \ 
+To generate a html copy,  run:
+ 
+.nf
+.ft 3
+.in +0.3i
+    ./configure; make html
+.fi
+.in -0.3i
+.ft R
+.lp
+ 
+\&\fRA premade html can be found at:
+\&\fR\&\f(CW\(ifhttp://linux.wauug.org/pub/knaff/mtools\(is\fR
+.TP
+* \ \ 
+To generate an info copy (browsable using emacs' info mode), run:
+ 
+.nf
+.ft 3
+.in +0.3i
+    ./configure; make info
+.fi
+.in -0.3i
+.ft R
+.lp
+ 
+\&\fR
 .PP
-Additionally it allows the clash handling options described
-in the manpage for mtools.
+The texinfo doc looks most pretty when printed or as html.  Indeed, in
+the info version certain examples are difficult to read due to the
+quoting conventions used in info.
 .PP
-MSDOS subdirectory names are supported with either the '/' or '\e'
-separator.  The use of the '\e' separator or wildcards will require the
-names to be enclosed in quotes to protect them from the shell.
-Unlike the MSDOS version of MOVE,
-.I mmove
-is able to move subdirectories.
-.SH SEE ALSO
-mren(1) mtools(1)
+.SH Description
+.iX "p mmove"
+.iX "c Moving files (mmove)"
+.iX "c Renaming files (mmove)"
+.PP
+The \fR\&\f(CWmmove\fR command is used to moves or renames an existing MS-DOS
+file or subdirectory.
+.(l I
+\&\fR\&\f(CWmmove\fR [\fR\&\f(CW-voOsSrRA\fR] \fIsourcefile\fR \fItargetfile\fR
+\&\fR\&\f(CWmmove\fR [\fR\&\f(CW-voOsSrRA\fR] \fIsourcefile\fR [ \fIsourcefiles\fR\&... ] \fItargetdirectory\fR
+.)l
+ 
+\&\fR\&\f(CWMmove\fR moves or renames an existing MS-DOS file or
+subdirectory. Unlike the MS-DOS version of \fR\&\f(CWMOVE\fR, \fR\&\f(CWmmove\fR is
+able to move subdirectories.
+.SH See Also
+Mtools' texinfo doc

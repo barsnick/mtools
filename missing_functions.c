@@ -17,18 +17,19 @@ not, write to the Free Software Foundation, Inc., 675 Mass Ave,
 Cambridge, MA 02139, USA.  */
 
 #include "sysincludes.h"
+#include "mtools.h"
 
 #ifndef HAVE_STRDUP
 
 
-char *strdup(__const char *str)
+char *strdup(const char *str)
 {
     char *nstr;
 
     if (str == (char*)0)
-        return str;
+        return 0;
 
-    nstr = (char*)malloc((u_int)(strlen(str) + 1));
+    nstr = (char*)malloc((strlen(str) + 1));
 
     if (nstr == (char*)0)
     {
@@ -48,7 +49,7 @@ char *strdup(__const char *str)
 /*
  * Copy contents of memory (with possible overlapping).
  */
-char *memcpy(char *s1, __const char *s2, size_t n)
+char *memcpy(char *s1, const char *s2, size_t n)
 {
 	bcopy(s2, s1, n);
 	return(s1);
@@ -77,7 +78,7 @@ char *memset(char *s, char c, size_t n)
  * Return ptr to first occurrence of any character from `brkset'
  * in the character string `string'; NULL if none exists.
  */
-char *strpbrk(__const char *string, __const char *brkset)
+char *strpbrk(const char *string, const char *brkset)
 {
 	register char *p;
 
@@ -154,7 +155,7 @@ unsigned long strtoul(const char *string, char **eptr, int base)
 #ifndef HAVE_STRSPN
 /* Return the length of the maximum initial segment
    of S which contains only characters in ACCEPT.  */
-size_t strspn(__const char *s, __const char *accept)
+size_t strspn(const char *s, const char *accept)
 {
   register CONST char *p;
   register CONST char *a;
@@ -178,7 +179,7 @@ size_t strspn(__const char *s, __const char *accept)
 #ifndef HAVE_STRCSPN
 /* Return the length of the maximum inital segment of S
    which contains no characters from REJECT.  */
-size_t strcspn (__const char *s, __const char *reject)
+size_t strcspn (const char *s, const char *reject)
 {
   register size_t count = 0;
 
@@ -226,11 +227,17 @@ int strcasecmp(const char *s1, const char *s2)
 }
 #endif
 
+
+
 #ifndef HAVE_STRCASECMP
 /* Compare S1 and S2, ignoring case, returning less than, equal to or
    greater than zero if S1 is lexiographically less than,
    equal to or greater than S2.  */
-int strncasecmp(const char *s1, const char *s2, int n)
+#ifdef __BEOS__
+int strncasecmp(const char *s1, const char *s2, unsigned int n)
+#else
+int strncasecmp(const char *s1, const char *s2, size_t n)
+#endif
 {
   register const unsigned char *p1 = (const unsigned char *) s1;
   register const unsigned char *p2 = (const unsigned char *) s2;
@@ -248,4 +255,68 @@ int strncasecmp(const char *s1, const char *s2, int n)
 
   return c1 - c2;
 }
+#endif
+
+#ifndef HAVE_GETPASS
+char *getpass(const char *prompt)
+{
+	static char password[129];
+	int l;
+
+	fprintf(stderr,"%s",prompt);
+	fgets(password, 128, stdin);
+	l = strlen(password);
+	if(l && password[l-1] == '\n')
+		password[l-1] = '\0';
+	return password;
+
+}
+#endif
+
+#ifndef HAVE_ATEXIT
+
+#ifdef HAVE_ON_EXIT
+int atexit(void (*function)(void))
+{
+	return on_exit( (void(*)(int,void*)) function, 0);
+}
+#else
+
+typedef struct exitCallback {
+	void (*function) (void);
+	struct exitCallback *next;
+} exitCallback_t;
+
+static exitCallback_t *callback = 0;
+
+int atexit(void (*function) (void))
+{
+	exitCallback_t *newCallback;
+		
+	newCallback = New(exitCallback_t);
+	if(!newCallback) {
+		fprintf(stderr,"Out of memory error\n");
+		exit(1);
+	}
+	newCallback->function = function;
+	newCallback->next = callback;
+	callback = newCallback;
+	return 0;
+}
+#undef exit
+
+void myexit(int code)
+{
+  void (*function)(void);
+
+  while(callback) {
+    function = callback->function;
+    callback = callback->next;
+    function();
+  }
+  exit(code);
+}
+
+#endif
+
 #endif

@@ -12,28 +12,30 @@ typedef struct File_t {
 	struct Fs_t *Fs;	/* Filesystem that this fat file belongs to */
 	Stream_t *Buffer;
 
-	int (*map)(struct File_t *this, int where, int *len, int mode);
-	unsigned long FileSize;
+	int (*map)(struct File_t *this, off_t where, size_t *len, int mode);
+	size_t FileSize;
 
 	/* Absolute position of first cluster of file */
-	unsigned short FirstAbsCluNr;
+	unsigned int FirstAbsCluNr;
 
 	/* Absolute position of previous cluster */
-	unsigned short PreviousAbsCluNr;
+	unsigned int PreviousAbsCluNr;
 
 	/* Relative position of previous cluster */
-	unsigned short PreviousRelCluNr;
+	unsigned int PreviousRelCluNr;
 	struct directory dir;
+	int locked;
+	Stream_t *ParentDir;
 } File_t;
 
-static int normal_map(File_t *This, int where, int *len, int mode)
+static int normal_map(File_t *This, off_t where, size_t *len, int mode)
 {
 	int offset;
 	int NrClu; /* number of clusters to read */
-	unsigned short RelCluNr;
-	unsigned short CurCluNr;
-	unsigned short NewCluNr;
-	unsigned short AbsCluNr;
+	unsigned int RelCluNr;
+	unsigned int CurCluNr;
+	unsigned int NewCluNr;
+	unsigned int AbsCluNr;
 	int clus_size;
 	Fs_t *Fs = This->Fs;
 
@@ -42,10 +44,8 @@ static int normal_map(File_t *This, int where, int *len, int mode)
 
 	if (mode == MT_READ)
 		maximize(len, This->FileSize - where);
-	if (*len <= 0 ){
-		*len = 0;
+	if (*len == 0 )
 		return 0;
-	}
 
 	if (This->FirstAbsCluNr < 2){
 		if( mode == MT_READ || *len == 0){
@@ -84,11 +84,11 @@ static int normal_map(File_t *This, int where, int *len, int mode)
 		if (NewCluNr == 1 ){
 			fprintf(stderr,"Fat problem while decoding %d\n", 
 				AbsCluNr);
-			cleanup_and_exit(1);
+			exit(1);
 		}
 		if(CurCluNr == RelCluNr + NrClu)			
 			break;
-		if (NewCluNr == Fs->end_fat && mode == MT_WRITE){
+		if (NewCluNr > Fs->last_fat && mode == MT_WRITE){
 			/* if at end, and writing, extend it */
 			NewCluNr = get_next_free_cluster(This->Fs, AbsCluNr);
 			if (NewCluNr == 1 ){ /* no more space */
@@ -99,7 +99,7 @@ static int normal_map(File_t *This, int where, int *len, int mode)
 			Fs->fat_encode(This->Fs, NewCluNr, Fs->end_fat);
 		}
 
-		if (CurCluNr < RelCluNr && NewCluNr == Fs->end_fat){
+		if (CurCluNr < RelCluNr && NewCluNr > Fs->last_fat){
 			*len = 0;
 			return 0;
 		}
@@ -112,27 +112,27 @@ static int normal_map(File_t *This, int where, int *len, int mode)
 
 	maximize(len, (1 + CurCluNr - RelCluNr) * clus_size - offset);
 
-	return ((This->PreviousAbsCluNr - 2) * Fs->cluster_size +
-		Fs->dir_start + Fs->dir_len) *
+	return ((This->PreviousAbsCluNr-2) * Fs->cluster_size+Fs->clus_start) *
 			Fs->sector_size + offset;
 }
 
 
-static int root_map(File_t *This, int where, int *len, int mode)
+static int root_map(File_t *This, off_t where, size_t *len, int mode)
 {
 	Fs_t *Fs = This->Fs;
 
-	maximize(len, Fs->dir_len * Fs->sector_size - where);
-	if(*len < 0 ){
+	if(Fs->dir_len * Fs->sector_size < where) {
 		*len = 0;
 		errno = ENOSPC;
 		return -2;
 	}
+
+	maximize(len, Fs->dir_len * Fs->sector_size - where);
 	return Fs->dir_start * Fs->sector_size + where;
 }
 	
 
-static int read_file(Stream_t *Stream, char *buf, int where, int len)
+static int read_file(Stream_t *Stream, char *buf, off_t where, size_t len)
 {
 	DeclareThis(File_t);
 	int pos;
@@ -145,7 +145,7 @@ static int read_file(Stream_t *Stream, char *buf, int where, int len)
 	return READS(Disk, buf, pos, len);
 }
 
-static int write_file(Stream_t *Stream, char *buf, int where, int len)
+static int write_file(Stream_t *Stream, char *buf, off_t where, size_t len)
 {
 	DeclareThis(File_t);
 	int pos;
@@ -171,7 +171,7 @@ static inline long conv_stamp(struct directory *dir)
 {
 	struct tm *tmbuf;
 	long tzone, dst;
-	long accum;
+	time_t accum;
 
 	accum = DOS_YEAR(dir) - 1970; /* years past */
 
@@ -200,9 +200,12 @@ static inline long conv_stamp(struct directory *dir)
 #else
 #ifdef HAVE_TZSET
 	{
+#ifndef ultrix
+		/* Ultrix defines this to be a different type */
 		extern long timezone;
+#endif
 		tzset();
-		tzone = timezone;
+		tzone = (long) timezone;
 	}
 #else
 	tzone = 0;
@@ -213,14 +216,14 @@ static inline long conv_stamp(struct directory *dir)
 
 	/* correct for Daylight Saving Time */
 	tmbuf = localtime(&accum);
-	dst = (tmbuf->tm_isdst) ? (-60L * -60L) : 0L;
+	dst = (tmbuf->tm_isdst) ? (-60L * 60L) : 0L;
 	accum += dst;
 	
 	return accum;
 }
 
 
-static int get_file_data(Stream_t *Stream, long *date, unsigned long *size,
+static int get_file_data(Stream_t *Stream, long *date, size_t *size,
 			 int *type, int *address)
 {
 	DeclareThis(File_t);
@@ -240,6 +243,8 @@ T_HashTable *filehash;
 
 static int free_file(Stream_t *Stream)
 {
+	DeclareThis(File_t);
+	FREE(&This->ParentDir);
 	return hash_remove(filehash, (void *) Stream, 0);
 }
 
@@ -257,7 +262,7 @@ static unsigned int func1(void *Stream)
 {
 	DeclareThis(File_t);
 
-	return This->FirstAbsCluNr ^ (int) This->Fs;
+	return This->FirstAbsCluNr ^ (long) This->Fs;
 }
 
 static unsigned int func2(void *Stream)
@@ -270,6 +275,7 @@ static unsigned int func2(void *Stream)
 static int comp(void *Stream, void *Stream2)
 {
 	DeclareThis(File_t);
+
 	File_t *This2 = (File_t *) Stream2;
 
 	return This->Fs != This2->Fs ||
@@ -287,26 +293,40 @@ static void init_hash(void)
 }
 
 
-Stream_t *open_root(Stream_t *Fs)
+static Stream_t *OpenFileByNumAndSize(Stream_t *Dir, unsigned int first, 
+				      size_t size, struct directory *dir);
+
+Stream_t *open_root(Stream_t *Dir)
 {
+	Stream_t *Stream = GetFs(Dir);
+	DeclareThis(Fs_t);
 	File_t *File;
 	File_t Pattern;
+	unsigned int num;
+
+	num = fat32RootCluster(Dir);
+
+	if(num)		
+		return OpenFileByNumAndSize(Dir, num, MAX_SIZE, 0);
 
 	init_hash();
-	Pattern.Fs = (Fs_t *) Fs;
+	This->refs++;
+	Pattern.Fs = (Fs_t *) This;
 	Pattern.FirstAbsCluNr = 0;
 	if(!hash_lookup(filehash, (T_HashTableEl) &Pattern, 
 			(T_HashTableEl **)&File, 0)){
 		File->refs++;
-		Fs->refs--;
+		This->refs--;
 		return (Stream_t *) File;
 	}
 
 	File = New(File_t);
-	File->Fs = (Fs_t *) Fs;
+	File->Fs = This;
 	if (!File)
 		return NULL;
-	
+
+	File->ParentDir = 0;
+	File->FirstAbsCluNr = 0;	
 	File->FileSize = -1;
 	File->Class = &FileClass;
 	File->map = root_map;
@@ -316,35 +336,47 @@ Stream_t *open_root(Stream_t *Fs)
 	return (Stream_t *) File;
 }
 
-Stream_t *open_file(Stream_t *Fs, struct directory *dir)
+Stream_t *open_file(Stream_t *Dir, struct directory *dir)
 {
-	File_t *File;
-	File_t Pattern;
-	int first;
-	unsigned long size;
+	Stream_t *Stream = GetFs(Dir);
+	unsigned int first;
+	size_t size;
 
 	first = START(dir);
+	if(fat32RootCluster(Stream))
+		first |= STARTHI(dir) << 16;
 
 	if(!first && (dir->attr & 0x10))
-		return open_root(Fs);
+		return open_root(Stream);
 	
 	if (dir->attr & 0x10 )
-		size = (1UL << 31) - 1;
+		size = MAX_SIZE;
 	else 
 		size = FILE_SIZE(dir);
 
+	return OpenFileByNumAndSize(Dir, first, size, dir);
+}
+
+static Stream_t *OpenFileByNumAndSize(Stream_t *Dir, unsigned int first, 
+				      size_t size, struct directory *dir)
+{
+	Stream_t *Stream = GetFs(Dir);
+	DeclareThis(Fs_t);
+	File_t Pattern;
+	File_t *File;
 
 	init_hash();
+	This->refs++;
 	if(first >= 2){
 		/* if we have a zero-addressed file here, it is certainly
 		 * _not_ the root directory, but rather a newly created
 		 * file */
-		Pattern.Fs = (Fs_t *) Fs;
+		Pattern.Fs = This;
 		Pattern.FirstAbsCluNr = first;
 		if(!hash_lookup(filehash, (T_HashTableEl) &Pattern, 
 				(T_HashTableEl **)&File, 0)){
 			File->refs++;
-			Fs->refs--;
+			This->refs--;
 			return (Stream_t *) File;
 		}
 	}
@@ -354,9 +386,12 @@ Stream_t *open_file(Stream_t *Fs, struct directory *dir)
 		return NULL;
 	
 	/* memorize dir for date and attrib */
-	File->dir = *dir;
+	if(dir)
+		File->dir = *dir;
+	File->ParentDir = COPY(Dir);
+	File->locked = 0;
 	File->Class = &FileClass;
-	File->Fs = (Fs_t *) Fs;
+	File->Fs = This;
 	File->map = normal_map;
 	File->FirstAbsCluNr = first;
 	File->PreviousRelCluNr = 0xffff;
@@ -366,3 +401,19 @@ Stream_t *open_file(Stream_t *Fs, struct directory *dir)
 	hash_add(filehash, (void *) File);
 	return (Stream_t *) File;
 }
+
+int FileIsLocked(Stream_t *Stream)
+{
+	DeclareThis(File_t);
+
+	return This->locked;
+}
+
+void LockFile(Stream_t *Stream)
+{
+	DeclareThis(File_t);
+
+	This->locked = 1;
+}
+
+	

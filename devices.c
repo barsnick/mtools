@@ -1,4 +1,9 @@
 /*
+ * This file is modified to perform on the UXP/DS operating system 
+ * by FUJITSU Limited on 1996.6.4
+ */
+
+/*
  * Device tables.  See the Configure file for a complete description.
  */
 
@@ -8,7 +13,8 @@
 #include "mtools.h"
 #include "devices.h"
 
-#define DEF_ARG0 0,0x2,0,0
+#define DEF_ARG1 0, 0x2,0,0, 0, 0, 0
+#define DEF_ARG0 0,0,0,DEF_ARG1
 #define DEF_ARG 0L,DEF_ARG0
 
 #define ED312	12,0,80,2,36,DEF_ARG /* 3 1/2 extra density */
@@ -22,6 +28,8 @@
 #define GENHD	16,0, 0,0, 0,DEF_ARG /* Generic 16 bit FAT fs */
 #define GENFD	12,0, 0,0, 0,DEF_ARG /* Generic 12 bit FAT fs */
 #define GEN    	 0,0, 0,0, 0,DEF_ARG /* Generic fs of any FAT bits */
+#define ZIPJAZ(x)	 0,x, 0,0, 0,0L,4,0,0,DEF_ARG1 /* Zip or Jaz disks */
+#define RZIPJAZ(x)	 0,x, 0,0, 0,0L,4,1,1,DEF_ARG1 /* Zip or Jaz disks */
 
 static int compare_geom(struct device *dev, struct device *orig_dev)
 {
@@ -34,27 +42,142 @@ static int compare_geom(struct device *dev, struct device *orig_dev)
 
 #define devices const_devices
 
-#ifdef hpux
+
+#ifdef aux
 #define predefined_devices
 struct device devices[] = {
-	{"/dev/floppy/c201d0s0",	'A', HD312 },
-	{"/dev/floppy/c20Ad0s0", 	'A', HD312 },
- 	{"/dev/floppy/c201d1s0",	'B', HD312 },
- 	{"/dev/floppy/c20Ad1s0",	'B', HD312 },
- 	{"/dev/rscsi",			'C', GENHD },
+   {"/dev/floppy0", 'A', GENFD },
+   {"/dev/rdsk/c104d0s31", 'J', ZIPJAZ(O_EXCL) },
+   {"/dev/rdsk/c105d0s31", 'Z', ZIPJAZ(O_EXCL) }
 };
+#define INIT_NOOP
+#endif /* aux */
+
+
+#ifdef lynxos
+#define predefined_devices
+struct device devices[] = {
+	{"/dev/fd1440.0", 	'A', HD312 },
+};
+#define INIT_NOOP
+#endif
+
+
+#ifdef __BEOS__
+#define predefined_devices
+struct device devices[] = {
+	{"/dev/floppy_disk", 	'A', HD312 },
+};
+#define INIT_NOOP
+#endif /* BEBOX */
+
+
+#ifdef hpux
+#include <sys/floppy.h>
+#undef SSIZE
+
+#define predefined_devices
+struct device devices[] = {
+#ifdef hpux10
+/* hpux10 uses different device names according to Frank Maritato
+ * <frank@math.hmc.edu> */
+	{"/dev/floppy/c0t0d0",		'A', HD312 },
+	{"/dev/floppy/c0t0d1",		'B', HD312 }, /* guessed by me */
+ 	{"/dev/rscsi",			'C', GENHD }, /* guessed by me */
+#else
+/* Use rfloppy, according to Simao Campos <simao@iris.ctd.comsat.com> */
+	{"/dev/rfloppy/c201d0s0",	'A', HD312 },
+	{"/dev/rfloppy/c20Ad0s0", 	'A', HD312 },
+ 	{"/dev/rfloppy/c201d1s0",	'B', HD312 },
+ 	{"/dev/rfloppy/c20Ad1s0",	'B', HD312 },
+ 	{"/dev/rscsi",			'C', GENHD },
+#endif
+	{"/dev/rdsk/c201d4",		'J', ZIPJAZ(O_EXCL) },
+	{"/dev/rdsk/c201d4s0",		'J', ZIPJAZ(O_EXCL) },
+	{"/dev/rdsk/c201d5",		'Z', ZIPJAZ(O_EXCL) },
+	{"/dev/rdsk/c201d5s0",		'Z', ZIPJAZ(O_EXCL) },
+};
+#ifdef hpux9
+/* geometry setting ioctl's contributed by Paolo Zeppegno
+ * <paolo@to.sem.it>, may cause "Not a typewriter" messages on other
+ * versions according to support@vital.com */
+
+struct generic_floppy_struct
+{
+  struct floppy_geometry fg;
+};
+
+#define BLOCK_MAJOR 24
+#define CHAR_MAJOR 112
+
+static inline int get_parameters(int fd, struct generic_floppy_struct *floppy)
+{
+	if (ioctl(fd, FLOPPY_GET_GEOMETRY, &(floppy->fg)) != 0) {
+		perror("FLOPPY_GET_GEOMETRY");
+		return(1);
+	}
+	
+	return 0;
+}
+
+#define TRACKS(floppy) floppy.fg.tracks
+#define HEADS(floppy) floppy.fg.heads
+#define SECTORS(floppy) floppy.fg.sectors
+#define FD_SECTSIZE(floppy) floppy.fg.sector_size
+#define FD_SET_SECTSIZE(floppy,v) { floppy.fg.sector_size = v; }
+
+static inline int set_parameters(int fd, struct generic_floppy_struct *floppy, 
+				 struct stat *buf)
+{
+	if (ioctl(fd, FLOPPY_SET_GEOMETRY, &(floppy->fg)) != 0) {
+		perror("");
+		return(1);
+	}
+	
+	return 0;
+}
+#define INIT_GENERIC
+#else
+#define INIT_NOOP
+#endif
+
 #endif /* hpux */
  
 
-#ifdef sinix
+#if (defined(sinix) || defined(sni) || defined(SNI))
 #define predefined_devices
 struct device devices[] = {
-	{"/dev/fd0135ds18",	'A', GENFD },
+#ifdef mips     /* for Siemens Nixdorf's  SINIX-N/O (mips) 5.4x SVR4 */
+	{ "/dev/at/flp/f0t",    'A', HD312},
+	{ "/dev/fd0",           'A', GENFD},
+#else
+#ifdef i386     /* for Siemens Nixdorf's  SINIX-D/L (intel) 5.4x SVR4 */
+	{ "/dev/fd0135ds18",	'A', HD312},
+	{ "/dev/fd0135ds9",	'A', DD312},
+	{ "/dev/fd0",		'A', GENFD},
+	{ "/dev/fd1135ds15",	'B', HD514},
+	{ "/dev/fd1135ds9",	'B', DD514},
+	{ "/dev/fd1",		'B', GENFD},
+#endif /*i386*/
+#endif /*mips*/
 };
+#define INIT_NOOP
 #endif
 
-#ifdef isc2
+#ifdef ultrix
 #define predefined_devices
+struct device devices[] = {
+	{"/dev/rfd0a",		'A', GENFD}, /* guessed */
+	{"/dev/rfd0c",		'A', GENFD}, /* guessed */
+};
+
+#define INIT_NOOP
+#endif
+
+
+#ifdef isc
+#define predefined_devices
+#if (defined(isc2) && defined(OLDSTUFF))
 struct device devices[] = {
 	{"/dev/rdsk/f0d9dt",   	'A', DD514},
 	{"/dev/rdsk/f0q15dt",	'A', HD514},
@@ -65,15 +188,59 @@ struct device devices[] = {
 	{"/usr/vpix/defaults/C:",'D',12, 0, 0, 0, 0,8704L,DEF_ARG0},
 	{"$HOME/vpix/C:", 	'E', 12, 0, 0, 0, 0,8704L,DEF_ARG},
 };
-
 #define INIT_NOOP
-#endif /* isc2 */
+#else
+/* contributed by larry.jones@sdrc.com (Larry Jones) */
+struct device devices[] = {
+	{"/dev/rfd0",		'A', GEN},
+	{"/dev/rfd1",		'B', GEN},
+	{"/dev/rdsk/0p1",	'C', GEN},
+	{"/usr/vpix/defaults/C:",'D', GEN, 1},
+	{"$HOME/vpix/C:", 	'E', GEN, 1}
+};
+
+#include <sys/vtoc.h>
+#include <sys/sysmacros.h>
+#undef SSIZE
+#define BLOCK_MAJOR 1
+#define CHAR_MAJOR  1
+#define generic_floppy_struct disk_parms
+int ioctl(int, int, void *);
+
+static int get_parameters(int fd, struct generic_floppy_struct *floppy)
+{
+	off_t off;
+	char buf[512];
+
+	off = lseek(fd, 0, SEEK_CUR);
+	if (off == 0) {
+		/* need to read at least 1 sector to get correct info */
+		read(fd, buf, sizeof buf);
+		lseek(fd, 0, SEEK_SET);
+	}
+	return ioctl(fd, V_GETPARMS, floppy);
+}
+
+#define TRACKS(floppy)  (floppy).dp_cyls
+#define HEADS(floppy)   (floppy).dp_heads
+#define SECTORS(floppy) (floppy).dp_sectors
+#define FD_SECTSIZE(floppy) (floppy).dp_secsiz
+#define FD_SET_SECTSIZE(floppy,v) { (floppy).dp_secsiz = (v); }
+
+static int set_parameters(int fd, struct generic_floppy_struct *floppy,
+	struct stat *buf)
+{
+	return 1;
+}
+
+#define INIT_GENERIC
+#endif
+#endif /* isc */
 
 #ifdef i370
 #define predefined_devices
 struct device devices[] = {
-	{"/dev/rfd0", 'A', HD514},
-	{"/dev/rfd0", 'A', DD514},
+	{"/dev/rfd0", 'A', GENFD},
 };
 #define INIT_NOOP
 #endif /* i370 */
@@ -82,25 +249,35 @@ struct device devices[] = {
 /* modified by Federico Bianchi */
 #define predefined_devices
 struct device devices[] = {
-  {"/dev/fd0",'A',HD312},
-  {"/dev/fd0",'A',DD312},
+  {"/dev/fd0",'A',GENFD},
 };
 #define INIT_NOOP
 #endif /* aix */
 
+  
+#ifdef osf4
+/* modified by Chris Samuel <chris@rivers.dra.hmg.gb> */
+#define predefined_devices
+struct device devices[] = {
+  {"/dev/fd0c",'A',GENFD},
+};
+#define INIT_NOOP
+#endif /* osf4 */
+
 #ifdef solaris
 #define predefined_devices
+struct device devices[] = {
 #ifdef	USING_VOLD
-struct device devices[] = {
-	{"/vol/dev/aliases/floppy0", 'A', HD312},
-	{"/vol/dev/aliases/floppy0", 'A', DD312},
-};
+	{"/vol/dev/aliases/floppy0", 'A', GENFD},
+	{"/dev/rdiskette", 'B', GENFD},
 #else	/* ! USING_VOLD */
-struct device devices[] = {
-	{"/dev/diskette", 'A', HD312},
-	{"/dev/diskette", 'A', DD312},
-};
+	{"/dev/rdiskette", 'A', GENFD},
+	{"/vol/dev/aliases/floppy0", 'B', GENFD},
+
 #endif	/* USING_VOLD */
+	{"/dev/rdsk/c0t4d0s2", 'J', RZIPJAZ(O_NDELAY)},
+	{"/dev/rdsk/c0t5d0s2", 'Z', RZIPJAZ(O_NDELAY)},
+};
 #define INIT_NOOP
 #endif /* solaris */
 
@@ -151,6 +328,7 @@ struct device devices[] = {
 #define INIT_NOOP
 #endif /* irix */
 
+
 #ifdef sunos4
 #include <sys/ioctl.h>
 #include <sun/dkio.h>
@@ -158,6 +336,8 @@ struct device devices[] = {
 #define predefined_devices
 struct device devices[] = {
 	{"/dev/rfd0c",	'A', GENFD},
+	{"/dev/rsd4c",	'J', RZIPJAZ(O_NDELAY)},
+	{"/dev/rsd5c",	'Z', RZIPJAZ(O_NDELAY)},
 };
 
 /*
@@ -257,7 +437,7 @@ struct device devices[] = {
 #define major(x) MAJOR(x)
 #endif
 
-char *error_msg[22]={
+const char *error_msg[22]={
 "Missing Data Address Mark",
 "Bad cylinder",
 "Scan not satisfied",
@@ -284,7 +464,7 @@ char *error_msg[22]={
 "Seek end" };
 
 
-static inline void print_message(RawRequest_t *raw_cmd,char *message)
+static inline void print_message(RawRequest_t *raw_cmd,const char *message)
 {
 	int i, code;
 	if(!message)
@@ -316,7 +496,7 @@ static inline void print_message(RawRequest_t *raw_cmd,char *message)
  *   1: minor error, retry
  */
 
-int send_one_cmd(int fd, RawRequest_t *raw_cmd, char *message)
+int send_one_cmd(int fd, RawRequest_t *raw_cmd, const char *message)
 {
 	if (ioctl( fd, FDRAWCMD, raw_cmd) >= 0) {
 		if (raw_cmd->reply_count < 7) {
@@ -396,6 +576,10 @@ int analyze_one_reply(RawRequest_t *raw_cmd, int *bytes, int do_print)
 struct device devices[] = {
 	{"/dev/fd0", 'A', 0, O_EXCL, 0,0, 0,DEF_ARG},
 	{"/dev/fd1", 'B', 0, O_EXCL, 0,0, 0,DEF_ARG},
+	/* we assume that the Zip or Jaz drive is the second on the SCSI bus */
+	{"/dev/sdb4",'J', GENHD },
+	{"/dev/sdb4",'Z', GENHD },
+	/*	{"/dev/sda4",'D', GENHD },*/
 };
 
 /*
@@ -453,6 +637,34 @@ static inline int get_parameters(int fd, struct floppy_struct *floppy)
 #endif /* linux */
 
 
+/*** /jes -- for D.O.S. 486 BL DX2/80 ***/
+#ifdef freebsd
+#define predefined_devices
+struct device devices[] = {
+	{"/dev/rfd0.1440", 'A', HD312},
+	{"/dev/rfd0.720",  'A', DD312},
+	{"/dev/rfd1.1200", 'B', HD514},
+	{"/dev/sd0s1",     'C', GENHD},
+};
+#define INIT_NOOP
+#endif /* __FreeBSD__ */
+ 
+/*** /jes -- for ALR 486 DX4/100 ***/
+#ifdef netbsd
+#define predefined_devices
+struct device devices[] = {
+	{"/dev/rfd0a", 'A', HD312},
+	{"/dev/rfd0f", 'A', DD312},
+	{"/dev/rfd0f", 'S', DD312},
+	{"/dev/rfd1a", 'B', HD514},
+	{"/dev/rfd1d", 'B', DD514},
+	{"/dev/rfd1d", 'T', DD514},
+	{"/dev/rwd0d", 'C', 16, 0, 0, 0, 0, 63L*512L, DEF_ARG0},
+};
+#define INIT_NOOP
+#endif /* NetBSD */
+
+
 #if (!defined(predefined_devices) && defined (m68000) && defined (sysv))
 #include <sys/gdioctl.h>
 
@@ -474,9 +686,9 @@ int init_geom(int fd, struct device *dev, struct device *orig_dev,
 	if((dev->use_2m & 0x7f) || (dev->ssize & 0x7f))
 		return 1;
 	
-	set_int(&gdbuf.params.cyls,dev->ntracks);
-	set_int(&gdbuf.params.heads,dev->nheads);
-	set_int(&gdbuf.params.psectrk,dev->nsect);
+	SET_INT(gdbuf.params.cyls,dev->ntracks);
+	SET_INT(gdbuf.params.heads,dev->nheads);
+	SET_INT(gdbuf.params.psectrk,dev->nsect);
 	dev->ntracks = gdbuf.params.cyls;
 	dev->nheads = gdbuf.params.heads;
 	dev->nsect = gdbuf.params.psectrk;
@@ -496,7 +708,37 @@ int init_geom(int fd, struct device *dev, struct device *orig_dev,
 }
 #endif /* (defined (m68000) && defined (sysv))*/
 
+#ifdef __alpha
+#ifndef osf4
+#ifdef __osf__
+#include <sys/fcntl.h>
+#define predefined_devices
+struct device devices[] = {
+	{"/dev/rfd0c",		'A', GENFD},
+};
+#define INIT_NOOP
+#endif
+#endif
+#endif
+
+#ifdef osf
+#ifndef predefined_devices
+#define predefined_devices
+struct device devices[] = {
+  {"/dev/fd0a", 'A',  HD312 } };
+#define INIT_NOOP
+#endif
+#endif
+
+
 #if (!defined(predefined_devices) && defined(sysv4))
+#ifdef __uxp__
+#define predefined_devices
+struct device devices[] = {
+      {"/dev/fpd0",   'A', HD312},
+      {"/dev/fpd0",   'A', DD312},
+};
+#else
 #define predefined_devices
 struct device devices[] = {
 	{"/dev/rdsk/f1q15dt",	'B', HD514},
@@ -506,6 +748,7 @@ struct device devices[] = {
 	{"/dev/rdsk/f03dt",	'A', DD312},
 	{"/dev/rdsk/dos",	'C', GENHD},
 };
+#endif
 #define INIT_NOOP
 #endif /* sysv4 */
 

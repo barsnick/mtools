@@ -20,18 +20,18 @@ typedef struct Filter_t {
 
 /* read filter filters out messy dos' bizarre end of lines and final 0x1a's */
 
-static int read_filter(Stream_t *Stream, char *buf, int where, int len)
+static int read_filter(Stream_t *Stream, char *buf, off_t where, size_t len)
 {
 	DeclareThis(Filter_t);
 	int i,j,ret;
 
 	if ( where != This->unixpos ){
 		fprintf(stderr,"Bad offset\n");
-		cleanup_and_exit(1);
+		exit(1);
 	}
 	if (This->rw == F_WRITE){
 		fprintf(stderr,"Change of transfer direction!\n");
-		cleanup_and_exit(1);
+		exit(1);
 	}
 	This->rw = F_READ;
 	
@@ -53,7 +53,7 @@ static int read_filter(Stream_t *Stream, char *buf, int where, int len)
 	return j;
 }
 
-static int write_filter(Stream_t *Stream, char *buf, int where, int len)
+static int write_filter(Stream_t *Stream, char *buf, off_t where, size_t len)
 {
 	DeclareThis(Filter_t);
 	int i,j,ret;
@@ -64,12 +64,12 @@ static int write_filter(Stream_t *Stream, char *buf, int where, int len)
 
 	if (where != This->unixpos ){
 		fprintf(stderr,"Bad offset\n");
-		cleanup_and_exit(1);
+		exit(1);
 	}
 	
 	if (This->rw == F_READ){
 		fprintf(stderr,"Change of transfer direction!\n");
-		cleanup_and_exit(1);
+		exit(1);
 	}
 	This->rw = F_WRITE;
 

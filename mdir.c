@@ -8,9 +8,18 @@
 #include "vfat.h"
 #include "mtools.h"
 #include "file.h"
-#include "streamcache.h"
+#include "mainloop.h"
 #include "fs.h"
 #include "codepage.h"
+
+static int concise;
+static char newpath[MAX_PATH];
+static char drive;
+
+struct recurs_ptr {
+	struct recurs_ptr *next;
+	char *value;
+} *recurs_ptr, **tail_ptr;
 
 
 /*
@@ -41,7 +50,7 @@ static inline void print_time(struct directory *dir)
 /*
  * Return a number in dotted notation
  */
-static char *dotted_num(unsigned long num, int width, char **buf)
+static const char *dotted_num(unsigned long num, int width, char **buf)
 {
 	int      len;
 	register char *srcp, *dstp;
@@ -89,21 +98,25 @@ static char *dotted_num(unsigned long num, int width, char **buf)
 	return (*buf) + len-width;
 }
 
-static inline void print_volume_label(Stream_t *Stream, char drive)
+static inline void print_volume_label(Stream_t *Dir, char drive)
 {
+	Stream_t *Stream = GetFs(Dir);
 	DeclareThis(FsPublic_t);
 	Stream_t *RootDir;
 	int entry;
 	struct directory dir;
 	char shortname[13];
 	char longname[VBUFSIZE];
+
+	if(concise)
+		return;
 	
 	/* find the volume label */
-	RootDir = open_root(COPY(Stream));
+	RootDir = open_root(Stream);
 	entry = 0;
-	if(vfat_lookup(RootDir, Stream, &dir, &entry, 0, 0,
+	if(vfat_lookup(RootDir, &dir, &entry, 0, 0,
 		       ACCEPT_LABEL | MATCH_ANY,
-		       NULL, shortname, longname, NULL) )
+		       NULL, shortname, longname) )
 		printf(" Volume in drive %c has no label\n", drive);
 	else if (*longname)
 		printf(" Volume in drive %c is %s (abbr=%s)\n",
@@ -119,32 +132,37 @@ static inline void print_volume_label(Stream_t *Stream, char drive)
 }
 
 
-static inline int list_directory(Stream_t *Dir, Stream_t *Fs, char *newname, 
-			  int wide, int all,
-			  long *tot_size)
+static inline int list_directory(Stream_t *Dir, char *newname, 
+				 int wide, int all,
+				 size_t *tot_size)
 {
 	int entry;
 	struct directory dir;
 	int files;
-	long size;
+	size_t size;
 	char shortname[13];
 	char longname[VBUFSIZE];
+	char outname[VBUFSIZE];
 	int i;
 	int Case;
 
 	entry = 0;
 	files = 0;
 
-	if(!wide)
+	if(!wide && !concise)
 		printf("\n");
 
-	while(vfat_lookup(Dir, Fs, &dir, &entry, 0, newname,
+	while(vfat_lookup(Dir, &dir, &entry, 0, newname,
 			  ACCEPT_DIR | ACCEPT_PLAIN,
-			  NULL, shortname, longname, NULL) == 0){
+			  outname, shortname, longname) == 0){
 		if(!all && (dir.attr & 0x6))
 			continue;
-		if (wide && ! (files % 5))
-			putchar('\n');
+		if (wide) {
+			if(files % 5)
+				putchar(' ');				
+			else
+				putchar('\n');
+		}
 		files++;
 
 		if(dir.attr & 0x10){
@@ -169,16 +187,16 @@ static inline int list_directory(Stream_t *Dir, Stream_t *Fs, char *newname,
 		if(wide){
 			if(dir.attr & 0x10)
 				printf("[%s]%*s", shortname,
-					(int) (16 - 2 - strlen(shortname)), "");
+					(int) (15 - 2 - strlen(shortname)), "");
 			else
-				printf("%-16s", shortname);
-		} else {				
+				printf("%-15s", shortname);
+		} else if(!concise) {				
 			/* is a subdirectory */
 			printf("%-8.8s %-3.3s ",dir.name, dir.ext);
 			if(dir.attr & 0x10)
 				printf("<DIR>    ");
 			else
-				printf(" %8ld", size);
+				printf(" %8ld", (long) size);
 			printf(" ");
 			print_date(&dir);
 			printf("  ");
@@ -187,6 +205,30 @@ static inline int list_directory(Stream_t *Dir, Stream_t *Fs, char *newname,
 			if(*longname)
 				printf(" %s", longname);
 			printf("\n");
+		} else {
+			if(!strcmp(outname,".") || !strcmp(outname,".."))
+				continue;
+			if(newpath[0] && newpath[strlen(newpath)-1] == '/')
+				printf("%c:%s%s", drive, newpath, outname);
+			else
+				printf("%c:%s/%s", drive, newpath, outname);
+			if(dir.attr & 0x10) {
+				(*tail_ptr) = New(struct recurs_ptr);
+				(*tail_ptr)->next = 0;
+				(*tail_ptr)->value = 
+					malloc(strlen(newpath)+
+					       strlen(outname)+4);
+				(*tail_ptr)->value[0]=drive;
+				(*tail_ptr)->value[1]=':';
+				strcpy((*tail_ptr)->value+2,newpath);
+				strcat((*tail_ptr)->value,"/");
+				strcat((*tail_ptr)->value,outname);
+				tail_ptr = &(*tail_ptr)->next;
+				putchar('/');
+			}
+			putchar('\n');
+			
+
 		}
 		*tot_size += size;
 	}
@@ -197,20 +239,23 @@ static inline int list_directory(Stream_t *Dir, Stream_t *Fs, char *newname,
 }
 
 static inline void print_footer(char *drive, char *newname, int files,
-			 long tot_size, long blocks)
+			 size_t tot_size, size_t blocks)
 {	
 	char *s1,*s2;
+
+	if(concise)
+		return;
 
 	if (*drive != '\0') {
 		if (!files)
 			printf("File \"%s\" not found\n"
 			       "                     %s bytes free\n\n",
-			       newname, dotted_num(blocks,12, &s1));
+			       newname, dotted_num(blocks,13, &s1));
 		else {
 			printf("      %3d file(s)     %s bytes\n"
 			       "                      %s bytes free\n\n",
-			       files, dotted_num(tot_size,12, &s1),
-			       dotted_num(blocks,12, &s2));
+			       files, dotted_num(tot_size,13, &s1),
+			       dotted_num(blocks,13, &s2));
 			if(s2)
 				free(s2);
 		}
@@ -220,76 +265,95 @@ static inline void print_footer(char *drive, char *newname, int files,
 	*drive = '\0'; /* ensure the footer is only printed once */
 }
 
+
+static void usage(void)
+{
+		fprintf(stderr, "Mtools version %s, dated %s\n",
+			mversion, mdate);
+		fprintf(stderr, "Usage: %s: [-V] [-w] [-a] msdosdirectory\n",
+			progname);
+		fprintf(stderr,
+			"       %s: [-V] [-w] [-a] msdosfile [msdosfiles...]\n",
+			progname);
+		exit(1);
+}
+
 void mdir(int argc, char **argv, int type)
 {
-	char *arg;
-	StreamCache_t sc;
-	int i, files, fargn, wide, all, faked;
-	long blocks, tot_size=0;
+	const char *arg;
+	MainParam_t mp;
+	int i, files, wide, all, faked;
+	size_t blocks, tot_size=0;
 	char last_drive;
-	char newpath[MAX_PATH];
-	char drive;
 	char newname[13];
-	Stream_t *Fs;
 	Stream_t *SubDir;
 	Stream_t *Dir;
-
-	fargn = 1;
+	int c;
+	int fast=0;
+	
+	concise = 0;
 	wide = all = files = blocks = 0;
 					/* first argument */
-	while (argc > fargn) {
-		if (!strcmp(argv[fargn], "-w")) {
-			wide = 1;
-			fargn++;
-			continue;
+	while ((c = getopt(argc, argv, "waXf")) != EOF) {
+		switch(c) {
+			case 'w':
+				wide = 1;
+				break;
+			case 'a':
+				all = 1;
+				break;
+			case 'X':
+				concise = 1;
+				break;
+			case 'f':
+				fast = 1;
+				break;
+			default:
+				usage();
 		}
-		if (!strcmp(argv[fargn], "-a")) {
-			all = 1;
-			fargn++;
-			continue;
-		}
-		if (argv[fargn][0] == '-') {
-			fprintf(stderr, "%s: illegal option -- %c\n",
-				argv[0], argv[1][1]);
-			fprintf(stderr, "Mtools version %s, dated %s\n",
-				mversion, mdate);
-			fprintf(stderr, "Usage: %s: [-V] [-w] [-a] msdosdirectory\n",
-				argv[0]);
-			fprintf(stderr,
-			"       %s: [-V] [-w] [-a] msdosfile [msdosfiles...]\n",
-				argv[0]);
-			cleanup_and_exit(1);
-		}
-		break;
 	}
 
 	/* fake an argument */
 	faked = 0;
-	if (argc == fargn) {
+	if (optind == argc) {
 		faked++;
 		argc++;
 	}
 
-	init_sc(&sc);
+	tail_ptr = &recurs_ptr;
+
+	init_mp(&mp);
 	last_drive = '\0';
-	for (i = fargn; i < argc; i++) {
-		if (faked)
+	for (i = optind; i < argc || recurs_ptr ; i++) {
+		char *free_arg=0;
+		if(i>=argc) {
+			struct recurs_ptr *old;
+			old = recurs_ptr;
+			free_arg = recurs_ptr->value;
+			arg = free_arg;
+			recurs_ptr = recurs_ptr->next;
+			if(!recurs_ptr)
+				tail_ptr = &recurs_ptr;
+			free(old);
+		} else if (faked)
 			arg="";
 		else 
 			arg = argv[i];
-		Dir = open_subdir(&sc, arg, O_RDONLY, &Fs);
+		Dir = open_subdir(&mp, arg, O_RDONLY, 0, 0);
 		if(!Dir)
 			continue;
-		drive = sc.last_drive;
-
+		drive = mp.drivename;
 		/* is this a new device? */
 		if (drive != last_drive) {
 			print_footer(&last_drive, newname, files, tot_size,
 				     blocks);
-			blocks = getfree(Fs);
+			if(fast)
+				blocks = 0;
+			else
+				blocks = getfree(Dir);
 			files = 0;
 			tot_size = 0;
-			print_volume_label(Fs, drive);
+			print_volume_label(Dir, drive);
 		}
 		last_drive = drive;
 
@@ -298,30 +362,48 @@ void mdir(int argc, char **argv, int type)
 		 * display the contents of that directory.  So I guess I'll
 		 * do that too.
 		 */
-		get_path(arg,newpath,sc.mcwd);
-		if (strpbrk(sc.filename, "*[?") == NULL &&
-		    ((SubDir = descend(Dir, Fs, sc.filename, 0, 0) )) ) {
-			/* Subdirectory */			
+		get_path(arg,newpath,mp.mcwd,  0);
+		if (strpbrk(mp.filename, "*[?") == NULL &&
+		    ((SubDir = descend(Dir, mp.filename, 0, 0, 0) )) ) {
+			static char tmppath[MAX_PATH+5];
+
+			/* Subdirectory */
 			FREE(&Dir);
 			Dir = SubDir;
-			if(*sc.filename){
+#if 0
+			if(*mp.filename){
 				if (newpath[strlen(newpath) -1 ] != '/')
 					strcat(newpath, "/");
-				strcat(newpath, sc.filename);
+				strcat(newpath, mp.filename);
 			}
-			*sc.filename='\0';
+#endif
+			strncpy(tmppath, arg, MAX_PATH+2);
+			if(tmppath[0] != '\0' &&
+			   (tmppath[1] !=':' || tmppath[2] != '\0'))
+				strcat(tmppath,"/");
+			get_path(tmppath,newpath,mp.mcwd,  0);	       
+			*mp.filename='\0';
+		}		
+		
+		if(concise && i<argc){
+			printf("%c:%s",drive,newpath);
+			if(newpath[0] != '/' || newpath[1])
+				putchar('/');
+			putchar('\n');
 		}
 
-		if(sc.filename[0]=='\0')
+		if(mp.filename[0]=='\0')
 			strcpy(newname, "*");
 		else
-			strcpy(newname, sc.filename);
+			strcpy(newname, mp.filename);
 
-		printf(" Directory for %c:%s\n", drive, newpath);
-		files += list_directory(Dir, Fs, newname, wide, all, &tot_size);
+		if(!concise)
+			printf(" Directory for %c:%s\n", drive, newpath);
+		files += list_directory(Dir, newname, wide, all, &tot_size);
 		FREE(&Dir);
+		if(i>=argc)
+			free(free_arg);
 	}
 	print_footer(&last_drive, newname, files, tot_size, blocks);
-	finish_sc(&sc);
-	cleanup_and_exit(0);
+	exit(0);
 }

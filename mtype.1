@@ -1,43 +1,105 @@
+.TH mtype 1 "21mar97" mtools-3.4
+.SH Name
+mtype - display contents of an MSDOS file
 '\" t
-.\" Note: this must be run through tbl before nroff.
-.\" The magic cookie on the first line triggers this under some man program
-.TH MTYPE 1 local
-.SH NAME
-mtype \- display contents of an MSDOS file
-.SH SYNOPSIS
-.B mtype
-[
-.B -ts
-] msdosfile [ msdosfiles... ]
-.SH DESCRIPTION
-.I Mtype
-displays the specified MSDOS file on the screen.
-.PP
-.I Mtype
-will allow the following command line options:
+.de TQ
+.br
+.ns
+.TP \\$1
+..
+
+.tr \(is'
+.tr \(if`
+.tr \(pd"
+
+.SH Note
+This manpage has been automatically generated from mtools's texinfo
+documentation.  However, this process is only approximative, and some
+items, such as crossreferences, footnotes and indices are lost in this
+translation process.  Indeed, this items have no appropriate
+representation in the manpage format.  Moreover, only the items specific
+to each command have been translated, and the general information about
+mtools has been dropped in the manpage version.  Thus I strongly advise
+you to use the original texinfo doc.
 .TP
-.B t
-Text file viewing.
-.I Mtype
-will translate incoming carriage return/line feeds to line feeds.
+* \ \ 
+To generate a printable copy from the texinfo doc, run the following
+commands:
+ 
+.nf
+.ft 3
+.in +0.3i
+    ./configure; make dvi; dvips mtools.dvi
+.fi
+.in -0.3i
+.ft R
+.lp
+ 
+\&\fR
 .TP
-.B s
-Strip high bit.
-.I Mtype
-will strip the high bit from the data.
+* \ \ 
+To generate a html copy,  run:
+ 
+.nf
+.ft 3
+.in +0.3i
+    ./configure; make html
+.fi
+.in -0.3i
+.ft R
+.lp
+ 
+\&\fRA premade html can be found at:
+\&\fR\&\f(CW\(ifhttp://linux.wauug.org/pub/knaff/mtools\(is\fR
+.TP
+* \ \ 
+To generate an info copy (browsable using emacs' info mode), run:
+ 
+.nf
+.ft 3
+.in +0.3i
+    ./configure; make info
+.fi
+.in -0.3i
+.ft R
+.lp
+ 
+\&\fR
 .PP
-MSDOS subdirectory names are supported with either the '/' or '\e'
-separator.  The use of the '\e' separator or wildcards will require the
-names to be enclosed in quotes to protect them from the shell.
+The texinfo doc looks most pretty when printed or as html.  Indeed, in
+the info version certain examples are difficult to read due to the
+quoting conventions used in info.
 .PP
-The
-.I mcd
-command may be used to establish the device and the current working
-directory (relative to MSDOS), otherwise the default is A:/.
+.SH Description
 .PP
-.I Mtype
-returns 0 on success, 1 on utter failure, or 2 on partial failure.
-.SH SEE ALSO
-mcd(1), mread(1)
-.SH BUGS
-Allows multiple arguments, which does not follow the MSDOS convention.
+The \fR\&\f(CWmtype\fR command is used to display contents of an MS-DOS
+file. Its syntax is:
+.PP
+.(l I
+\&\fR\&\f(CWmtype\fR [\fR\&\f(CW-ts\fR] \fImsdosfile\fR [ \fImsdosfiles\fR\&... ]
+.)l
+ 
+.PP
+\&\fR\&\f(CWMtype\fR displays the specified MS-DOS file on the screen.
+.PP
+In addition to the standard options, \fR\&\f(CWMtype\fR allows the following
+command line options:
+.TP
+\&\fR\&\f(CWt\fR\ 
+Text file viewing.  \fR\&\f(CWMtype\fR translates incoming carriage
+return/line feeds to line feeds.
+.TP
+\&\fR\&\f(CWs\fR\ 
+\&\fR\&\f(CWMtype\fR strips the high bit from the data.
+.PP
+The \fR\&\f(CWmcd\fR command may be used to establish the device and the
+current working directory (relative to MS-DOS), otherwise the default is
+\&\fR\&\f(CWA:/\fR.
+.PP
+\&\fR\&\f(CWMtype\fR returns 0 on success, 1 on utter failure, or 2 on partial
+failure.
+.PP
+Unlike the MS-DOS version of \fR\&\f(CWTYPE\fR, \fR\&\f(CWmtype\fR allows multiple
+arguments.
+.SH See Also
+Mtools' texinfo doc

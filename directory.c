@@ -20,12 +20,13 @@ struct directory *dir_read(Stream_t *Dir,
 	   MDIR_SIZE)
 		return NULL;
 
-	if (v && (dir->attr == 0x0f)) {
+	if (v && (dir->attr == 0x0f) && dir->name[0] != DELMARK) {
 		struct vfat_subentry *vse;
 		unsigned char id, last_flag;
 		char *c;
 
 		vse = (struct vfat_subentry *) dir;
+
 		id = vse->id & VSE_MASK;
 		last_flag = (vse->id & VSE_LAST);
 		if (id > MAX_VFAT_SUBENTRIES) {
@@ -54,9 +55,11 @@ struct directory *dir_read(Stream_t *Dir,
 			v->sum = vse->sum;
 		}
 
+#ifdef DEBUG
 		if(v->status & (1 << (id-1)))
 			fprintf(stderr,
 				"dir_read: duplicate VSE %d\n", vse->id);
+#endif
 			
 		v->status |= 1 << (id-1);
 		if(last_flag)
@@ -76,10 +79,9 @@ struct directory *dir_read(Stream_t *Dir,
 		c += unicode_read(vse->text2, c, VSE2SIZE);
 		c += unicode_read(vse->text3, c, VSE3SIZE);
 #ifdef DEBUG
-printf("Read VSE %d at %d, subentries=%d, = (%13s).\n",
-id,num,v->subentries,&(v->name[VSE_NAMELEN * (id-1)]));
-#endif
-		
+		printf("Read VSE %d at %d, subentries=%d, = (%13s).\n",
+		       id,num,v->subentries,&(v->name[VSE_NAMELEN * (id-1)]));
+#endif		
 		if (last_flag)
 			*c = '\0';	/* Null terminate long name */
 	}
@@ -92,8 +94,9 @@ id,num,v->subentries,&(v->name[VSE_NAMELEN * (id-1)]));
  * on error.
  */
 
-int dir_grow(Stream_t *Dir, Stream_t *Stream, int size)
+int dir_grow(Stream_t *Dir, int size)
 {
+	Stream_t *Stream = GetFs(Dir);
 	DeclareThis(FsPublic_t);
 	int ret;
 	int buflen;
@@ -127,11 +130,10 @@ void dir_write(Stream_t *Dir, int num, struct directory *dir)
  * to a static directory structure.
  */
 
-struct directory *mk_entry(char *filename, char attr,
-			   unsigned int fat, long size, long date,
+struct directory *mk_entry(const char *filename, char attr,
+			   unsigned int fat, size_t size, long date,
 			   struct directory *ndir)
 {
-	int i;
 	struct tm *now;
 	time_t date2 = date;
 	unsigned char hour, min_hi, min_low, sec;
@@ -141,22 +143,22 @@ struct directory *mk_entry(char *filename, char attr,
 	strncpy(ndir->name, filename, 8);
 	strncpy(ndir->ext, filename + 8, 3);
 	ndir->attr = attr;
-	for (i = 0; i < 10; i++)
-		ndir->reserved[i] = '\0';
+	ndir->ctime_ms = 0;
 	hour = now->tm_hour << 3;
 	min_hi = now->tm_min >> 3;
 	min_low = now->tm_min << 5;
 	sec = now->tm_sec / 2;
-	ndir->time[1] = hour + min_hi;
-	ndir->time[0] = min_low + sec;
+	ndir->ctime[1] = ndir->time[1] = hour + min_hi;
+	ndir->ctime[0] = ndir->time[0] = min_low + sec;
 	year = (now->tm_year - 80) << 1;
 	month_hi = (now->tm_mon + 1) >> 3;
 	month_low = (now->tm_mon + 1) << 5;
 	day = now->tm_mday;
-	ndir->date[1] = year + month_hi;
-	ndir->date[0] = month_low + day;
+	ndir -> adate[1] = ndir->cdate[1] = ndir->date[1] = year + month_hi;
+	ndir -> adate[0] = ndir->cdate[0] = ndir->date[0] = month_low + day;
 
-	set_word(ndir->start, fat);
+	set_word(ndir->start, fat & 0xffff);
+	set_word(ndir->startHi, fat >> 16);
 	set_dword(ndir->size, size);
 	return ndir;
 }

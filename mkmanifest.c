@@ -50,9 +50,10 @@ static char *
 dos_name2(name)
 char *name;
 {
-	static char *dev[9] = {"con", "aux", "com1", "com2", "lpt1", "prn",
-	"lpt2", "lpt3", "nul"};
-	char *s, *temp, *ext;
+	static const char *dev[9] = {"con", "aux", "com1", "com2", "lpt1", 
+				     "prn", "lpt2", "lpt3", "nul"};
+	char *s;
+	char *ext,*temp;
 	char buf[MAX_PATH];
 	int i, dot;
 	static char ans[13];
@@ -60,7 +61,7 @@ char *name;
 	strcpy(buf, name);
 	temp = buf;
 					/* separate the name from extension */
-	ext = "";
+	ext = 0;
 	dot = 0;
 	for (i=strlen(buf)-1; i>=0; i--) {
 		if (buf[i] == '.' && !dot) {
@@ -73,27 +74,28 @@ char *name;
 	}
 					/* if no name */
 	if (*temp == '\0')
-		temp = "x";
-					/* if name is a device */
-	for (i=0; i<9; i++) {
-		if (!strcasecmp(temp, dev[i])) 
-			*temp = 'x';
+		strcpy(ans, "x");
+	else {
+		/* if name is a device */
+		for (i=0; i<9; i++) {
+			if (!strcasecmp(temp, dev[i])) 
+				*temp = 'x';
+		}
+		/* name too long? */
+		if (strlen(temp) > 8)
+			*(temp+8) = '\0';
+		/* extension too long? */
+		if (ext && strlen(ext) > 3)
+			*(ext+3) = '\0';
+		/* illegal characters? */
+		while ((s = strpbrk(temp, "^+=/[]:',?*\\<>|\". ")))
+			*s = 'x';
+
+		while (ext && (s = strpbrk(ext, "^+=/[]:',?*\\<>|\". ")))
+			*s = 'x';	      
+		strcpy(ans, temp);
 	}
-					/* name too long? */
-	if (strlen(temp) > 8)
-		*(temp+8) = '\0';
-					/* extension too long? */
-	if (strlen(ext) > 3)
-		*(ext+3) = '\0';
-					/* illegal characters? */
-	while ((s = strpbrk(temp, "^+=/[]:',?*\\<>|\". ")))
-		*s = 'x';
-
-	while ((s = strpbrk(ext, "^+=/[]:',?*\\<>|\". ")))
-		*s = 'x';
-
-	strcpy(ans, temp);
-	if (*ext) {
+	if (ext && *ext) {
 		strcat(ans, ".");
 		strcat(ans, ext);
 	}

@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# gz [destination [source...] ]
+# tgz [destination [source...] ]
 #
 # Make a gzip'd tar archive $1 (or stdout) out of specified files
 # (or, if not specified, from everything in the current directory)

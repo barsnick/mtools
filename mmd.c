@@ -10,7 +10,7 @@
 #include "msdos.h"
 #include "mtools.h"
 #include "vfat.h"
-#include "streamcache.h"
+#include "mainloop.h"
 #include "plain_io.h"
 #include "nameclash.h"
 #include "file.h"
@@ -25,14 +25,13 @@ typedef struct Arg_t {
 	int nowarn;
 	int interactive;
 	int verbose;
-	StreamCache_t sc;
+	int silent;
+	MainParam_t mp;
 
 	Stream_t *SrcDir;
 	int entry;
 	ClashHandling_t ch;
 	Stream_t *targetDir;
-	Stream_t *targetFs;
-	char *progname;
 } Arg_t;
 
 
@@ -46,12 +45,12 @@ static struct directory *makeeit(char *dosname,
 				 struct directory *dir)
 {
 	Stream_t *Target;
-	long now;
+	time_t now;
 	Arg_t *arg = (Arg_t *) arg0;
 	int fat;
 
 	/* will it fit? At least one sector must be free */
-	if (! getfree(arg->targetFs)) {
+	if (! getfree(arg->targetDir)) {
 		fprintf(stderr,"Disk full\n");
 		return NULL;
 	}
@@ -59,14 +58,13 @@ static struct directory *makeeit(char *dosname,
 	/* find out current time */
 	time(&now);
 	mk_entry(".", 0x10, 1, 0, now, dir);
-	Target = open_file(COPY(arg->targetFs), dir);
+	Target = open_file(arg->targetDir, dir);	
 	if(!Target){
-		FREE(&arg->targetFs);
 		fprintf(stderr,"Could not open Target\n");
 		return NULL;
 	}
 
-	dir_grow(Target, arg->targetFs, 0);
+	dir_grow(Target, 0);
 	/* this allocates the first cluster for our directory */
 
 	GET_DATA(arg->targetDir, 0, 0, 0, &fat);
@@ -83,27 +81,36 @@ static struct directory *makeeit(char *dosname,
 }
 
 
+static void usage(void)
+{
+	fprintf(stderr,
+		"Mtools version %s, dated %s\n", mversion, mdate);
+	fprintf(stderr,
+		"Usage: %s [-itnmvV] file targetfile\n", progname);
+	fprintf(stderr,
+		"       %s [-itnmvV] file [files...] target_directory\n", 
+		progname);
+	exit(1);
+}
+
 void mmd(int argc, char **argv, int type)
 {
 	int ret = 0;
-	Stream_t *Dir, *Fs;
+	Stream_t *Dir;
 	Arg_t arg;
-	int c, oops;
+	int c;
 	char filename[VBUFSIZE];
 	int i;
-
-	arg.progname = argv[0];
 
 	/* get command line options */
 
 	init_clash_handling(& arg.ch);
 
-	oops = 0;
-
 	/* get command line options */
 	arg.nowarn = 0;
 	arg.interactive = 0;
-	while ((c = getopt(argc, argv, "invorsamORSAM")) != EOF) {
+	arg.silent = 0;
+	while ((c = getopt(argc, argv, "XinvorsamORSAM")) != EOF) {
 		switch (c) {
 			case 'i':
 				arg.interactive = 1;
@@ -114,64 +121,57 @@ void mmd(int argc, char **argv, int type)
 			case 'v':
 				arg.verbose = 1;
 				break;
-			case '?':
-				oops = 1;
+			case 'X':
+				arg.silent = 1;
 				break;
+			case '?':
+				usage();
 			default:
 				if(handle_clash_options(&arg.ch, c))
-					oops=1;
+					usage();
 				break;
 		}
 	}
 
-	if (oops || (argc - optind) < 1) {
-		fprintf(stderr,
-			"Mtools version %s, dated %s\n", mversion, mdate);
-		fprintf(stderr,
-			"Usage: %s [-itnmvV] file targetfile\n", argv[0]);
-		fprintf(stderr,
-			"       %s [-itnmvV] file [files...] target_directory\n", 
-			argv[0]);
-		cleanup_and_exit(1);
-	}
+	if (argc - optind < 1)
+		usage();
 
-
-	init_sc(&arg.sc);		
-	arg.sc.arg = (void *) &arg;
-	arg.sc.openflags = O_RDWR;
+	init_mp(&arg.mp);
+	arg.mp.arg = (void *) &arg;
+	arg.mp.openflags = O_RDWR;
 	ret = 0;
 
 	for(i=optind; i < argc; i++){
 		if(got_signal)
 			break;
-		Dir = open_subdir(&arg.sc, argv[i], O_RDWR, &Fs);
+		Dir = open_subdir(&arg.mp, argv[i], O_RDWR, 0, 0);
 		if(!Dir){
 			fprintf(stderr,"Could not open parent directory\n");
-			cleanup_and_exit(1);
+			exit(1);
 		}
 		arg.targetDir = Dir;
-		arg.targetFs = Fs;
-		get_name(argv[i], filename, arg.sc.mcwd);
+		get_name(argv[i], filename, arg.mp.mcwd);
 		if(!filename[0]){
-			fprintf(stderr,"Empty filename\n");
+			if(!arg.silent)
+				fprintf(stderr,"Empty filename\n");
 			ret |= MISSED_ONE;
 			FREE(&Dir);
 			continue;
 		}
-		if(mwrite_one(Dir, Fs, argv[0], filename,0,
+		if(mwrite_one(Dir, filename,0,
 			      makeeit, (void *)&arg, &arg.ch)<=0){
-			fprintf(stderr,"Could not create %s\n", argv[i]);
+			if(!arg.silent)
+				fprintf(stderr,"Could not create %s\n", 
+					argv[i]);
 			ret |= MISSED_ONE;
 		} else
 			ret |= GOT_ONE;
 		FREE(&Dir);
 	}
 
-	finish_sc(&arg.sc);
-
 	if ((ret & GOT_ONE) && ( ret & MISSED_ONE))
-		cleanup_and_exit(2);
+		exit(2);
 	if (ret & MISSED_ONE)
-		cleanup_and_exit(1);
-	cleanup_and_exit(0);
+		exit(1);
+	exit(0);
 }

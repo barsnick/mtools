@@ -47,8 +47,17 @@
 /* Define this if you use mtools together with Solaris' vold */
 #undef USING_VOLD
 
+/* Define for debugging messages */
+#undef DEBUG
+
+/* Define if you have the atexit function.  */
+#undef HAVE_ATEXIT
+
 /* Define if you have the flock function.  */
 #undef HAVE_FLOCK
+
+/* Define if you have the getpass function.  */
+#undef HAVE_GETPASS
 
 /* Define if you have the gettimeofday function.  */
 #undef HAVE_GETTIMEOFDAY
@@ -59,11 +68,23 @@
 /* Define if you have the memcpy function.  */
 #undef HAVE_MEMCPY
 
+/* Define if you have the memmove function.  */
+#undef HAVE_MEMMOVE
+
 /* Define if you have the memset function.  */
 #undef HAVE_MEMSET
 
+/* Define if you have the on_exit function.  */
+#undef HAVE_ON_EXIT
+
 /* Define if you have the random function.  */
 #undef HAVE_RANDOM
+
+/* Define if you have the seteuid function.  */
+#undef HAVE_SETEUID
+
+/* Define if you have the setresuid function.  */
+#undef HAVE_SETRESUID
 
 /* Define if you have the srandom function.  */
 #undef HAVE_SRANDOM
@@ -110,11 +131,11 @@
 /* Define if you have the <fcntl.h> header file.  */
 #undef HAVE_FCNTL_H
 
-/* Define if you have the <getopt> header file.  */
-#undef HAVE_GETOPT
-
 /* Define if you have the <getopt.h> header file.  */
 #undef HAVE_GETOPT_H
+
+/* Define if you have the <libc.h> header file.  */
+#undef HAVE_LIBC_H
 
 /* Define if you have the <limits.h> header file.  */
 #undef HAVE_LIMITS_H
@@ -124,6 +145,9 @@
 
 /* Define if you have the <memory.h> header file.  */
 #undef HAVE_MEMORY_H
+
+/* Define if you have the <signal.h> header file.  */
+#undef HAVE_SIGNAL_H
 
 /* Define if you have the <stdlib.h> header file.  */
 #undef HAVE_STDLIB_H
