@@ -1,0 +1,43 @@
+'\" t
+.\" Note: this must be run through tbl before nroff.
+.\" The magic cookie on the first line triggers this under some man program
+.TH MREN 1 local
+.SH NAME
+mren \- rename or move an existing MSDOS file or subdirectory
+.SH SYNOPSIS
+.B mren
+[
+.B -voOsSrRA
+] sourcefile targetfile
+.PP
+.B mmove
+[
+.B -voOsSrRA
+] sourcefile [ sourcefiles... ] targetdirectory
+.SH DESCRIPTION
+.I Mren
+renames an existing file on an MSDOS filesystem.
+.PP
+.I Mren
+will allow the following command line option:
+.TP
+.B voOsSrRA
+Verbose mode.  Display the new filename if the name supplied is
+invalid.
+.PP
+If the first syntax is used (only one sourcefile), and if the
+target name doesn't contain any slashes or colons, the file (or
+subdirectory) will be renamed in the same directory, instead of being
+moved to the current
+.B
+mcd
+directory as would be the case with
+.SH BUGS
+Unlike the MSDOS version of REN,
+.I mren
+can be used to rename directories.
+.B
+mmove
+.SH SEE ALSO
+mcd(1)
+

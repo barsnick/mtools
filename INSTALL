@@ -1,0 +1,11 @@
+Installation of mtools is now pretty straightforward:
+
+  1. Run ./configure
+  2. Run make
+
+ Configuration options:
+
+  * Use ./configure --enable-vold to compile mtools to use Solaris'
+vold instead of directly accessing the floppy disk
+  * Use ./configure --disable-xdf to disable support for Xdf disks on Linux
+

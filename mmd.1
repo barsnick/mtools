@@ -1,0 +1,24 @@
+'\" t
+.\" Note: this must be run through tbl before nroff.
+.\" The magic cookie on the first line triggers this under some man program
+.TH MMD 1 local
+.SH NAME
+mmd \- make an MSDOS subdirectory
+.SH SYNOPSIS
+.B mmd
+[
+.B -voOsSrRA
+] msdosdirectory [ msdosdirectories... ]
+.SH DESCRIPTION
+.I Mmd
+makes a new directory on an MSDOS filesystem.
+.PP
+.I Mmd
+will allow the following command line option:
+.TP
+.B v
+Verbose mode.  Display the new directory name as it is created.
+.PP
+An error occurs if the directory already exists.
+.SH SEE ALSO
+mtools(1), mrd(1), 

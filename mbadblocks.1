@@ -1,0 +1,19 @@
+'\" t
+.\" Note: this must be run through tbl before nroff.
+.\" The magic cookie on the first line triggers this under some man program
+.TH MBADBLOCKS 1 local
+.SH NAME
+mbadblocks \- scan an MSDOS floppy and mark its unused bad blocks as bad.
+.SH SYNOPSIS
+.B mbadblocks
+drive:
+.SH DESCRIPTION
+.I Mbadblocks
+scans an MSDOS floppy for bad blocks. All unused bad blocks are marked
+as such in the FAT. This is intended to be used right after mformat.
+It is not intended to salvage bad disks.
+.SH SEE ALSO
+mtools(1)
+.SH BUGS
+This should (but doesn't :-( ) also try to salvage bad blocks which
+are in use by reading them repeatedly, and then mark them bad.

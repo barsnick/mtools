@@ -1,0 +1,25 @@
+'\" t
+.\" Note: this must be run through tbl before nroff.
+.\" The magic cookie on the first line triggers this under some man program
+.TH MRD 1 local
+.SH NAME
+mrd \- remove an MSDOS subdirectory
+.SH SYNOPSIS
+.B mrd
+[
+.B -v
+]
+msdosdirectory [ msdosdirectories... ]
+.SH DESCRIPTION
+.I Mrd
+removes a directory from an MSDOS filesystem.
+.I Mmd
+will allow the following command line option:
+.TP
+.B v
+Verbose mode.  Display the directory name as it is removed.
+.PP
+An error occurs if the directory does not exist or is not empty.
+.SH SEE ALSO
+mtools(1), mmd(1), mdeltree(1)
+

@@ -1,0 +1,35 @@
+'\" t
+.\" Note: this must be run through tbl before nroff.
+.\" The magic cookie on the first line triggers this under some man program
+.TH MDIR 1 local
+.SH NAME
+mdir \- display an MSDOS directory
+.SH SYNOPSIS
+.B mdir
+[
+.B -w
+] msdosdirectory
+.PP
+.B mdir
+[
+.B -w
+] [
+.B -a
+] msdosfile [ msdosfiles...  ] 
+.SH DESCRIPTION
+.I Mdir
+displays the contents of an MSDOS directory.
+.PP
+.I Mdir
+will allow the following command line options:
+.TP
+.B w
+Wide output.  This option will print the filenames across the page
+without displaying the file size or creation date.
+.TP
+.B a
+Also list hidden files.
+.PP
+An error occurs if a component of the path is not a directory.
+.SH SEE ALSO
+mtools(1)

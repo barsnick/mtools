@@ -1,0 +1,72 @@
+Authors
+-------
+
+Original code (versions through 2.0.7?) by Emmet P. Gray (Texas, USA), who
+no longer appears to be reachable by Internet e-mail.  Viktor Dukhovni (at
+Princeton, USA) had major input into v2.0.
+
+Since 2.0.7: maintained primarily and until now informally by Alain
+Knaff (Grenoble, France) and David Niemi (Reston, Virginia, USA).
+
+Please report bugs to <Alain.Knaff@inrialpes.fr> and cc
+<David.Niemi@mail.li.org>.
+
+
+Current Status
+--------------
+
+Stable release 3.0.
+
+
+Major New Features (since the version included fdutils 4.1 version)
+-------------------------------------------------------------------
+
+-	VFAT (aka Long File Name/LFN) support, compatible with Winders95 and
+	Winders NT 3.5.x.
+	(David Niemi)
+
+-	Near total rewrite of source code; less duplicated code, ANSIfication
+	(Alain Knaff)
+
+-	XDF floppy support
+	(Alain Knaff, Ciriaco Garcia de Celis)
+
+-	More choices when name collisions occur (e.g. rename, autorename)
+	(David Niemi)
+
+
+Major New Features (between 2.0.7 and the fdutils 4.1 version)
+--------------------------------------------------------------
+-	Misc Bugfixes
+	(Alain Knaff)
+
+-	Support for Ciriaco Garcia de Celis' 2m formats under Linux
+	(Alain Knaff)
+
+-	Support for formats with a non-standard number of sectors
+	(Alain Knaff)
+
+-	Minor syntax improvements
+	(David Niemi)
+
+
+
+Bugs/TODO
+---------
+
+1) Address default case of non-VFAT files:
+   Perhaps case flags of 0/0 should mean "all lowercase" and 1/1
+   "all uppercase", so that default files == 0/0 and 1/1 == unusual case
+   0/1 still means upper/lower and 1/0 still means lower/upper.
+   Perhaps also have a "strict case" option to force the current behavior.
+
+2) Man pages and documentation are doubtless badly out of date
+
+3) Recognize and cleanly ignore "Class" entries (or even obey them???)
+
+
+
+
+Possible Optimizations
+----------------------
+* remember location of last free section

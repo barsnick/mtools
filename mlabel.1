@@ -1,0 +1,44 @@
+'\" t
+.\" Note: this must be run through tbl before nroff.
+.\" The magic cookie on the first line triggers this under some man program
+.TH MLABEL 1 local
+.SH NAME
+mlabel \- make an MSDOS volume label
+.SH SYNOPSIS
+.B mlabel
+[
+.B -v
+] drive: [
+.I new_label
+]
+.SH DESCRIPTION
+.B Mlabel
+displays the current volume label, if present. If
+.I new_label is not given, and if neither the
+.B c
+nor the
+.B s
+options are set, it prompts the user for a new volume label. To delete
+an existing volume label, press return at the prompt.
+.PP
+.B Mlabel
+supports the following command line option:
+.TP
+.B v
+Verbose mode.  Display the new volume label if the label supplied is
+invalid.
+.B c
+Clears an existing label, without prompting the user
+.B s
+Shows the existing label, without prompting the user
+.PP
+Reasonable care is taken to create a valid MSDOS volume label.  If an
+invalid label is specified,
+.B mlabel
+will change the label (and display the new label if the verbose mode is
+set).
+.PP
+.B Mlabel
+returns 0 on success or 1 on failure.
+.SH SEE ALSO
+mformat(1)

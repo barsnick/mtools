@@ -1,0 +1,130 @@
+960512  3.0 released.
+960508  pre4-3.0. Lots of bug fixes. Texinfo file
+960502  pre-3.0
+960501  use autoconf to get rid once and for all of those pesky OS
+	dependencies.
+960429  use sys/termio instead of sys/termios to please AIX  
+960427	more spelling fixes.
+960426	Speling fixes
+960424	Mmount arg parsing bug fix
+960422	New partition configuration variable.
+960419	Spelling fixes, removed warning in README, IRIX floppy devices
+960214	More Alpha streamlining
+960213	Alpha patches (64 bit clean-ness)
+	AIX patches (built in drive names)
+	Raw tty patches (no need to type return when confirming an action
+960131	Solaris patches
+	Replaced include strings.h by string.h everywhere where applicable
+	Changed thousands separator in mdir from a dot to a space to
+	please both Americans and Europeans.
+	Fixed memory allocation bug if no "constant device" is present.
+	#defined strtoul to atol for SunOS
+960121	Minor cleanup, released 2.5.4
+951209	Added "magic" header to manpages to have man run them through tbl
+951209	MTOOLS_LOWER_CASE is back, various small bug fixes over
+	Tuesday's changes
+951205	Bus strike in Grenoble! Well, let's do something useful and
+	re-arrange the configuration file syntax :-)
+	The syntax has become much more flexible now, and also
+	includes items which used to be only accessible via
+	environmental variables.
+	Moreover, it is now possible to include character translation
+	tables in line.
+951126	Fixed another Atari disk bug: Atari disks sport a bogus
+	"number of hidden sectors"
+951125	Fixed missing zero-terminator in autorenamed long names
+	MTOOLS_SKIP_CHECK now implies MTOOLS_FAT_COMPATIBILITY.
+951124	Fixed small quoted-printable-induced typo in the Makefile.
+	<rant>
+	Folks, please don't use quoted-printable. It sometimes changes
+	the CONTENT of your messages. Even the MIME RFC's acknowledge this.
+	Case in point: £400 gets transformed into =A3400, which looks
+	like 3400 pounds to a person unaware of this MIME "feature".
+	</rant>
+951123	Mformat now puts a 12 bit FAT on ED to better match Messy DOS'
+	behavior.
+951115	Added ability to do mcopy e: to copy all files from the root
+	directory of e:
+	New Xdf-less Linux target in the Makefile
+	Relaxed sanity check to let pass wonky Atari disks whose FAT
+	begins with 3 zero bytes.
+	Make the check of the initial fat bytes conditional on
+	mtools_skip_check
+	Corrected "testna=" bug
+	Upped minimal sector size to be 256 (instead of 128). This
+	helps 2m30
+951112	2m30 compatibility
+	Manpage update
+	2m checksum bug fix
+	Ability to mformat 2m disks
+951107	Xdf bug fix (dev parameters always set to Xdf, even if it
+	wasn't really an Xdf disk)
+	Fixed YAHB (yet another hash table bug :) ) . Hope this one's
+	the last.
+	Centralizing most env-var handling.
+	Update of the mtools manpage.
+	Xdf is now optional, and only active if MTOOLS_USE_XDF is
+	set. Saves a few milliseconds of startup time on non Xdf
+	disks.
+	Some lawyer-proofing, just in case :)
+951106	Fast xdf code (finally!)
+	Minor performance enhancements here and there.
+	Names which are all lower case now generate a long name entry
+	(according to Steve Searle, that's how Win'95 behaves).
+951029	Character translation table fixes. Other name fixes.
+951026	Put restrictions on long names to better match Win'95.
+	(suggested by Steve Searle)
+	Reworked autorename code. Catch SIGHUP signal
+	Added missing file close to main loop
+	Changed name of the "ask for action" command line flag to 'm',
+	and used 'a' for 'Autorename'.
+951024	Removed infinite loop bug in hash.c, which occurred when the
+	hash table was filled with deleted entries.
+951023	added Atari ST-style serial numbers (they live in the banner)
+	fixed a troff bug in mtools.1
+	Both changes were suggested by D. Hugh Redelmeier (hugh@mimosa.com)
+950916	v2.5.3 released (after lots of fixes)
+950904	v2.5.2 released
+950904	mdir.c: initialized "files" and "blocks" to avoid complaint by GCC
+	mattrib.c: initialized "code" to avoid complaint by GCC
+950904	Based on comments by Paul Slootman <paul@ahwau.ahold.nl>:
+	init.c: fs_init(): initialized disk_size to 0.  The section
+		which previously initialized this is ifdef'd out.  Why?
+	Makefile, device.c: Passed ETCDIR (e.g. /etc or /etc/defaults)
+		Gee, the Makefile is pretty ugly!  It might be good to start
+		thinking about autoconfigure, or at least some cleanup.
+	Makefile, mformat.c: use -DSOLARIS2, use srand48()/rand48()
+	msdos.h, file.c, mdir.c: prefixed YEAR/MONTH/DAY/HOUR/MINUTE/
+		SEC with DOS_ to avoid conflicts with <sys/time.h> on SVR4
+	devices.c: use %i instead of %d to allow different bases
+	parse.c: Changed comment for get_name()/get_path(); need to
+		revisit this after deciding on default case behavior
+	devices.c: load_devices(): fixed bad fprintf, line 748
+	parse.c, mformat.c, misc.c: replaced expressions like
+		  "if (islower(foo)) foo=toupper(foo)" with "foo=toupper(foo)"
+		
+950829 v2.5.1 released
+
+950829 Based on comments by Martin Kraemer <Martin.Kraemer@mch.sni.de>:
+		Bug fixes for compile errors and core dumps under SINIX-D 5.41
+		(Siemens SVR4):
+		plain_io.c
+		mk_direntry.c
+		vfat.h
+
+950822 v2.5 released
+
+950820 DCN	Change null-fill for unused remainder of VSE to 0xff fill for
+		both upper and lower character (just one null for termination)
+		This seems to better match Win95's behavior; Win95 had been
+		complaining about bogus characters
+		file_name.c: unicode_write()
+
+950820 DCN	Commented out enforcement of VSEs being in order.  Win95 likes
+		to put them exactly backwards, so we'd better tolerate getting
+		them any way they might come!  Not sure what is lost by losing
+		these checks, but it seems to be OK.
+
+		directory.c: dir_read()
+
+

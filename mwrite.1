@@ -1,0 +1,21 @@
+'\" t
+.\" Note: this must be run through tbl before nroff.
+.\" The magic cookie on the first line triggers this under some man program
+.TH MWRITE 1 local
+.SH NAME
+mwrite \- low level write (copy) a Unix file to MSDOS
+.SH SYNOPSIS
+.B mwrite
+[
+.B -tnvmoOsSrRA
+] unixfile msdosfile
+.PP
+.B mwrite
+[
+.B -tnvmoOsSrRA
+] unixfile [ unixfiles... ] msdosdirectory
+.SH DESCRIPTION
+This command is obsolete, and only supplied for backwards
+compatibility reasons with old scripts. Use mcopy instead.
+.SH SEE ALSO
+mcopy(1), mtools(1)

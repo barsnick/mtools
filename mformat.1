@@ -1,0 +1,108 @@
+'\" t
+.\" Note: this must be run through tbl before nroff.
+.\" The magic cookie on the first line triggers this under some man program
+.TH MFORMAT 1 local
+.SH NAME
+mformat \- add an MSDOS filesystem to a low-level formatted diskette.
+.SH SYNOPSIS
+.B mformat
+[
+.B -t
+tracks ] [
+.B -h
+heads ] [
+.B -s
+sectors ] [
+.B -l
+volume label ] [
+.B -S
+sizecode ] [
+.B -2
+sectors on track 0 ] [
+.B -M
+software sector size ] [
+.B -a
+] [
+.B -X
+] [
+.B -C
+] [
+.B -H
+hidden sectors ] drive:
+.SH DESCRIPTION
+.I Mformat
+adds a minimal MSDOS filesystem (boot sector, FAT, and root directory) to
+a diskette that has already been formatted by a Unix low-level format.
+.PP
+The follow options are supported: (The S, 2, 1 and M options may not exist
+if this copy of mtools has been compiled without the USE_2M option)
+.TP
+.B t
+The number of tracks (not cylinders).
+.TP
+.B h
+The number of heads (sides).
+.TP
+.B s
+The number of sectors per track. If the 2m option is given, number of
+512-byte sector equivalents on generic tracks (i.e. not head 0 track).
+If the 2m option is not given, number of physical sectors per track
+(which may be bigger than 512 bytes).
+.TP
+.B l
+An optional volume label.
+.TP
+.B S
+The sizecode. The size of the sector is 2 ^ (sizecode + 7).
+.TP
+.B 2
+2m format. The parameter to this option describes the number of
+sectors on track 0, head 0. This option is recommended for sectors
+bigger than normal.
+.TP
+.B 1
+don't use a 2m format, even if the current geometry of the disk is a 2m 
+geometry.
+.TP
+.B M
+software sector size. This parameter describes the sector size in bytes used
+by the MSDOS filesystem. By default it is the physical sector size.
+.TP
+.B a
+If this option is given, an Atari style serial number is generated.
+Ataris store their serial number in the OEM label.
+.TP
+.B X
+formats the disk as an Xdf disk. Xdf disk are used by OS/2. This
+format can hold 1756k, and is faster than the equivalent 2m
+formats. The disk has first to be low-level formatted using the
+xdfcopy utility included in the fdutils package.
+.TP
+.B C
+creates the disk image file to install the MSDOS filesystem on
+it. Obviously, this is useless on physical devices such as floppies
+and hard disk partitions.
+.TP
+.B H
+number of hidden sectors. This parameter is useful for formatting hard
+disk partition, which are not aligned on track boundaries (i.e. first
+head of first track doesn't belong to the partition, but contains a
+partition table). In that case the number of hidden sectors is in
+general the number of sectors per cylinder. This is untested.
+.TP
+.B n
+serial number.
+.B 
+.PP
+To format a diskette at a density other than the default, you must supply
+(at least) those command line parameters that are different from the
+default.
+.PP
+.I Mformat
+returns 0 on success or 1 on failure.
+.SH SEE ALSO
+mlabel(1)
+.SH BUGS
+Requires a low-level format utility from Unix.
+.PP
+Doesn't detect (or record) bad block information.

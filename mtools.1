@@ -1,0 +1,248 @@
+'\" t
+.\" Note: this must be run through tbl before nroff.
+.\" The magic cookie on the first line triggers this under some man program
+.TH MTOOLS 1 local
+.SH NAME
+Mtools \- a collection of tools for manipulating MSDOS files
+.SH SYNOPSIS
+.nf
+\fBmattrib\fR \- change MSDOS file attribute flags
+\fBmbadblocks\fR \- tests a floppy disk, and marks the bad blocks in the FAT
+\fBmcd\fR \- change MSDOS directory
+\fBmcopy\fR \- copy MSDOS files to/from Unix
+\fBmdel\fR \- delete an MSDOS file
+\fBmdir\fR \- display an MSDOS directory
+\fBmformat\fR \- add an MSDOS filesystem to a low-level formatted floppy disk
+\fBmlabel\fR \- make an MSDOS volume label
+\fBmmd\fR \- make an MSDOS subdirectory
+\fBmmount\fR \- mount an MSDOS disk
+\fBmrd\fR \- remove an MSDOS subdirectory
+\fBmmove\fR \- move or rename an MSDOS file or subdirectory
+\fBmren\fR \- rename an existing MSDOS file
+\fBmtype\fR \- display contents of an MSDOS file
+\fBmtest\fR \- tests and displays the configuration
+.fi
+.SH DESCRIPTION
+Mtools is a public domain collection of programs to allow Unix systems
+to read, write, and manipulate files on an MSDOS filesystem (typically a
+floppy disk).  Where reasonable, each program attempts to emulate the
+MSDOS equivalent command. However, unnecessary restrictions and
+oddities of DOS are not emulated. For instance, it is possible to
+move subdirectories from one subdirectory to another.
+.PP
+MSDOS filenames are optionally composed of a drive letter followed by
+a colon, a subdirectory, and a filename.  Filenames without a drive
+letter refer to Unix files. Subdirectory names can use either the '/'
+or '\e' separator.  The use of the '\e' separator or wildcards will
+require the names to be enclosed in quotes to protect them from the
+shell. (Note: Wildcards in Unix filenames should not be enclosed in
+quotes, because here we
+.B want
+the shell to expand them)
+.SH DIFFERENCES WITH MSDOG
+The regular expression "pattern matching" routines follow the Unix-style
+rules.  For example, '*' matches all MSDOS files in lieu of '*.*'.  The
+archive, hidden, read-only and system attribute bits are ignored during
+pattern matching.
+.PP
+All options use the '-' (minus) flag, not '/' as you'd expect in
+MSDOS.
+.PP
+Most mtools commands allow multiple filename parameters, which
+doesn't follow MSDOS conventions, but which is more user-friendly.
+.SH WORKING DIRECTORY
+The
+.I mcd
+command is used to establish the device and the current working
+directory (relative to the MSDOS filesystem), otherwise the default is
+assumed to be A:/. However, unlike MSDOS, there is only one working
+directory, and not one per drive.
+.SH VFAT-style long filenames
+This version of mtools supports VFAT style long filenames. If a Unix
+filename is too long to fit in a short DOS name, it is stored as a
+VFAT long name, and a companion short name is generated. This short
+name is what you see when you examine the disk with a pre-7.0 version
+of DOS.
+ The following table shows some examples of short names:
+.PP
+.in +0.5i
+.(b L
+.TS
+l l l.
+Unix name	MSDOS name	Reason for the change
+_	_	_
+thisisatest	THISISAT	filename too long
+alain.knaff	ALAIN.KNA	extension too long
+prn.txt	XRN.TXT	PRN is a device name
+\&.abc	X.ABC	null filename
+hot+cold	HOTXCOLD	illegal character
+.TE
+.)b
+.in
+
+ The initial Unix-style filename (whether long or short) is also
+called
+.B primary
+name, and the derived short name is also called
+.B secondary
+name.
+
+ Example:
+
+ mcopy /etc/motd a:Reallylongname
+
+ Mtools creates a VFAT entry for Reallylongname, and uses REALLYLO as
+a short name. Reallylongname is the primary name, and REALLYLO is the
+secondary name.
+
+ mcopy /etc/motd a:motd
+
+ Motd fits into the DOS filename limits. Mtools doesn't need to
+derivate another name. Motd is the primary name, and there is no
+secondary name.
+
+ In a nutshell: The primary name is the long name, if one exists, or
+the short name if there is no long name.
+
+.SH NAME CLASHES
+When writing a file to disk, its long name (primary name) or short
+name may collide with an already existing file or directory. This
+may happen for all commands which create new directory entries.B mcopy
+,
+.B mmd
+,
+.B mren
+,
+.B mmove
+,
+.B mwrite
+and
+.B mread
+
+When a name clash happens, mtools asks you what it should do. It
+offers several choices:
+.TP
+.B overwrite
+Overwrites the existing file. It is not possible to overwrite a
+directory with a file.
+.TP
+.B rename
+Renames the newly created file. Mtools will prompt for the new
+filename
+.TP
+.B autorename
+Renames the newly created file. Mtools will chose a name by itself,
+without prompting
+.TP
+.B skip
+Gives up on this file, and moves on to the next (if any)
+
+.PP
+To chose an option type its first letter at the prompt. If you use a
+lower case letter, the option only applies for this file only, if you
+use an upper case letter, the option applies to all files.
+
+You may also chose options (for all files) on the command line, when
+invoking mtools:
+.TP
+.B -o
+Overwrites primary names by default.
+.TP
+.B -O
+Overwrites secondary names by default.
+.TP
+.B -r
+Renames primary name by default.
+.TP
+.B -R
+Renames secondary name by default.
+.TP
+.B -a
+Autorenames primary name by default.
+.TP
+.B -A
+Autorenames secondary name by default.
+.TP
+.B -s
+Skip primary name by default.
+.TP
+.B -S
+Skip secondary name by default.
+.TP
+.B -m
+Ask user what to do with primary name.
+.TP
+.B -M
+Ask user what to do with secondary name.
+.PP
+By default, the user is prompted if the primary name clashes, and the
+secondary name is autorenamed.
+
+If a name clash occurs in a Unix directory, mtools only asks whether
+to overwrite the file, or to skip it.
+
+.SH CASE SENSITIVITY OF THE VFAT FILESYSTEM
+
+The VFAT filesystem is able to remember the case of the
+filenames. However, filenames which differ only in case are not
+allowed to coexist in the same directory. For example if you store a
+file called LongFileName on a VFAT filesystem, mdir will show this
+file as LongFileName, and not as Longfilename. However, if you then
+try to add LongFilename to the same directory, it will be refused,
+because case is ignored for clash checks.
+
+The VFAT filesystem allows to store the case of a filename in the
+attribute byte, if all letters of the filename are the same case, and
+if all letters of the extension are the same case too. Mtools uses
+this information when displaying the files, and also to generate the
+Unix when mcopying to a Unix directory. This may have unexpected
+results when applied to files written using an pre-7.0 version of DOS:
+Indeed, these filenames map to all upper case. This is different from
+the behavior of the old version of mtools which used to generate lower
+case Unix filenames.
+
+.SH XDF DISKS (LINUX ONLY)
+Xdf is a high capacity format supported by OS/2. It can hold 1840 k
+per disc. That's not very high compared to the best 2m formats, but
+its main advantage is that it is fast: 600 milliseconds per
+track. That's faster than the good old 21 sector format, and almost as
+fast as the standard 18 sector format. In order to access these disks,
+set the
+.B use_xdf
+variable for the drive. See mtools (5) for details on how to do
+this. Fast Xdf access is only available for kernels more recent than
+1.1.34.
+
+.B Caution / Attention distributors:
+If mtools is compiled on Linux a kernel more recent than 1.3.34, it
+won't run on an older kernel. However, if has been compiled on an
+older kernel, it still runs on a newer kernel, except that Xdf access
+is slower. It is recommended that distribution authors only include
+mtools binaries compiled on kernels older than 1.3.34 until 2.0 comes
+out. When 2.0 will be out, mtools binaries compiled on newer kernels
+may (and should) be distributed. Mtools binaries compiled on kernels
+older than 1.3.34 won't run on any 2.1 kernel or later.
+
+.SH EXIT CODES
+All the Mtools commands return 0 on success, 1 on utter failure, or 2
+on partial failure.  All the Mtools commands perform a few sanity
+checks before going ahead, to make sure that the disk is indeed an
+MSDOS disk (as opposed to, say an ext2 or minix disk). These checks
+may reject partially corrupted disks, which might otherwise still be
+readable. To avoid these checks, set the MTOOLS_SKIP_CHECK
+environmental variable.
+.SH SEE ALSO
+mattrib(1), mbadblocks(1), mcd(1), mdel(1), mformat(1), mmove(1),
+mrd(1), mren(1), mtype(1), mcopy(1), mdir(1), mlabel(1), mmd(1),
+mmount(1)
+.SH BUGS
+An unfortunate side effect of not guessing the proper device (when
+multiple disk capacities are supported) is an occasional error message
+from the device driver.  These can be safely ignored.  
+
+The fat checking code chokes on 1.72 Mb disks mformatted with
+pre-2.0.7 mtools. Set the environmental variable
+MTOOLS_FAT_COMPATIBILITY to bypass the fat checking.
+
+The support for non-Linux OS variants has not been tested for a long
+time. It may contain bugs, or even not work at all.

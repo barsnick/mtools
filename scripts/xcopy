@@ -1,0 +1,186 @@
+#!/bin/sh
+#
+# xcopy
+#
+# Recursively copy a directory tree
+#
+# Requires cpio, find, tty, basename, and any reasonable /bin/sh
+#
+# 1994/01/15	DCN	Created
+# 1994/12/01	DCN	Cleanup and minor improvements
+#
+# Copyright (C) 1994 David C. Niemi (niemidc@erols.com)
+# The author requires that any copies or derived works include this
+# copyright notice; no other restrictions are placed on its use.
+#
+
+set -e
+set -u
+
+## Exit and complain about improper usage
+usage_exit ()
+{	echo ''
+	if [ -n "${INTERACTIVE-}" ]; then
+		echo \
+		"Usage: $NAME [-s | -S] [ <source dir> [ <destination dir> ] ]" >&2
+		exit 2
+	else
+		echo \
+"Non-interactive usage: $NAME [-s|-S] <source dir> [<destination dir>]" >&2
+		exit 3
+	fi
+}
+
+##  Clean up path name $1
+fix_dir_name ()
+{
+	## Remove leading "./" from path
+	_DIR=`echo "$1" | sed -e 's,^\./,,' -e 's,/./,,'`
+	_WD=${WD-}
+
+	## Parse away leading ../'s
+	while echo "$_DIR" | grep -s '^\.\./'; do
+   		_DIR=`echo $_DIR | sed 's,^\.\./,,'`
+		_WD=`dirname "$_WD"`
+	done
+
+	## Clean up and return resulting path
+	case $_DIR in
+	'' | .)
+		## Use current working directory
+		_DIR=$_WD
+		;;
+
+	/*)
+		## Absolute path; no change needed
+		;;
+
+	..)
+		_DIR=`dirname "$_WD"`
+		;;
+
+	*)
+		## Path relative to "."
+		_DIR=$_WD/$_DIR
+		;;
+	esac
+	echo $_DIR
+}
+
+## Determine if we are using a real tty or not
+if tty -s; then
+	INTERACTIVE=yes
+fi
+
+## Ensure these variables get set
+FROMDIR=${FROMDIR-}
+TODIR=${TODIR-}
+NAME=`basename $0`
+
+## Make sure that the current directory is really the same as $PWD
+if [ -z "${PWD-}" ]; then
+	## PWD variable is null or not set
+	WD=`pwd`
+elif [ ! -d "$PWD" ]; then
+	## $PWD does not exist or is not a directory
+	WD=`pwd`
+elif [ X"`ls -id`" != X"`cd $PWD; ls -id`" ]; then
+	## PWD variable is not up to date, so ignore it
+	WD=`pwd`
+else
+	## Use $PWD, as it is likely to be "cleaner" that `pwd`
+	WD=$PWD
+fi
+
+## Check usage
+case $# in
+0)
+	if [ -z "$INTERACTIVE" ]; then
+		usage_exit
+	fi
+	;;
+1)
+	FROMDIR=`fix_dir_name $1`
+	TODIR="${WD}/`basename ${WD}/$FROMDIR`"
+	;;
+2)
+	FROMDIR=`fix_dir_name $1`
+	TODIR=`fix_dir_name $2`
+	;;
+*)
+	usage_exit
+	;;
+esac
+
+####	Ask for missing information
+while [ -z "$FROMDIR" -o -z "$TODIR" ]; do
+	if [ -z "$FROMDIR" ]; then
+		echo "Your current directory is \"$WD\"."
+		echo -n 'What directory do you want to copy (default is "'$WD'")? '
+		if read answer; then
+			if [ ! -d "$answer" ]; then
+				echo ''
+				echo "Source directory \"$answer\" does not exist!"
+				echo
+			else
+				FROMDIR=`fix_dir_name $answer`
+			fi
+		else
+			INTERACTIVE=no
+			usage_exit
+		fi
+	fi
+	if [ -z "$TODIR" ]; then
+		DEFAULT_TODIR=`basename \`cd $FROMDIR; pwd\``
+		echo 'Destination directory?  (<Return> for "'$DEFAULT_TODIR'"): '
+		if read answer; then
+			if [ -z "$answer" ]; then
+				TODIR=`fix_dir_name $DEFAULT_TODIR`
+			else
+				TODIR=`fix_dir_name $answer`
+			fi
+			if [ "$TODIR" = "$FROMDIR" ]; then
+				echo ''
+				echo "Cannot copy directory onto itself!"
+				echo
+				TODIR=
+			fi
+		else
+			INTERACTIVE=
+			usage_exit
+		fi
+	fi
+done
+
+if [ ! -d "$FROMDIR" ]; then
+	echo ''
+	echo "Source directory \"$FROMDIR\" does not exist!" >&2
+	exit 4
+elif [ "$TODIR" = "$FROMDIR" ]; then
+	echo "Cannot copy directory onto itself!" >&2
+	exit 5
+elif [ ! -d "$TODIR" ]; then
+	if [ 'X-S' != "X${MODE-}" ]; then
+		echo "Creating destination directory \"$TODIR\"."
+	fi
+	mkdir -p "$TODIR"
+fi
+
+if [ 'X-S' != "X${MODE-}" ]; then
+	echo "Copying directory \"$FROMDIR\" to \"$TODIR\"."
+fi
+cd $FROMDIR
+
+OPTIONS='-pmdu'
+if [ -w "$FROMDIR" ]; then
+	## Reset access times if permissions available
+	OPTIONS=${OPTIONS}a
+fi
+
+if [ -z "${SILENT-}" ]; then
+	OPTIONS=${OPTIONS}v
+fi
+
+exec find . -xdev -depth -print | sed 's,^./,,' | cpio "$OPTIONS" "$TODIR"
+
+## Notreached

@@ -1,0 +1,26 @@
+'\" t
+.\" Note: this must be run through tbl before nroff.
+.\" The magic cookie on the first line triggers this under some man program
+.TH MDEL 1 local
+.SH NAME
+mdel \- delete an MSDOS file
+.SH SYNOPSIS
+.B mdel
+[
+.B -v
+] msdosfile [ msdosfiles...  ]
+.SH DESCRIPTION
+.I Mdel
+deletes a file on an MSDOS filesystem.
+.PP
+.I Mdel
+will allow the following command line option:
+.TP
+.B v
+Verbose mode.  Echo the filenames as they are processed.
+.PP
+.I Mdel
+will ask for verification prior to removing a read\-only file.
+.SH SEE ALSO
+mtools(1)
+

@@ -1,0 +1,25 @@
+'\" t
+.\" Note: this must be run through tbl before nroff.
+.\" The magic cookie on the first line triggers this under some man program
+.TH MRD 1 local
+.SH NAME
+mdeltree \- remove an MSDOS directory tree
+.SH SYNOPSIS
+.B mdeltree
+[
+.B -v
+]
+msdosdirectory [ msdosdirectories... ]
+.SH DESCRIPTION
+.I Mdeltree
+removes a directory and all the files and subdirectories it contains
+from an MSDOS filesystem.
+.I Mdeltree
+will allow the following command line option:
+.TP
+.B v
+Verbose mode.  Displays each file or directory as it is removed.
+.PP
+An error occurs if the directory does not exist.
+.SH SEE ALSO
+mtools(1), mrd(1)

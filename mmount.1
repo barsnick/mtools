@@ -1,0 +1,24 @@
+'\" t
+.\" Note: this must be run through tbl before nroff.
+.\" The magic cookie on the first line triggers this under some man program
+.TH MMOUNT 1 local
+.SH NAME
+mmount \- mount an MSDOS disk
+.SH SYNOPSIS
+.B mmount
+msdosdrive [mountargs]
+.SH DESCRIPTION
+.I Mmount
+reads the boot sector of an MSDOS disk, configures the drive geometry,
+and finally mounts it passing
+.B mountargs
+to 
+.B mount. 
+If no mount arguments are specified, the name of the device is
+used. If the disk is write protected, it is automatically mounted read
+only.
+.SH SEE ALSO
+mtools(1), mount(8)
+
+
+
