@@ -1,3 +1,41 @@
+v20070531
+	Fixed lots of minor items raised by gcc4
+	Merged some of the BSD patches
+	New version of amuFormat.sh written in sh rather than csh
+	Support for config parameters after -i file
+	Released 3.9.11
+v20070411
+	Added sizecode printing on minfo
+	In mformat manpage, use same flag for sector number than printed in
+	minfo
+	Limit sizecode to 6, else it will overflow max sector size defined in
+	msdos.h
+v20070308
+	Applied mingw patch by Jamey Sharp and Josh Triplett
+v20070306
+	Fixed doc about /etc/default
+v20070305
+	Fixed mlabel on read-only disks
+v20060626
+	Merged Redhat/Fedora patches
+v20060531
+	#ifdef linux-dependant code in mformat.c
+v20060525
+	Fix gcc4 warnings
+	Fix reading of boot sector (block size)
+v20060228b
+	Do no longer open floppy devices with O_EXCL, in order to enable
+	work-around against broken cache.
+v20060228
+	If no info dir exists at all, assume dir
+v20060227
+	Support for DESTDIR
+v20051011
+	Fix Unix loop
+v20050410
+	Cygwin compatibility
+v20050317
+	Solaris 8 compatibility
 v20050302
 	Released 3.9.10
 v20050228
@@ -901,7 +939,7 @@ v19950904
 	Based on comments by Paul Slootman <paul@ahwau.ahold.nl>:
 	init.c: fs_init(): initialized disk_size to 0.  The section
 		which previously initialized this is ifdef'd out.  Why?
-	Makefile, device.c: Passed ETCDIR (e.g. /etc or /etc/defaults)
+	Makefile, device.c: Passed ETCDIR (e.g. /etc or /etc/default)
 		Gee, the Makefile is pretty ugly!  It might be good to start
 		thinking about autoconfigure, or at least some cleanup.
 	Makefile, mformat.c: use -DSOLARIS2, use srand48()/rand48()

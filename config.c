@@ -34,6 +34,8 @@ static int nr_dev; /* number of devices that the current table can hold */
 struct device *devices; /* the device table */
 static int token_nr; /* number of tokens in line */
 
+static char default_drive='\0'; /* default drive */
+
 /* "environment" variables */
 unsigned int mtools_skip_check=0;
 unsigned int mtools_fat_compatibility=0;
@@ -44,7 +46,7 @@ unsigned int mtools_no_vfat=0;
 unsigned int mtools_numeric_tail=1;
 unsigned int mtools_dotted_dir=0;
 unsigned int mtools_twenty_four_hour_clock=1;
-char *mtools_date_string="yyyy-mm-dd";
+const char *mtools_date_string="yyyy-mm-dd";
 char *country_string=0;
 
 typedef struct switches_l {
@@ -57,7 +59,7 @@ typedef struct switches_l {
     } type;
 } switches_t;
 
-static switches_t switches[] = {
+static switches_t global_switches[] = {
     { "MTOOLS_LOWER_CASE", (caddr_t) & mtools_ignore_short_case, T_UINT },
     { "MTOOLS_FAT_COMPATIBILITY", (caddr_t) & mtools_fat_compatibility, T_UINT },
     { "MTOOLS_SKIP_CHECK", (caddr_t) & mtools_skip_check, T_UINT },
@@ -152,6 +154,23 @@ static switches_t dswitches[]= {
     { "BLOCKSIZE", OFFS(blocksize), T_UINT }
 };
 
+static void maintain_default_drive(char drive)
+{
+    if(default_drive == ':')
+	return; /* we have an image */
+    if(default_drive == '\0' ||
+       default_drive > drive)
+	default_drive = drive;    
+}
+
+char get_default_drive(void)
+{
+    if(default_drive != '\0')
+	return default_drive;
+    else
+	return 'A';
+}
+
 static void syntax(const char *msg, int thisLine)
 {
     char drive='\0';
@@ -171,22 +190,22 @@ static void get_env_conf(void)
     char *s;
     unsigned int i;
 
-    for(i=0; i< sizeof(switches) / sizeof(*switches); i++) {
-	s = getenv(switches[i].name);
+    for(i=0; i< sizeof(global_switches) / sizeof(*global_switches); i++) {
+	s = getenv(global_switches[i].name);
 	if(s) {
-	    if(switches[i].type == T_INT)
-		* ((int *)switches[i].address) = (int) strtol(s,0,0);
-	    if(switches[i].type == T_UINT)
-		* ((int *)switches[i].address) = (unsigned int) strtoul(s,0,0);
-	    else if (switches[i].type == T_STRING)
-		* ((char **)switches[i].address) = s;
+	    if(global_switches[i].type == T_INT)
+		* ((int *)global_switches[i].address) = (int) strtol(s,0,0);
+	    if(global_switches[i].type == T_UINT)
+		* ((int *)global_switches[i].address) = (unsigned int) strtoul(s,0,0);
+	    else if (global_switches[i].type == T_STRING)
+		* ((char **)global_switches[i].address) = s;
 	}
     }
 }
 
 static int mtools_getline(void)
 {
-    if(!fgets(buffer, MAX_LINE_LEN, fp))
+    if(!fp || !fgets(buffer, MAX_LINE_LEN, fp))
 	return -1;
     linenumber++;
     pos = buffer;
@@ -492,15 +511,31 @@ static void get_toupper(void)
 	mstoupper[i] = get_number();
 }
 
+static int parse_one(int privilege);
+
 void set_cmd_line_image(char *img, int flags) {
   prepend();
   devices[cur_dev].drive = ':';
+  default_drive = ':';
   devices[cur_dev].name = strdup(img);
   devices[cur_dev].fat_bits = 0;
   devices[cur_dev].tracks = 0;
   devices[cur_dev].heads = 0;
   devices[cur_dev].sectors = 0;
   devices[cur_dev].offset = 0;
+  if (strchr(devices[cur_dev].name, '|')) {
+    char *pipechar = strchr(devices[cur_dev].name, '|');
+    *pipechar = 0;
+    strncpy(buffer, pipechar+1, MAX_LINE_LEN);
+    buffer[MAX_LINE_LEN] = '\0';
+    fp = NULL;
+    filename = "{command line}";
+    linenumber = 0;
+    lastTokenLinenumber = 0;
+    pos = buffer;
+    token = 0;
+    while (parse_one(0));
+  }
 }
 
 static void parse_old_device_line(char drive)
@@ -549,6 +584,7 @@ static void parse_old_device_line(char drive)
     }
 	
     devices[cur_dev].drive = toupper(devices[cur_dev].drive);
+    maintain_default_drive(devices[cur_dev].drive);
     if (!(devices[cur_dev].name = strdup(name))) {
 	printOom();
 	exit(1);
@@ -589,6 +625,7 @@ static int parse_one(int privilege)
 	trusted = privilege;
 	flag_mask = 0;
 	devices[cur_dev].drive = toupper(token[0]);
+	maintain_default_drive(devices[cur_dev].drive);
 	expect_char(':');
 	return 1;
     }
@@ -622,8 +659,8 @@ static int parse_one(int privilege)
 	 set_openflags(&devices[cur_dev]) &&
 	 set_misc_flags(&devices[cur_dev]) &&
 	 set_def_format(&devices[cur_dev]))) &&
-       set_var(switches,
-	       sizeof(switches)/sizeof(*switches), 0))
+       set_var(global_switches,
+	       sizeof(global_switches)/sizeof(*global_switches), 0))
 	syntax("unrecognized keyword", 1);
     return 1;
 }

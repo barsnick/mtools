@@ -58,6 +58,21 @@
 # endif
 #endif
 
+/* For compiling with MingW, use the following configure line
+
+ac_cv_func_setpgrp_void=yes ../mtools/configure --build=i386-linux-gnu --host=i386-mingw32 --disable-floppyd --without-x --disable-raw-term --srcdir ../mtools
+
+ */
+#ifdef OS_mingw32
+#ifndef OS_mingw32msvc
+#define OS_mingw32msvc
+#endif
+#endif
+
+#ifdef OS_mingw32msvc
+typedef void *caddr_t;
+#endif
+
 
 /***********************************************************************/
 /*                                                                     */
@@ -121,10 +136,6 @@
 
 #ifdef HAVE_GETOPT_H
 # include <getopt.h>
-#else
-int getopt();
-extern char *optarg;
-extern int optind, opterr;
 #endif
 
 #ifdef HAVE_FCNTL_H
@@ -221,9 +232,15 @@ extern int ioctl(int fildes, int request, void *arg);
 #include <sys/stat.h>
 
 #include <errno.h>
+#ifndef errno
 extern int errno;
+#endif
 
+#ifndef OS_mingw32msvc
 #include <pwd.h>
+#else
+typedef unsigned int uid_t;
+#endif
 
 
 #ifdef HAVE_STRING_H
@@ -306,11 +323,19 @@ extern int errno;
 
 /* missing functions */
 #ifndef HAVE_SRANDOM
-# define srandom srand48
+# ifdef OS_mingw32msvc
+#  define srandom srand
+# else
+#  define srandom srand48
+# endif
 #endif
 
 #ifndef HAVE_RANDOM
-# define random (long)lrand48
+# ifdef OS_mingw32msvc
+#  define random (long)rand
+# else
+#  define random (long)lrand48
+# endif
 #endif
 
 #ifndef HAVE_STRCHR
@@ -321,8 +346,6 @@ extern int errno;
 # define strrchr rindex
 #endif
 
-
-#define SIG_CAST RETSIGTYPE(*)()
 
 #ifndef HAVE_STRDUP
 extern char *strdup(const char *str);
@@ -393,6 +416,8 @@ const char *basename(const char *filename);
 #endif
 
 const char *_basename(const char *filename);
+
+void _stripexe(char *filename);
 
 #ifndef __STDC__
 # ifndef signed

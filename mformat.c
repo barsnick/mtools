@@ -37,8 +37,6 @@
 #endif
 
 
-extern int errno;
-
 static int init_geometry_boot(struct bootsector *boot, struct device *dev,
 			       int sectors0, int rate_0, int rate_any,
 			       unsigned long *tot_sectors, int keepBoot)
@@ -127,7 +125,7 @@ static int init_geometry_boot(struct bootsector *boot, struct device *dev,
 			boot->jump[0] = 0xeb;
 			boot->jump[1] = 0;
 			boot->jump[2] = 0x90;
-			strncpy(boot->banner, "MTOOL399", 8);
+			strncpy(boot->banner, "MTOO3911", 8);
 			/* It looks like some versions of DOS are
 			 * rather picky about this, and assume default
 			 * parameters without this, ignoring any
@@ -346,7 +344,7 @@ static void calc_fat_size(Fs_t *Fs, unsigned long tot_sectors)
 	unsigned int slack;
 	int printGrowMsg=1; /* Should we print "growing FAT" messages ?*/
 	
-#if DEBUG
+#ifdef DEBUG
 	fprintf(stderr, "Fat start=%d\n", Fs->fat_start);
 	fprintf(stderr, "tot_sectors=%lu\n", tot_sectors);
 	fprintf(stderr, "dir_len=%d\n", Fs->dir_len);
@@ -361,7 +359,7 @@ static void calc_fat_size(Fs_t *Fs, unsigned long tot_sectors)
 	   Fs->cluster_size %2 == 0)
 		rem_sect--;
 
-#if DEBUG
+#ifdef DEBUG
 	fprintf(stderr, "Rem sect=%lu\n", rem_sect);
 #endif
 
@@ -389,7 +387,7 @@ static void calc_fat_size(Fs_t *Fs, unsigned long tot_sectors)
 		 * rather than multiplying the numerator */
 		denominator = denominator / fat_nybbles;
 
-#if DEBUG
+#ifdef DEBUG
 	fprintf(stderr, "Numerator=%lu denominator=%lu\n",
 		numerator, denominator);
 #endif
@@ -413,7 +411,7 @@ static void calc_fat_size(Fs_t *Fs, unsigned long tot_sectors)
 				fat_nybbles - 2);
 		fprintf(stderr, " to %d\n", Fs->num_clus);
 	}
-#if DEBUG
+#ifdef DEBUG
 	fprintf(stderr, "Num_clus=%d fat_len=%d nybbles=%d\n",
 		Fs->num_clus, Fs->fat_len, fat_nybbles);
 #endif
@@ -689,6 +687,53 @@ static void usage(void)
 	exit(1);
 }
 
+#ifdef OS_linux
+static int get_block_geom(int fd, struct MT_STAT *buf, struct device *dev,
+			  char *errmsg) {
+	struct hd_geometry geom;
+	long size;
+	int heads=dev->heads;
+	int sectors=dev->sectors;
+	int sect_per_track;
+
+	if (ioctl(fd, HDIO_GETGEO, &geom) < 0) {
+		sprintf(errmsg, "Could not get geometry of device (%s)",
+			strerror(errno));
+		return -1;
+	}
+	
+	if (ioctl(fd, BLKGETSIZE, &size) < 0) {
+		sprintf(errmsg, "Could not get size of device (%s)",
+			strerror(errno));
+		return -1;
+	}
+	
+	if(!heads)
+		heads = geom.heads;
+	if(!sectors)
+		sectors = geom.sectors;
+
+	sect_per_track = heads * sectors;
+	if(!dev->hidden) {
+		int hidden;
+		hidden = geom.start % sect_per_track;
+		if(hidden && hidden != sectors) {
+			sprintf(errmsg,
+				"Hidden (%d) does not match sectors (%d)\n",
+				hidden, sectors);
+			return -1;
+		}
+		dev->hidden = hidden;
+	}
+	dev->heads = heads;
+	dev->sectors = sectors;
+	if(!dev->tracks)
+		dev->tracks = (size + dev->hidden) / sect_per_track;
+	size = dev->tracks * dev->heads * dev->sectors + dev->hidden;
+	return 0;
+}
+#endif
+
 void mformat(int argc, char **argv, int dummy)
 {
 	int r; /* generic return value */
@@ -831,6 +876,10 @@ void mformat(int argc, char **argv, int dummy)
 				argssize = atoi(optarg) | 0x80;
 				if(argssize < 0x81)
 					usage();
+				if(argssize >= 0x87) {
+					fprintf(stderr, "argssize must be less than 6\n");
+					usage();
+				}
 				break;
 
 #ifdef USE_XDF
@@ -990,36 +1039,16 @@ void mformat(int argc, char **argv, int dummy)
 		if ((!used_dev.tracks || !used_dev.heads || !used_dev.sectors) &&
 			(!IS_SCSI(dev))) {
 			int fd= get_fd(Fs.Direct);
-			struct MT_STAT buf;
+			struct MT_STAT stbuf;
 
-			if (MT_FSTAT(fd, &buf) < 0) {
+			if (MT_FSTAT(fd, &stbuf) < 0) {
 				sprintf(errmsg, "Could not stat file (%s)", strerror(errno));
 				continue;						
 			}
 
-			if (S_ISBLK(buf.st_mode)) {
-				struct hd_geometry geom;
-				long size;
-				int sect_per_track;
-
-				if (ioctl(fd, HDIO_GETGEO, &geom) < 0) {
-					sprintf(errmsg, "Could not get geometry of device (%s)",
-							strerror(errno));
-					continue;
-				}
-
-				if (ioctl(fd, BLKGETSIZE, &size) < 0) {
-					sprintf(errmsg, "Could not get size of device (%s)",
-							strerror(errno));
-					continue;
-				}
-
-				sect_per_track = geom.heads * geom.sectors;
-				used_dev.heads = geom.heads;
-				used_dev.sectors = geom.sectors;
-				used_dev.hidden = geom.start % sect_per_track;
-				used_dev.tracks = (size + used_dev.hidden) / sect_per_track;
-			}
+			if (S_ISBLK(stbuf.st_mode) &&
+			    get_block_geom(fd, &stbuf, &used_dev, errmsg) < 0)
+				continue;
 		}
 #endif
 
@@ -1048,10 +1077,10 @@ void mformat(int argc, char **argv, int dummy)
 
 		SET_INT(Fs.sector_size, msize);
 		{
-		    unsigned int i;
-		    for(i = 0; i < 31; i++) {
-			if (Fs.sector_size == (unsigned int) (1 << i)) {
-			    Fs.sectorShift = i;
+		    unsigned int j;
+		    for(j = 0; j < 31; j++) {
+			if (Fs.sector_size == (unsigned int) (1 << j)) {
+			    Fs.sectorShift = j;
 			    break;
 			}
 		    }
@@ -1086,12 +1115,22 @@ void mformat(int argc, char **argv, int dummy)
 		exit(1);
 	}
 
+	/* calculate the total number of sectors */
+	tot_sectors = used_dev.tracks*used_dev.heads*used_dev.sectors - used_dev.hidden;
+
+	/* create the image file if needed */
+	if (create) {
+		WRITES(Fs.Direct, (char *) buf,
+		       sectorsToBytes((Stream_t*)&Fs, tot_sectors-1),
+		       Fs.sector_size);
+	}
+
 	/* the boot sector */
 	boot = (struct bootsector *) buf;
 	if(bootSector) {
 		int fd;
 
-		fd = open(bootSector, O_RDONLY | O_LARGEFILE);
+		fd = open(bootSector, O_RDONLY | O_BINARY | O_LARGEFILE);
 		if(fd < 0) {
 			perror("open boot sector");
 			exit(1);
@@ -1122,10 +1161,7 @@ void mformat(int argc, char **argv, int dummy)
 	if(!keepBoot)
 		set_word(boot->jump + 510, 0xaa55);
 	
-	/* get the parameters */
-	tot_sectors = used_dev.tracks * used_dev.heads * used_dev.sectors - 
-		DWORD(nhs);
-
+	/* Initialize the remaining parameters */
 	set_word(boot->nsect, used_dev.sectors);
 	set_word(boot->nheads, used_dev.heads);
 
@@ -1203,12 +1239,6 @@ void mformat(int argc, char **argv, int dummy)
 		boot->banner[6] = random();
 		boot->banner[7] = random();
 	}		
-
-	if (create) {
-		WRITES(Fs.Direct, (char *) buf,
-		       sectorsToBytes((Stream_t*)&Fs, tot_sectors-1),
-		       Fs.sector_size);
-	}
 
 	if(!keepBoot)
 		inst_boot_prg(boot, bootOffset);

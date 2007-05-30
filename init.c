@@ -14,9 +14,6 @@
 #include "xdf_io.h"
 #include "buffer.h"
 
-extern int errno;
-
-
 #define FULL_CYL
 
 unsigned int num_clus;			/* total number of cluster */
@@ -30,8 +27,8 @@ static int read_boot(Stream_t *Stream, struct bootsector * boot, int size)
 	/* read the first sector, or part of it */
 	if(!size)
 		size = BOOTSIZE;
-	if(size > 1024)
-		size = 1024;
+	if(size > MAX_BOOT)
+		size = MAX_BOOT;
 
 	if (force_read(Stream, (char *) boot, 0, size) != size)
 		return -1;
@@ -84,12 +81,14 @@ Stream_t *GetFs(Stream_t *Fs)
 
 Stream_t *find_device(char drive, int mode, struct device *out_dev,
 		      struct bootsector *boot,
-		      char *name, int *media, mt_size_t *maxSize)
+		      char *name, int *media, mt_size_t *maxSize,
+		      int *isRop)
 {
 	char errmsg[200];
 	Stream_t *Stream;
 	struct device *dev;
 	int r;
+	int isRo=0;
 
 	Stream = NULL;
 	sprintf(errmsg, "Drive '%c:' not supported", drive);	
@@ -126,9 +125,21 @@ Stream_t *find_device(char drive, int mode, struct device *out_dev,
 
 		    
 		    if (!Stream)
-			Stream = SimpleFileOpen(out_dev, dev, name, mode,
+			Stream = SimpleFileOpen(out_dev, dev, name,
+						isRop ? mode | O_RDWR: mode,
 						errmsg, 0, 1, maxSize);
 		    
+		    if(Stream) {
+			isRo=0;
+		    } else if(isRop &&
+		       (errno == EPERM || errno == EACCES || errno == EROFS)) {
+			Stream = SimpleFileOpen(out_dev, dev, name,
+						mode | O_RDONLY,
+						errmsg, 0, 1, maxSize);
+			if(Stream) {
+				isRo=1;
+			}
+		    }
 		}
 
 		if( !Stream)
@@ -180,11 +191,13 @@ Stream_t *find_device(char drive, int mode, struct device *out_dev,
 		fprintf(stderr,"%s\n",errmsg);
 		return NULL;
 	}
+	if(isRop)
+		*isRop = isRo;
 	return Stream;
 }
 
 
-Stream_t *fs_init(char drive, int mode)
+Stream_t *fs_init(char drive, int mode, int *isRop)
 {
 	int blocksize;
 	int media,i;
@@ -196,8 +209,9 @@ Stream_t *fs_init(char drive, int mode)
 	struct device dev;
 	mt_size_t maxSize;
 
-	struct bootsector boot0;
-#define boot (&boot0)
+	unsigned char boot0[MAX_BOOT];
+	struct bootsector *boot = (struct bootsector *) boot0;
+
 	Fs_t *This;
 
 	This = New(Fs_t);
@@ -216,8 +230,8 @@ Stream_t *fs_init(char drive, int mode)
 	This->drive = drive;
 	This->last = 0;
 
-	This->Direct = find_device(drive, mode, &dev, &boot0, name, &media, 
-							   &maxSize);
+	This->Direct = find_device(drive, mode, &dev, boot, name, &media, 
+				   &maxSize, isRop);
 	if(!This->Direct)
 		return NULL;
 	
@@ -268,16 +282,16 @@ Stream_t *fs_init(char drive, int mode)
 			nhs = WORD(nhs);
 
 
-		This->cluster_size = boot0.clsiz; 		
+		This->cluster_size = boot->clsiz; 		
 		This->fat_start = WORD(nrsvsect);
 		This->fat_len = WORD(fatlen);
 		This->dir_len = WORD(dirents) * MDIR_SIZE / This->sector_size;
-		This->num_fat = boot0.nfat;
+		This->num_fat = boot->nfat;
 
 		if (This->fat_len) {
-			labelBlock = &boot0.ext.old.labelBlock;
+			labelBlock = &boot->ext.old.labelBlock;
 		} else {
-			labelBlock = &boot0.ext.fat32.labelBlock;
+			labelBlock = &boot->ext.fat32.labelBlock;
 		}
 
 		if(labelBlock->dos4 == 0x29) {
@@ -293,8 +307,9 @@ Stream_t *fs_init(char drive, int mode)
 
 	if(!mtools_skip_check && (tot_sectors % dev.sectors)){
 		fprintf(stderr,
-			"Total number of sectors not a multiple of"
-			" sectors per track!\n");
+			"Total number of sectors (%d) not a multiple of"
+			" sectors per track (%d)!\n", tot_sectors,
+			dev.sectors);
 		fprintf(stderr,
 			"Add mtools_skip_check=1 to your .mtoolsrc file "
 			"to skip this test\n");
@@ -347,7 +362,7 @@ Stream_t *fs_init(char drive, int mode)
 	}
 
 	/* read the FAT sectors */
-	if(fat_read(This, &boot0, dev.fat_bits, tot_sectors, dev.use_2m&0x7f)){
+	if(fat_read(This, boot, dev.fat_bits, tot_sectors, dev.use_2m&0x7f)){
 		This->num_fat = 1;
 		FREE(&This->Next);
 		Free(This->Next);

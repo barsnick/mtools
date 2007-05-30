@@ -78,11 +78,12 @@ void setBeginEnd(struct partition *partTable, int begin, int end,
 }
 
 int consistencyCheck(struct partition *partTable, int doprint, int verbose,
-		     int *has_activated, unsigned int *last_end, int *j, 
+		     int *has_activated, unsigned int *last_end,
+		     unsigned int *j, 
 		     struct device *used_dev, int target_partition)
 {
-	int i;
-	int inconsistency;
+	unsigned int i;
+	unsigned int inconsistency;
 	
 	*j = 0;
 	*last_end = 1;
@@ -250,7 +251,7 @@ static void usage(void)
 	fprintf(stderr, 
 		"Mtools version %s, dated %s\n", mversion, mdate);
 	fprintf(stderr, 
-		"Usage: %s [-pradcv] [-I [-B bootsect-template] [-s sectors] "
+		"Usage: %s [-pradcv] [-I] [-B bootsect-template] [-s sectors] "
 			"[-t cylinders] "
 		"[-h heads] [-T type] [-b begin] [-l length] "
 		"drive\n", progname);
@@ -270,7 +271,7 @@ void mpartition(int argc, char **argv, int dummy)
 	int create = 0;
 	int force = 0;
 	int length = 0;
-	int remove = 0;
+	int do_remove = 0;
 	int initialize = 0;
 	unsigned int tot_sectors=0;
 	int type = 0;
@@ -327,7 +328,7 @@ void mpartition(int argc, char **argv, int dummy)
 				doprint = 1;
 				break;
 			case 'r':
-				remove = 1;
+				do_remove = 1;
 				dirty = 1;
 				break;
 			case 'I':
@@ -504,7 +505,7 @@ void mpartition(int argc, char **argv, int dummy)
 	if(initialize) {
 		if (bootSector) {
 			int fd;
-			fd = open(bootSector, O_RDONLY | O_LARGEFILE);
+			fd = open(bootSector, O_RDONLY | O_BINARY | O_LARGEFILE);
 			if (fd < 0) {
 				perror("open boot sector");
 				exit(1);
@@ -523,7 +524,7 @@ void mpartition(int argc, char **argv, int dummy)
 		inconsistency = 1;
 	}
 	
-	if(remove){
+	if(do_remove){
 		if(!partTable[dev->partition].sys_ind)
 			fprintf(stderr,
 				"Partition for drive %c: does not exist\n",

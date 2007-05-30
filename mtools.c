@@ -94,7 +94,10 @@ int main(int argc,char **argv)
 
 #ifdef __EMX__
        argv[0] = _getname(argv[0]); _remext(argv[0]); name = argv[0];
-#else  
+#else
+#ifdef OS_mingw32msvc
+	_stripexe(argv[0]);
+#endif
 	name = _basename(argv[0]);
 #endif
 	progname = argv[0];
@@ -136,7 +139,7 @@ int main(int argc,char **argv)
 #else
 		printf("disable-new-vold ");
 #endif
-#if DEBUG
+#ifdef DEBUG
 		printf("enable-debug ");
 #else
 		printf("disable-debug ");

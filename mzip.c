@@ -52,7 +52,7 @@ static int zip_cmd(int priv, int fd, unsigned char cdb[6], int clen,
 	return r;
 }
 
-int test_mounted ( char *dev )
+static int test_mounted ( char *dev )
 {
 #ifdef HAVE_MNTENT_H
 	struct mntent	*mnt;
@@ -304,9 +304,9 @@ void mzip(int argc, char **argv, int type)
 
 		if(IS_PRIVILEGED(dev))
 			reclaim_privs();
-		fd = scsi_open(name, O_RDONLY | 
+		fd = scsi_open(name, O_RDONLY
 #ifdef O_NDELAY
-			       O_NDELAY
+			       | O_NDELAY
 #endif
 			       , 0644,
 			       &extra_data);
@@ -334,7 +334,7 @@ void mzip(int argc, char **argv, int type)
 			continue;
 		}
 		
-#if DEBUG
+#ifdef DEBUG
 		fprintf(stderr, "device: %s\n\tvendor: %.8s\n\tproduct: %.16s\n"
 			"\trevision: %.4s\n", name, inq_data.vendor,
 			inq_data.product, inq_data.revision);
@@ -405,7 +405,7 @@ void mzip(int argc, char **argv, int type)
 		}
 
 		if ((oldMode & unlockMask) == 1) {  /* unlock first */
-			char *s, *passwd;
+			char *s;
 			passwd = "APlaceForYourStuff";
 			if ((s = strchr(passwd, '\n'))) *s = '\0';  /* chomp */
 			iomega_command(IS_PRIVILEGED(dev), fd, unlockMode, 
@@ -415,7 +415,7 @@ void mzip(int argc, char **argv, int type)
 		if ((get_zip_status(IS_PRIVILEGED(dev), fd, extra_data) & 
 		     unlockMask) == 1) {
 			/* unlock first */
-			char *s, *passwd;
+			char *s;
 			passwd = getpass("Password: ");
 			if ((s = strchr(passwd, '\n'))) *s = '\0';  /* chomp */
 			if((ret=iomega_command(IS_PRIVILEGED(dev), fd, 
@@ -466,7 +466,7 @@ void mzip(int argc, char **argv, int type)
 	}
 	
 	if (request & ZIP_STATUS) {
-		char *unlocked;
+		const char *unlocked;
 
 		if(oldMode & 8)
 			unlocked = " and unlocked until eject";

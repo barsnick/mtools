@@ -5171,9 +5171,11 @@ _ACEOF
 
 
 
+
 for ac_func in strerror random srandom strchr strrchr lockf flock \
 strcasecmp strncasecmp atexit on_exit getpass memmove \
-strdup strcspn strspn strtoul strtol memcpy strpbrk memset seteuid setresuid \
+strdup strcspn strspn strtoul strtol memcpy strpbrk memset setenv \
+seteuid setresuid \
 tcsetattr tcflush basename fchdir media_oldaliases llseek lseek64 \
 snprintf stat64
 do
@@ -7737,7 +7739,7 @@ if test X$use_floppyd = Xyes; then
 	exit 1
     fi
     FLOPPYD="floppyd floppyd_installtest"
-    BINFLOPPYD="\$(bindir)/floppyd \$(bindir)/floppyd_installtest"
+    BINFLOPPYD="\$(DESTDIR)\$(bindir)/floppyd \$(DESTDIR)\$(bindir)/floppyd_installtest"
 
 cat >>confdefs.h <<\_ACEOF
 #define USE_FLOPPYD 1

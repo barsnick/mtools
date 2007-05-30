@@ -135,7 +135,8 @@ dnl Checks for library functions.
 AC_TYPE_SIGNAL
 AC_CHECK_FUNCS(strerror random srandom strchr strrchr lockf flock \
 strcasecmp strncasecmp atexit on_exit getpass memmove \
-strdup strcspn strspn strtoul strtol memcpy strpbrk memset seteuid setresuid \
+strdup strcspn strspn strtoul strtol memcpy strpbrk memset setenv \
+seteuid setresuid \
 tcsetattr tcflush basename fchdir media_oldaliases llseek lseek64 \
 snprintf stat64)
 AC_FUNC_SETPGRP
@@ -343,7 +344,7 @@ if test X$use_floppyd = Xyes; then
 	exit 1
     fi
     FLOPPYD="floppyd floppyd_installtest"
-    BINFLOPPYD="\$(bindir)/floppyd \$(bindir)/floppyd_installtest"
+    BINFLOPPYD="\$(DESTDIR)\$(bindir)/floppyd \$(DESTDIR)\$(bindir)/floppyd_installtest"
     AC_DEFINE([USE_FLOPPYD],1,[Define when you want to include floppyd support]) 
 else
     FLOPPYD=

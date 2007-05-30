@@ -1,4 +1,4 @@
-.TH mformat 1 "28Feb05" mtools-3.9.10
+.TH mformat 1 "11Apr07" mtools-3.9.11
 .SH Name
 mformat - add an MSDOS filesystem to a low-level formatted floppy disk
 '\" t
@@ -28,7 +28,7 @@ low-level formatted diskette. Its syntax is:
 .PP
 .ft I
 .nf
-\&\fR\&\f(CWmformat\fR [\fR\&\f(CW-t\fR \fIcylinders\fR] [\fR\&\f(CW-h\fR \fIheads\fR] [\fR\&\f(CW-n\fR \fIsectors\fR]
+\&\fR\&\f(CWmformat\fR [\fR\&\f(CW-t\fR \fIcylinders\fR] [\fR\&\f(CW-h\fR \fIheads\fR] [\fR\&\f(CW-s\fR \fIsectors\fR]
   [\fR\&\f(CW-f\fR \fIsize\fR] [\fR\&\f(CW-1\fR] [\fR\&\f(CW-4\fR] [\fR\&\f(CW-8\fR]
   [\fR\&\f(CW-v\fR \fIvolume_label\fR]
   [\fR\&\f(CW-F\fR] [\fR\&\f(CW-S\fR \fIsizecode\fR] [\fR\&\f(CW-X\fR]
@@ -65,7 +65,7 @@ assign no label to the disk.
 \&\fR\&\f(CWf\fR\ 
 Specifies the size of the DOS filesystem to format. Only a certain
 number of predefined sizes are supported by this flag; for others use
-the -h/-t/-n flags. The following sizes are supported:
+the -h/-t/-s flags. The following sizes are supported:
 .RS
 .TP
 160\ 
