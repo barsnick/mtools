@@ -42,11 +42,15 @@ static void displayInfosector(Stream_t *Stream, struct bootsector *boot)
 
 void minfo(int argc, char **argv, int type)
 {
-	struct bootsector boot0;
-#define boot (&boot0)
+	unsigned char boot0[MAX_BOOT];  
+	struct bootsector *boot = (struct bootsector *) boot0;
+
 	char name[EXPAND_BUF];
 	int media;
 	int tot_sectors;
+	int size_code;
+	int sector_size;
+	int i;
 	struct device dev;
 	char drive;
 	int verbose=0;
@@ -76,11 +80,19 @@ void minfo(int argc, char **argv, int type)
 		drive = toupper(argv[optind][0]);
 
 		if(! (Stream = find_device(drive, O_RDONLY, &dev, boot, 
-					   name, &media, 0)))
+					   name, &media, 0, NULL)))
 			exit(1);
 
 		tot_sectors = DWORD(bigsect);
 		SET_INT(tot_sectors, WORD(psect));
+		sector_size = WORD(secsiz);
+		size_code=2;
+		for(i=0; i<7; i++) {
+			if(sector_size == 128 << i) {
+				size_code = i;
+				break;
+			}
+		}
 		printf("device information:\n");
 		printf("===================\n");
 		printf("filename=\"%s\"\n", name);
@@ -91,6 +103,8 @@ void minfo(int argc, char **argv, int type)
 		       dev.tracks, dev.heads, dev.sectors);
 		if(DWORD(nhs))
 			printf("-H %d ", DWORD(nhs));
+		if(size_code != 2)
+			printf("-S %d ",size_code);
 		printf("%c:\n", tolower(drive));
 		printf("\n");
 		

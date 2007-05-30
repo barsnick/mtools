@@ -227,7 +227,8 @@ static void clear_scan(char *longname, int use_longname, struct scan_state *s)
 	s->free_end = s->got_slots = s->free_start = 0;
 
 	if (use_longname & 1)
-                s->size_needed = 2 + (strlen(longname)/VSE_NAMELEN);
+		s->size_needed = 1 +
+			(strlen(longname) + VSE_NAMELEN - 1)/VSE_NAMELEN;
 	else
                 s->size_needed = 1;
 }
@@ -271,7 +272,7 @@ static __inline__ clash_action get_slots(Stream_t *Dir,
 {
 	int error;
 	clash_action ret;
-	int match=0;
+	int match_pos=0;
 	direntry_t entry;
 	int isprimary;
 	int no_overwrite;
@@ -321,7 +322,7 @@ static __inline__ clash_action get_slots(Stream_t *Dir,
 			case 6:
 				return NAMEMATCH_SUCCESS; /* Success */
 		}	    
-		match = -2;
+		match_pos = -2;
 		if (ssp->longmatch > -1) {
 			/* Primary Long Name Match */
 #ifdef debug
@@ -329,7 +330,7 @@ static __inline__ clash_action get_slots(Stream_t *Dir,
 				"Got longmatch=%d for name %s.\n", 
 				longmatch, longname);
 #endif			
-			match = ssp->longmatch;
+			match_pos = ssp->longmatch;
 			isprimary = 1;
 		} else if ((ch->use_longname & 1) && (ssp->shortmatch != -1)) {
 			/* Secondary Short Name Match */
@@ -339,7 +340,7 @@ static __inline__ clash_action get_slots(Stream_t *Dir,
 				longname);
 #endif
 
-			match = ssp->shortmatch;
+			match_pos = ssp->shortmatch;
 			isprimary = 0;
 		} else if (ssp->shortmatch >= 0) {
 			/* Primary Short Name Match */
@@ -348,24 +349,24 @@ static __inline__ clash_action get_slots(Stream_t *Dir,
 				"Got primary short name match for name %s.\n", 
 				longname);
 #endif
-			match = ssp->shortmatch;
+			match_pos = ssp->shortmatch;
 			isprimary = 1;
 		} else 
 			return NAMEMATCH_RENAME;
 
-		if(match > -1) {
-			entry.entry = match;
+		if(match_pos > -1) {
+			entry.entry = match_pos;
 			dir_read(&entry, &error);
 			if (error)
 			    return NAMEMATCH_ERROR;
 			/* if we can't overwrite, don't propose it */
-			no_overwrite = (match == ch->source || IS_DIR(&entry));
+			no_overwrite = (match_pos == ch->source || IS_DIR(&entry));
 		}
 	}
 	ret = process_namematch(isprimary ? longname : dosname, longname,
 				isprimary, ch, no_overwrite, reason);
 	
-	if (ret == NAMEMATCH_OVERWRITE && match > -1){
+	if (ret == NAMEMATCH_OVERWRITE && match_pos > -1){
 		if((entry.dir.attr & 0x5) &&
 		   (ask_confirmation("file is read only, overwrite anyway (y/n) ? ",0,0)))
 			return NAMEMATCH_RENAME;
@@ -375,11 +376,11 @@ static __inline__ clash_action get_slots(Stream_t *Dir,
 		
 #if 0
 		if(isprimary &&
-		   match - ssp->match_free + 1 >= ssp->size_needed){
+		   match_pos - ssp->match_free + 1 >= ssp->size_needed){
 			/* reuse old entry and old short name for overwrite */
-			ssp->free_start = match - ssp->size_needed + 1;
+			ssp->free_start = match_pos - ssp->size_needed + 1;
 			ssp->free_size = ssp->size_needed;
-			ssp->slot = match;
+			ssp->slot = match_pos;
 			ssp->got_slots = 1;
 			strncpy(dosname, dir.name, 3);
 			strncpy(dosname + 8, dir.ext, 3);
@@ -446,12 +447,12 @@ static void stripspaces(char *name)
 }
 
 
-int _mwrite_one(Stream_t *Dir,
-		char *argname,
-		char *shortname,
-		write_data_callback *cb,
-		void *arg,
-		ClashHandling_t *ch)
+static int _mwrite_one(Stream_t *Dir,
+		       char *argname,
+		       char *shortname,
+		       write_data_callback *cb,
+		       void *arg,
+		       ClashHandling_t *ch)
 {
 	char longname[VBUFSIZE];
 	const char *dstname;

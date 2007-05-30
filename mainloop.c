@@ -14,14 +14,68 @@
 #include "file.h"
 
 
+/* Fix the info in the MCWD file to be a proper directory name.
+ * Always has a leading separator.  Never has a trailing separator
+ * (unless it is the path itself).  */
+
+static const char *fix_mcwd(char *ans)
+{
+	FILE *fp;
+	char *s;
+	char buf[MAX_PATH];
+
+	fp = open_mcwd("r");
+	if(!fp || !fgets(buf, MAX_PATH, fp)) {
+		if(fp)
+			fclose(fp);
+		ans[0] = get_default_drive();
+		strcpy(ans+1, ":/");
+		return ans;
+	}
+
+	buf[strlen(buf) -1] = '\0';
+	fclose(fp);
+					/* drive letter present? */
+	s = buf;
+	if (buf[0] && buf[1] == ':') {
+		strncpy(ans, buf, 2);
+		ans[2] = '\0';
+		s = &buf[2];
+	} else {
+		ans[0] = get_default_drive();
+		strcpy(ans+1, ":");
+	}
+			/* add a leading separator */
+	if (*s != '/' && *s != '\\') {
+		strcat(ans, "/");
+		strcat(ans, s);
+	} else
+		strcat(ans, s);
+
+#if 0
+					/* translate to upper case */
+	for (s = ans; *s; ++s) {
+		*s = toupper(*s);
+		if (*s == '\\')
+			*s = '/';
+	}
+#endif
+					/* if only drive, colon, & separator */
+	if (strlen(ans) == 3)
+		return(ans);
+					/* zap the trailing separator */
+	if (*--s == '/')
+		*s = '\0';
+	return ans;
+}
+
 int unix_dir_loop(Stream_t *Stream, MainParam_t *mp); 
 int unix_loop(Stream_t *Stream, MainParam_t *mp, char *arg, 
 	      int follow_dir_link);
 
 static int _unix_loop(Stream_t *Dir, MainParam_t *mp, const char *filename)
 {
-	unix_dir_loop(Dir, mp);
-	return GOT_ONE;
+	return unix_dir_loop(Dir, mp);
 }
 
 int unix_loop(Stream_t *Stream, MainParam_t *mp, char *arg, int follow_dir_link)
@@ -56,10 +110,12 @@ int unix_loop(Stream_t *Stream, MainParam_t *mp, char *arg, int follow_dir_link)
 		}
 		GET_DATA(mp->File, 0, 0, &isdir, 0);
 		if(isdir) {
+#if !defined(__EMX__) && !defined(OS_mingw32msvc)
 			struct MT_STAT buf;
+#endif
 
 			FREE(&mp->File);
-#ifndef __EMX__
+#if !defined(__EMX__) && !defined(OS_mingw32msvc)
 			if(!follow_dir_link &&
 			   MT_LSTAT(arg, &buf) == 0 &&
 			   S_ISLNK(buf.st_mode)) {
@@ -328,7 +384,7 @@ static int recurs_dos_loop(MainParam_t *mp, const char *filename0,
 		return ERROR_ONE;
 	if(got_signal)
 		return ret | ERROR_ONE;
-	if(doing_mcwd & !have_one)
+	if(doing_mcwd && !have_one)
 		return NO_CWD;
 	return ret;
 }
@@ -338,7 +394,7 @@ static int common_dos_loop(MainParam_t *mp, const char *pathname,
 
 {
 	Stream_t *RootDir;
-	char *cwd;
+	const char *cwd;
 	char drive;
 
 	int ret;
@@ -355,13 +411,13 @@ static int common_dos_loop(MainParam_t *mp, const char *pathname,
 		drive = mp->mcwd[0];
 		cwd = mp->mcwd+2;
 	} else {
-		drive = 'A';
+		drive = get_default_drive();
 	}
 
 	if(*pathname=='/') /* absolute path name */
 		cwd = "";
 
-	RootDir = mp->File = open_root_dir(drive, open_mode);
+	RootDir = mp->File = open_root_dir(drive, open_mode, NULL);
 	if(!mp->File)
 		return ERROR_ONE;
 
@@ -423,7 +479,7 @@ static int dos_target_lookup(MainParam_t *mp, const char *arg)
 	}
 }
 
-int unix_target_lookup(MainParam_t *mp, const char *arg)
+static int unix_target_lookup(MainParam_t *mp, const char *arg)
 {
 	char *ptr;
 	mp->unixTarget = strdup(arg);
@@ -444,7 +500,12 @@ int unix_target_lookup(MainParam_t *mp, const char *arg)
 
 int target_lookup(MainParam_t *mp, const char *arg)
 {
-	if((mp->lookupflags & NO_UNIX) || (arg[0] && arg[1] == ':' ))
+	if((mp->lookupflags & NO_UNIX) || (arg[0]
+#ifdef OS_mingw32msvc
+/* On Windows, support only the command-line image drive. */
+                                           && arg[0] == ':' 
+#endif
+                                           && arg[1] == ':' ))
 		return dos_target_lookup(mp, arg);
 	else
 		return unix_target_lookup(mp, arg);
@@ -468,7 +529,12 @@ int main_loop(MainParam_t *mp, char **argv, int argc)
 		mp->originalArg = argv[i];
 		mp->basenameHasWildcard = strpbrk(_basename(mp->originalArg), 
 						  "*[?") != 0;
-		if (mp->unixcallback && (!argv[i][0] || argv[i][1] != ':' ))
+		if (mp->unixcallback && (!argv[i][0]
+#ifdef OS_mingw32msvc
+/* On Windows, support only the command-line image drive. */
+                                         || argv[i][0] != ':' 
+#endif
+                                         || argv[i][1] != ':' ))
 			ret = unix_loop(0, mp, argv[i], 1);
 		else
 			ret = dos_loop(mp, argv[i]);

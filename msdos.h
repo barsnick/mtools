@@ -8,7 +8,9 @@
 #define MAX_SECTOR	8192   		/* largest sector size */
 #define MDIR_SIZE	32		/* MSDOS directory entry size in bytes*/
 #define MAX_CLUSTER	8192		/* largest cluster size */
+#ifndef MAX_PATH
 #define MAX_PATH	128		/* largest MSDOS path length */
+#endif
 #define MAX_DIR_SECS	64		/* largest directory (in sectors) */
 #define MSECTOR_SIZE    msector_size
 
@@ -112,7 +114,7 @@ typedef struct label_blk_t {
 } label_blk_t;
 
 /* FAT32 specific info in the bootsector */
-typedef struct fat32_t {
+struct fat32_t {
 	unsigned char bigFat[4];	/* 36 nb of sectors per FAT */
 	unsigned char extFlags[2];     	/* 40 extension flags */
 	unsigned char fsVersion[2];	/* 42 ? */
@@ -122,7 +124,7 @@ typedef struct fat32_t {
 	unsigned char reserved[6];	/* 52 ? */
 	unsigned char reserved2[6];	/* 52 ? */
 	struct label_blk_t labelBlock;
-} fat32; /* ends at 58 */
+}; /* ends at 58 */
 
 typedef struct oldboot_t {
 	struct label_blk_t labelBlock;
@@ -162,6 +164,8 @@ struct bootsector {
 		struct oldboot_t old;
 	} ext;
 };
+#define MAX_BOOT 4096
+
 
 #define CHAR(x) (boot->x[0])
 #define WORD(x) (_WORD(boot->x))

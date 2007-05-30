@@ -56,15 +56,15 @@ static void usage(void)
  * @returns n.a.
  *
  */
-void do_mclasserase(char drive,int debug)
+static void do_mclasserase(char drive,int debug)
 {
   struct device dev;		/* Device information structure */
-  struct bootsector boot0;
+  unsigned char boot0[MAX_BOOT];
 /* Bootsector information structure
    has to be here. some compilers don't do preprocessor statements if
    they're not in first row.
 */
-#define boot (&boot0)
+  struct bootsector *boot = (struct bootsector *) boot0;
   int media;			/* Just used to enter some in find_device */
   char name[EXPAND_BUF];
   Stream_t *Stream;
@@ -101,7 +101,7 @@ void do_mclasserase(char drive,int debug)
 
   /* Reading parameters from card. Exit with -1 if failed. */
   if(! (Stream = find_device(drive, O_RDONLY, &dev, boot,
-					   name, &media, 0)))
+					   name, &media, 0, NULL)))
 	exit(1);
 
   FREE(&Stream);

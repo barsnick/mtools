@@ -17,10 +17,6 @@
 #include "partition.h"
 #include "llong.h"
 
-#ifndef O_BINARY
-#define O_BINARY 0
-#endif
-
 typedef struct SimpleFile_t {
     Class_t *Class;
     int refs;
@@ -303,7 +299,8 @@ static void scsi_init(SimpleFile_t *This)
    }
 }
 
-int scsi_io(Stream_t *Stream, char *buf,  mt_off_t where, size_t len, int rwcmd)
+static int scsi_io(Stream_t *Stream, char *buf,
+		   mt_off_t where, size_t len, int rwcmd)
 {
 	unsigned int firstblock, nsect;
 	int clen,r;
@@ -419,7 +416,7 @@ int scsi_io(Stream_t *Stream, char *buf,  mt_off_t where, size_t len, int rwcmd)
 	else return nsect*This->scsi_sector_size-offset;
 }
 
-int scsi_read(Stream_t *Stream, char *buf, mt_off_t where, size_t len)
+static int scsi_read(Stream_t *Stream, char *buf, mt_off_t where, size_t len)
 {
 	
 #ifdef JPD
@@ -428,7 +425,7 @@ int scsi_read(Stream_t *Stream, char *buf, mt_off_t where, size_t len)
 	return scsi_io(Stream, buf, where, len, SCSI_IO_READ);
 }
 
-int scsi_write(Stream_t *Stream, char *buf, mt_off_t where, size_t len)
+static int scsi_write(Stream_t *Stream, char *buf, mt_off_t where, size_t len)
 {
 #ifdef JPD
 	Printf("zip: to write %d bytes at %d\n", len, where);
@@ -593,6 +590,7 @@ APIRET rc;
 	}
 #ifndef __EMX__
 #ifndef __CYGWIN__
+#ifndef OS_mingw32msvc
 	/* lock the device on writes */
 	if (locked && lock_dev(This->fd, mode == O_RDWR, dev)) {
 		if(errmsg)
@@ -611,6 +609,7 @@ APIRET rc;
 		Free(This);
 		return NULL;
 	}
+#endif
 #endif
 #endif
 	/* set default parameters, if needed */
@@ -673,7 +672,8 @@ APIRET rc;
 
 	while(!(mode2 & NO_OFFSET) &&
 	      dev && dev->partition && dev->partition <= 4) {
-		int has_activated, last_end, j;
+		int has_activated;
+		unsigned int last_end, j;
 		unsigned char buf[2048];
 		struct partition *partTable=(struct partition *)(buf+ 0x1ae);
 		size_t partOff;

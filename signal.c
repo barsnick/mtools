@@ -5,7 +5,7 @@
 
 int got_signal = 0;
 
-void signal_handler(int dummy)
+static void signal_handler(int dummy)
 {
 	got_signal = 1;
 #if 0
@@ -28,8 +28,16 @@ int do_gotsignal(char *f, int n)
 void setup_signal(void)
 {
 	/* catch signals */
-	signal(SIGHUP, (SIG_CAST)signal_handler);
-	signal(SIGINT, (SIG_CAST)signal_handler);
-	signal(SIGTERM, (SIG_CAST)signal_handler);
-	signal(SIGQUIT, (SIG_CAST)signal_handler);
+#ifdef SIGHUP
+	signal(SIGHUP, signal_handler);
+#endif
+#ifdef SIGINT
+	signal(SIGINT, signal_handler);
+#endif
+#ifdef SIGTERM
+	signal(SIGTERM, signal_handler);
+#endif
+#ifdef SIGQUIT
+	signal(SIGQUIT, signal_handler);
+#endif
 }

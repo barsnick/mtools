@@ -93,25 +93,25 @@ static int recalcPreallocSize(File_t *This)
 }
 
 static int _loopDetect(unsigned int *oldrel, unsigned int rel, 
-					   unsigned int *oldabs, unsigned int abs)
+		       unsigned int *oldabs, unsigned int absol)
 {
-	if(*oldrel && rel > *oldrel && abs == *oldabs) {
+	if(*oldrel && rel > *oldrel && absol == *oldabs) {
 		fprintf(stderr, "loop detected! oldrel=%d newrel=%d abs=%d\n",
-				*oldrel, rel, abs);
+				*oldrel, rel, absol);
 		return -1;
 	}
 
 	if(rel >= 2 * *oldrel + 1) {
 		*oldrel = rel;
-		*oldabs = abs;
+		*oldabs = absol;
 	}
 	return 0;
 }
 
 
-static int loopDetect(File_t *This, unsigned int rel, unsigned int abs)
+static int loopDetect(File_t *This, unsigned int rel, unsigned int absol)
 {
-	return _loopDetect(&This->loopDetectRel, rel, &This->loopDetectAbs, abs);
+	return _loopDetect(&This->loopDetectRel, rel, &This->loopDetectAbs, absol);
 }
 
 static unsigned int _countBlocks(Fs_t *This, unsigned int block)
@@ -408,7 +408,7 @@ static __inline__ time_t conv_stamp(struct directory *dir)
 		tzone = tz.tz_minuteswest * 60L;
 	}
 #else
-#ifdef HAVE_TZSET
+#if defined HAVE_TZSET && !defined OS_mingw32msvc
 	{
 #if !defined OS_ultrix && !defined OS_cygwin
 		/* Ultrix defines this to be a different type */

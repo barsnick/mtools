@@ -150,12 +150,13 @@ extern unsigned int mtools_no_vfat;
 extern unsigned int mtools_numeric_tail;
 extern unsigned int mtools_dotted_dir;
 extern unsigned int mtools_twenty_four_hour_clock;
-extern char *mtools_date_string;
+extern const char *mtools_date_string;
 extern unsigned int mtools_rate_0, mtools_rate_any;
 extern int mtools_raw_tty;
 
 extern int batchmode;
 
+char get_default_drive(void);
 void set_cmd_line_image(char *img, int flags);
 void read_config(void);
 extern struct device *devices;
@@ -200,7 +201,7 @@ extern const char *progname;
 
 void precmd(struct device *dev);
 
-void print_sector(char *message, unsigned char *data, int size);
+void print_sector(const char *message, unsigned char *data, int size);
 time_t getTimeNow(time_t *now);
 
 #ifdef USING_NEW_VOLD
@@ -224,13 +225,18 @@ int ask_confirmation(const char *, const char *, const char *);
 char *get_homedir(void);
 #define EXPAND_BUF 2048
 const char *expand(const char *, char *);
-const char *fix_mcwd(char *);
 FILE *open_mcwd(const char *mode);
 void unlink_mcwd(void);
 
-int safePopenOut(char **command, char *output, int len);
+#ifndef OS_mingw32msvc
+int safePopenOut(const char **command, char *output, int len);
+#endif
 
 #define ROUND_DOWN(value, grain) ((value) - (value) % (grain))
 #define ROUND_UP(value, grain) ROUND_DOWN((value) + (grain)-1, (grain))
+
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
 
 #endif
