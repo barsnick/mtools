@@ -1,9 +1,26 @@
+/*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #include "sysincludes.h"
 #include "msdos.h"
 #include "stream.h"
 #include "mtools.h"
 #include "file.h"
 #include "fs.h"
+#include "file_name.h"
 
 /* #define DEBUG */
 
@@ -72,7 +89,7 @@ void low_level_dir_write(direntry_t *entry)
  * to a static directory structure.
  */
 
-struct directory *mk_entry(const char *filename, char attr,
+struct directory *mk_entry(const dos_name_t *dn, char attr,
 			   unsigned int fat, size_t size, time_t date,
 			   struct directory *ndir)
 {
@@ -82,8 +99,7 @@ struct directory *mk_entry(const char *filename, char attr,
 	unsigned char year, month_hi, month_low, day;
 
 	now = localtime(&date2);
-	strncpy(ndir->name, filename, 8);
-	strncpy(ndir->ext, filename + 8, 3);
+	dosnameToDirentry(dn, ndir);
 	ndir->attr = attr;
 	ndir->ctime_ms = 0;
 	hour = now->tm_hour << 3;
@@ -103,4 +119,19 @@ struct directory *mk_entry(const char *filename, char attr,
 	set_word(ndir->startHi, fat >> 16);
 	set_dword(ndir->size, size);
 	return ndir;
+}
+
+/*
+ * Make a directory entry from base name. This is supposed to be used
+ * from places such as mmd for making special entries (".", "..", "/", ...)
+ * Thus it doesn't bother with character set conversions
+ */
+struct directory *mk_entry_from_base(const char *base, char attr,
+				     unsigned int fat, size_t size, time_t date,
+				     struct directory *ndir)
+{
+	struct dos_name_t dn;
+	strncpy(dn.base, base, 8);
+	strncpy(dn.ext, "   ", 3);
+	return mk_entry(&dn, attr, fat, size, date, ndir);
 }

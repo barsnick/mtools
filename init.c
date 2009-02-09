@@ -1,4 +1,19 @@
 /*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ *
  * Initialize an MSDOS diskette.  Read the boot sector, and switch to the
  * proper floppy disk device to match the format on the disk.  Sets a bunch
  * of global variables.  Returns 0 on success, or 1 on failure.
@@ -13,6 +28,7 @@
 #include "floppyd_io.h"
 #include "xdf_io.h"
 #include "buffer.h"
+#include "file_name.h"
 
 #define FULL_CYL
 
@@ -43,6 +59,12 @@ static int fs_flush(Stream_t *Stream)
 	return 0;
 }
 
+static doscp_t *get_dosConvert(Stream_t *Stream)
+{
+  DeclareThis(Fs_t);
+  return This->cp;
+}
+
 Class_t FsClass = {
 	read_pass_through, /* read */
 	write_pass_through, /* write */
@@ -50,7 +72,8 @@ Class_t FsClass = {
 	fs_free, /* free */
 	0, /* set geometry */
 	get_data_pass_through,
-	0 /* pre allocate */
+	0, /* pre allocate */
+	get_dosConvert, /* dosconvert */
 };
 
 static int get_media_type(Stream_t *St, struct bootsector *boot)
@@ -107,7 +130,7 @@ Stream_t *find_device(char drive, int mode, struct device *out_dev,
 		if(out_dev->misc_flags & FLOPPYD_FLAG) {
 		    Stream = 0;
 #ifdef USE_FLOPPYD
-		    Stream = FloppydOpen(out_dev, dev, name, mode, 
+		    Stream = FloppydOpen(out_dev, dev, name, mode,
 					 errmsg, 0, 1);
 		    if(Stream && maxSize)
 			*maxSize = max_off_t_31;
@@ -123,12 +146,12 @@ Stream_t *find_device(char drive, int mode, struct device *out_dev,
 		    }
 #endif
 
-		    
+		
 		    if (!Stream)
 			Stream = SimpleFileOpen(out_dev, dev, name,
 						isRop ? mode | O_RDWR: mode,
 						errmsg, 0, 1, maxSize);
-		    
+		
 		    if(Stream) {
 			isRo=0;
 		    } else if(isRop &&
@@ -154,11 +177,11 @@ Stream_t *find_device(char drive, int mode, struct device *out_dev,
 		}
 
 		if((*media= get_media_type(Stream, boot)) <= 0xf0 ){
-			if (boot->jump[2]=='L') 
+			if (boot->jump[2]=='L')
 				sprintf(errmsg,
-					"diskette %c: is Linux LILO, not DOS", 
+					"diskette %c: is Linux LILO, not DOS",
 					drive);
-			else 
+			else
 				sprintf(errmsg,"init %c: non DOS media", drive);
 			continue;
 		}
@@ -169,16 +192,16 @@ Stream_t *find_device(char drive, int mode, struct device *out_dev,
 			if(errno)
 #ifdef HAVE_SNPRINTF
 				snprintf(errmsg, 199,
-					"Can't set disk parameters for %c: %s", 
+					"Can't set disk parameters for %c: %s",
 					drive, strerror(errno));
 #else
 				sprintf(errmsg,
-					"Can't set disk parameters for %c: %s", 
+					"Can't set disk parameters for %c: %s",
 					drive, strerror(errno));
 #endif
 			else
-				sprintf(errmsg, 
-					"Can't set disk parameters for %c", 
+				sprintf(errmsg,
+					"Can't set disk parameters for %c",
 					drive);
 			continue;
 		}
@@ -230,7 +253,7 @@ Stream_t *fs_init(char drive, int mode, int *isRop)
 	This->drive = drive;
 	This->last = 0;
 
-	This->Direct = find_device(drive, mode, &dev, boot, name, &media, 
+	This->Direct = find_device(drive, mode, &dev, boot, name, &media,
 				   &maxSize, isRop);
 	if(!This->Direct)
 		return NULL;
@@ -244,7 +267,7 @@ Stream_t *fs_init(char drive, int mode, int *isRop)
 	i = log_2(This->sector_size);
 
 	if(i == 24) {
-		fprintf(stderr, 
+		fprintf(stderr,
 			"init %c: sector size (%d) not a small power of two\n",
 			drive, This->sector_size);
 		return NULL;
@@ -271,7 +294,7 @@ Stream_t *fs_init(char drive, int mode, int *isRop)
 	} else {
 		struct label_blk_t *labelBlock;
 		/*
-		 * all numbers are in sectors, except num_clus 
+		 * all numbers are in sectors, except num_clus
 		 * (which is in clusters)
 		 */
 		tot_sectors = WORD(psect);
@@ -308,7 +331,7 @@ Stream_t *fs_init(char drive, int mode, int *isRop)
 	if(!mtools_skip_check && (tot_sectors % dev.sectors)){
 		fprintf(stderr,
 			"Total number of sectors (%d) not a multiple of"
-			" sectors per track (%d)!\n", tot_sectors,
+			" sectors per track (%d)!\n", (int) tot_sectors,
 			dev.sectors);
 		fprintf(stderr,
 			"Add mtools_skip_check=1 to your .mtoolsrc file "
@@ -368,6 +391,16 @@ Stream_t *fs_init(char drive, int mode, int *isRop)
 		Free(This->Next);
 		return NULL;
 	}
+
+	/* Set the codepage */
+	This->cp = cp_open(dev.codepage);
+	if(This->cp == NULL) {
+		fs_free((Stream_t *)This);
+		FREE(&This->Next);
+		Free(This->Next);
+		return NULL;
+	}
+
 	return (Stream_t *) This;
 }
 

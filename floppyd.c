@@ -1,4 +1,19 @@
 /*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ *
  * the floppyd daemon running on the local X-Server
  *
  * written by:
@@ -780,7 +795,7 @@ int main (int argc, char** argv)
 
 	char *server_hostname=NULL;
 	char **device_name = NULL; 
-	char *floppy0 = "/dev/fd0";
+	const char *floppy0 = "/dev/fd0";
 	int n_dev;
 
 
@@ -825,7 +840,7 @@ int main (int argc, char** argv)
 		device_name = argv + optind;
 		n_dev = argc - optind;
 	} else {
-		device_name = &floppy0;
+		device_name = (char **)&floppy0;
 		n_dev = 1;
 	}
 
