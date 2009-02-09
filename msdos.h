@@ -2,6 +2,21 @@
 #define MTOOLS_MSDOS_H
 
 /*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ *
  * msdos common header file
  */
 
@@ -145,13 +160,13 @@ typedef struct oldboot_t {
 
 struct bootsector {
 	unsigned char jump[3];		/* 0  Jump to boot code */
-	char banner[8] PACKED;	       	/* 3  OEM name & version */
-	unsigned char secsiz[2] PACKED;	/* 11 Bytes per sector hopefully 512 */
+	char banner[8];	       		/* 3  OEM name & version */
+	unsigned char secsiz[2];	/* 11 Bytes per sector hopefully 512 */
 	unsigned char clsiz;    	/* 13 Cluster size in sectors */
 	unsigned char nrsvsect[2];	/* 14 Number of reserved (boot) sectors */
 	unsigned char nfat;		/* 16 Number of FAT tables hopefully 2 */
-	unsigned char dirents[2] PACKED;/* 17 Number of directory slots */
-	unsigned char psect[2] PACKED; 	/* 19 Total sectors on disk */
+	unsigned char dirents[2];	/* 17 Number of directory slots */
+	unsigned char psect[2]; 	/* 19 Total sectors on disk */
 	unsigned char descr;		/* 21 Media descriptor=first byte of FAT */
 	unsigned char fatlen[2];	/* 22 Sectors in FAT */
 	unsigned char nsect[2];		/* 24 Sectors/track */
@@ -164,6 +179,9 @@ struct bootsector {
 		struct oldboot_t old;
 	} ext;
 };
+
+#define uchr(boot) ((unsigned char*)boot)
+
 #define MAX_BOOT 4096
 
 

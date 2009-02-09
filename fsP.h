@@ -1,12 +1,28 @@
 #ifndef MTOOLS_FSP_H
 #define MTOOLS_FSP_H
 
+/*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #include "stream.h"
 #include "msdos.h"
 #include "fs.h"
 
-typedef enum fatAccessMode_t { 
-	FAT_ACCESS_READ, 
+typedef enum fatAccessMode_t {
+	FAT_ACCESS_READ,
 	FAT_ACCESS_WRITE
 } fatAccessMode_t;
 
@@ -59,6 +75,8 @@ typedef struct Fs_t {
 	fatAccessMode_t lastFatAccessMode;
 	int sectorMask;
 	int sectorShift;
+
+	doscp_t *cp;
 } Fs_t;
 
 int fs_free(Stream_t *Stream);

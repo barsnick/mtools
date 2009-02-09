@@ -1,4 +1,19 @@
 /*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ *
  * mformat.c
  */
 
@@ -21,6 +36,7 @@
 #include "xdf_io.h"
 #endif
 #include "partition.h"
+#include "file_name.h"
 
 #ifndef abs
 #define abs(x) ((x)>0?(x):-(x))
@@ -78,15 +94,15 @@ static int init_geometry_boot(struct bootsector *boot, struct device *dev,
 
 		/* Infp0 */
 		set_word(boot->ext.old.Infp0, i);
-		boot->jump[i++] = sectors0;
-		boot->jump[i++] = 108;
+		uchr(boot)[i++] = sectors0;
+		uchr(boot)[i++] = 108;
 		for(j=1; j<= sectors0; j++)
-			boot->jump[i++] = j;
+			uchr(boot)[i++] = j;
 
 		set_word(boot->ext.old.InfpX, i);
 		
-		boot->jump[i++] = 64;
-		boot->jump[i++] = 3;
+		uchr(boot)[i++] = 64;
+		uchr(boot)[i++] = 3;
 		nb_renum = i++;
 		sector2 = dev->sectors;
 		size2 = dev->ssize;
@@ -94,12 +110,12 @@ static int init_geometry_boot(struct bootsector *boot, struct device *dev,
 		while( sector2 ){
 			while ( sector2 < (1 << size2) >> 2 )
 				size2--;
-			boot->jump[i++] = 128 + j;
-			boot->jump[i++] = j++;
-			boot->jump[i++] = size2;
+			uchr(boot)[i++] = 128 + j;
+			uchr(boot)[i++] = j++;
+			uchr(boot)[i++] = size2;
 			sector2 -= (1 << size2) >> 2;
 		}
-		boot->jump[nb_renum] = ( i - nb_renum - 1 ) / 3;
+		uchr(boot)[nb_renum] = ( i - nb_renum - 1 ) / 3;
 
 		set_word(boot->ext.old.InfTm, i);
 
@@ -108,7 +124,7 @@ static int init_geometry_boot(struct bootsector *boot, struct device *dev,
 		while(sector2){
 			while ( sector2 < 1 << ( size2 - 2) )
 				size2--;
-			boot->jump[i++] = size2;
+			uchr(boot)[i++] = size2;
 			sector2 -= 1 << (size2 - 2 );
 		}
 		
@@ -117,7 +133,7 @@ static int init_geometry_boot(struct bootsector *boot, struct device *dev,
 
 		/* checksum */		
 		for (sum=0, j=64; j<i; j++) 
-			sum += boot->jump[j];/* checksum */
+			sum += uchr(boot)[j];/* checksum */
 		boot->ext.old.CheckSum=-sum;
 		return bootOffset;
 	} else {
@@ -125,7 +141,7 @@ static int init_geometry_boot(struct bootsector *boot, struct device *dev,
 			boot->jump[0] = 0xeb;
 			boot->jump[1] = 0;
 			boot->jump[2] = 0x90;
-			strncpy(boot->banner, "MTOO3911", 8);
+			strncpy(boot->banner, "MTOOL403", 8);
 			/* It looks like some versions of DOS are
 			 * rather picky about this, and assume default
 			 * parameters without this, ignoring any
@@ -241,7 +257,7 @@ static void calc_fat_bits2(Fs_t *Fs, unsigned long tot_sectors, int fat_bits,
 				   <= MAX_BYTES_PER_CLUSTER)
 					Fs->cluster_size <<= 1;
 				else if(may_change_root_size) {
-					Fs->dir_len += 
+					Fs->dir_len +=
 						rem_sect - MY_DISK_SIZE(12, FAT12-1);
 				}
 				set_fat12(Fs);
@@ -288,9 +304,9 @@ static __inline__ void format_root(Fs_t *Fs, char *label, struct bootsector *boo
 		dirlen = Fs->cluster_size;
 		fatAllocate(Fs, Fs->rootCluster, Fs->end_fat);
 	} else
-		dirlen = Fs->dir_len; 
+		dirlen = Fs->dir_len;
 	for (i = 0; i < dirlen; i++)
-		WRITES(RootDir, buf, sectorsToBytes((Stream_t*)Fs, i),  
+		WRITES(RootDir, buf, sectorsToBytes((Stream_t*)Fs, i),
 			   Fs->sector_size);
 
 	ch.ignore_entry = 1;
@@ -306,7 +322,7 @@ static __inline__ void format_root(Fs_t *Fs, char *label, struct bootsector *boo
 }
 
 
-static void xdf_calc_fat_size(Fs_t *Fs, unsigned long tot_sectors, 
+static void xdf_calc_fat_size(Fs_t *Fs, unsigned long tot_sectors,
 			      int fat_bits)
 {
 	unsigned int rem_sect;
@@ -376,7 +392,7 @@ static void calc_fat_size(Fs_t *Fs, unsigned long tot_sectors)
 
 	fat_nybbles = Fs->fat_bits / 4;
 	numerator   = rem_sect+2*Fs->cluster_size;
-	denominator = 
+	denominator =
 	  Fs->cluster_size * Fs->sector_size * 2 +
 	  Fs->num_fat * fat_nybbles;
 
@@ -402,12 +418,12 @@ static void calc_fat_size(Fs_t *Fs, unsigned long tot_sectors)
 		Fs->num_clus = FAT12-1;
 	
 	/* A safety, if above math is correct, this should not be happen...*/
-	if(Fs->num_clus > (Fs->fat_len * Fs->sector_size * 2 / 
+	if(Fs->num_clus > (Fs->fat_len * Fs->sector_size * 2 /
 			   fat_nybbles - 2)) {
-		fprintf(stderr, 
+		fprintf(stderr,
 			"Fat size miscalculation, shrinking num_clus from %d ",
 			Fs->num_clus);
-		Fs->num_clus = (Fs->fat_len * Fs->sector_size * 2 / 
+		Fs->num_clus = (Fs->fat_len * Fs->sector_size * 2 /
 				fat_nybbles - 2);
 		fprintf(stderr, " to %d\n", Fs->num_clus);
 	}
@@ -429,11 +445,11 @@ static void calc_fat_size(Fs_t *Fs, unsigned long tot_sectors)
 	 * above, we will have to grow the FAT in order to take up any excess
 	 * sectors... */
 #ifdef HAVE_ASSERT_H
-	assert(rem_sect >= Fs->num_clus * Fs->cluster_size + 
+	assert(rem_sect >= Fs->num_clus * Fs->cluster_size +
 	       Fs->fat_len * Fs->num_fat);
 #endif
-	slack = rem_sect - 
-		Fs->num_clus * Fs->cluster_size - 
+	slack = rem_sect -
+		Fs->num_clus * Fs->cluster_size -
 		Fs->fat_len * Fs->num_fat;
 	if(slack >= Fs->cluster_size) {
 		/* This can happen under two circumstances:
@@ -442,10 +458,10 @@ static void calc_fat_size(Fs_t *Fs, unsigned long tot_sectors)
 		*/
 		if(printGrowMsg) {
 			fprintf(stderr, "Slack=%d\n", slack);
-			fprintf(stderr, "Growing fat size from %d", 
+			fprintf(stderr, "Growing fat size from %d",
 				Fs->fat_len);
 		}
-		Fs->fat_len += 
+		Fs->fat_len +=
 			(slack - Fs->cluster_size) / Fs->num_fat + 1;
 		if(printGrowMsg) {
 			fprintf(stderr,
@@ -459,7 +475,7 @@ static void calc_fat_size(Fs_t *Fs, unsigned long tot_sectors)
 
 #ifdef HAVE_ASSERT_H
 	/* Fat must be big enough for all clusters */
-	assert( ((Fs->num_clus+2) * fat_nybbles) <= 
+	assert( ((Fs->num_clus+2) * fat_nybbles) <=
 		(Fs->fat_len*Fs->sector_size*2));
 
 	/* num_clus must be big enough to cover rest of disk, or else further
@@ -480,7 +496,7 @@ static unsigned char bootprog[]=
 
 static __inline__ void inst_boot_prg(struct bootsector *boot, int offset)
 {
-	memcpy((char *) boot->jump + offset, 
+	memcpy((char *) boot->jump + offset,
 	       (char *) bootprog, sizeof(bootprog) /sizeof(bootprog[0]));
 	if(offset - 2 < 0x80) {
 	  /* short jump */
@@ -498,7 +514,7 @@ static __inline__ void inst_boot_prg(struct bootsector *boot, int offset)
 
 static void calc_cluster_size(struct Fs_t *Fs, unsigned long tot_sectors,
 			      int fat_bits)
-			      
+			
 {
 	unsigned int max_clusters; /* maximal possible number of sectors for
 				   * this FAT entry length (12/16/32) */
@@ -510,16 +526,16 @@ static void calc_cluster_size(struct Fs_t *Fs, unsigned long tot_sectors,
 	switch(abs(fat_bits)) {
 		case 12:			
 			max_clusters = FAT12-1;
-			max_fat_size = Fs->num_fat * 
+			max_fat_size = Fs->num_fat *
 				FAT_SIZE(12, Fs->sector_size, max_clusters);
 			break;
 		case 16:
 		case 0: /* still hesititating between 12 and 16 */
 			max_clusters = FAT16-1;
-			max_fat_size = Fs->num_fat * 
+			max_fat_size = Fs->num_fat *
 				FAT_SIZE(16, Fs->sector_size, max_clusters);
 			break;
-		case 32:		  
+		case 32:		
 			Fs->cluster_size = 8;
 			/* According to
 			 * http://support.microsoft.com/support/kb/articles/q154/9/97.asp
@@ -564,8 +580,8 @@ static int old_dos_size_to_geom(size_t size, int *cyls, int *heads, int *sects)
 	unsigned int i;
 	size = size * 2;
 	for(i=0; i < sizeof(old_dos) / sizeof(old_dos[0]); i++){
-		if (old_dos[i].sectors * 
-		    old_dos[i].tracks * 
+		if (old_dos[i].sectors *
+		    old_dos[i].tracks *
 		    old_dos[i].heads == size) {
 			*cyls = old_dos[i].tracks;
 			*heads = old_dos[i].heads;
@@ -588,7 +604,7 @@ static void calc_fs_parameters(struct device *dev, unsigned long tot_sectors,
 		    dev->heads == old_dos[i].heads &&
 		    (dev->fat_bits == 0 || abs(dev->fat_bits) == 12) &&
 		    (Fs->dir_len == 0 || Fs->dir_len == old_dos[i].dir_len) &&
-		    (Fs->cluster_size == 0 || 
+		    (Fs->cluster_size == 0 ||
 		     Fs->cluster_size == old_dos[i].cluster_size)) {
 			boot->descr = old_dos[i].media;
 			Fs->cluster_size = old_dos[i].cluster_size;
@@ -669,9 +685,9 @@ static void calc_fs_parameters_32(unsigned long tot_sectors,
 
 static void usage(void)
 {
-	fprintf(stderr, 
+	fprintf(stderr,
 		"Mtools version %s, dated %s\n", mversion, mdate);
-	fprintf(stderr, 
+	fprintf(stderr,
 		"Usage: %s [-V] [-t tracks] [-h heads] [-n sectors] "
 		"[-v label] [-1] [-4] [-8] [-f size] "
 		"[-N serialnumber] "
@@ -766,7 +782,8 @@ void mformat(int argc, char **argv, int dummy)
 
 	char drive, name[EXPAND_BUF];
 
-	char label[VBUFSIZE], buf[MAX_SECTOR], shortlabel[13];
+	char label[VBUFSIZE], buf[MAX_SECTOR];
+	dos_name_t shortlabel;
 	struct device *dev;
 	char errmsg[200];
 
@@ -775,10 +792,10 @@ void mformat(int argc, char **argv, int dummy)
 	int fsVersion;
 	int mediaDesc=-1;
 
-	mt_off_t maxSize;
+	mt_size_t maxSize;
 
 	int Atari = 0; /* should we add an Atari-style serial number ? */
- 
+
 	hs = hs_set = 0;
 	argtracks = 0;
 	argheads = 0;
@@ -835,7 +852,7 @@ void mformat(int argc, char **argv, int dummy)
 						       &argtracks, &argheads,
 						       &argsectors);
 				if(r) {
-					fprintf(stderr, 
+					fprintf(stderr,
 						"Bad size %s\n", optarg);
 					exit(1);
 				}
@@ -860,7 +877,7 @@ void mformat(int argc, char **argv, int dummy)
 			case 'u':
 			case 'b':
 			/*case 's': leave this for compatibility */
-				fprintf(stderr, 
+				fprintf(stderr,
 					"Flag %c not supported by mtools\n",c);
 				exit(1);
 				
@@ -939,7 +956,7 @@ void mformat(int argc, char **argv, int dummy)
 				Fs.cluster_size = atoi(optarg);
 				break;
 
-			case 'r': 
+			case 'r':
 				Fs.dir_len = strtoul(optarg,0,0);
 				break;
 			case 'L':
@@ -1009,16 +1026,18 @@ void mformat(int argc, char **argv, int dummy)
 #endif
 			Fs.Direct = 0;
 #ifdef USE_FLOPPYD
-			Fs.Direct = FloppydOpen(&used_dev, dev, name, O_RDWR | create,
-									errmsg, 0, 1);
+			Fs.Direct = FloppydOpen(&used_dev, dev, name,
+						O_RDWR | create,
+						errmsg, 0, 1);
 			if(Fs.Direct) {
 				maxSize = max_off_t_31;
 			}
 #endif
 			if(!Fs.Direct) {			
 				Fs.Direct = SimpleFileOpen(&used_dev, dev, name,
-										   O_RDWR | create,
-										   errmsg, 0, 1, &maxSize);
+							   O_RDWR | create,
+							   errmsg, 0, 1,
+							   &maxSize);
 			}
 #ifdef USE_XDF
 		} else {
@@ -1054,7 +1073,7 @@ void mformat(int argc, char **argv, int dummy)
 
 		/* no way to find out geometry */
 		if (!used_dev.tracks || !used_dev.heads || !used_dev.sectors){
-			sprintf(errmsg, 
+			sprintf(errmsg,
 				"Unknown geometry "
 				"(You must tell the complete geometry "
 				"of the disk, \neither in /etc/mtools.conf or "
@@ -1065,7 +1084,7 @@ void mformat(int argc, char **argv, int dummy)
 #if 0
 		/* set parameters, if needed */
 		if(SET_GEOM(Fs.Direct, &used_dev, 0xf0, boot)){
-			sprintf(errmsg,"Can't set disk parameters: %s", 
+			sprintf(errmsg,"Can't set disk parameters: %s",
 				strerror(errno));
 			continue;
 		}
@@ -1097,9 +1116,9 @@ void mformat(int argc, char **argv, int dummy)
 
 		/* do a "test" read */
 		if (!create &&
-		    READS(Fs.Direct, (char *) buf, 0, Fs.sector_size) != 
+		    READS(Fs.Direct, (char *) buf, 0, Fs.sector_size) !=
 		    (signed int) Fs.sector_size) {
-			sprintf(errmsg, 
+			sprintf(errmsg,
 				"Error reading from '%s', wrong parameters?",
 				name);
 			continue;
@@ -1201,7 +1220,12 @@ void mformat(int argc, char **argv, int dummy)
 		labelBlock = & boot->ext.old.labelBlock;
 
 	}
-	
+
+	/* Set the codepage */
+	Fs.cp = cp_open(used_dev.codepage);
+	if(Fs.cp == NULL)
+		exit(1);
+
 	if (!keepBoot)
 		/* only zero out physdrive if we don't have a template
 		 * bootsector */
@@ -1214,11 +1238,9 @@ void mformat(int argc, char **argv, int dummy)
 	if (!serial_set)
 		serial=random();
 	set_dword(labelBlock->serial, serial);	
-	if(!label[0])
-		strncpy(shortlabel, "NO NAME    ",11);
-	else
-		label_name(label, 0, &mangled, shortlabel);
-	strncpy(labelBlock->label, shortlabel, 11);
+	label_name(GET_DOSCONVERT((Stream_t *)&Fs),
+		   label[0] ? label : "NO NAME    ", 0, &mangled, &shortlabel);
+	strncpy(labelBlock->label, shortlabel.base, 11);
 	sprintf(labelBlock->fat_type, "FAT%2.2d  ", Fs.fat_bits);
 	labelBlock->fat_type[7] = ' ';
 
@@ -1226,7 +1248,7 @@ void mformat(int argc, char **argv, int dummy)
 	boot->clsiz = (unsigned char) Fs.cluster_size;
 	set_word(boot->nrsvsect, Fs.fat_start);
 
-	bootOffset = init_geometry_boot(boot, &used_dev, sectors0, 
+	bootOffset = init_geometry_boot(boot, &used_dev, sectors0,
 					rate_0, rate_any,
 					&tot_sectors, keepBoot);
 	if(!bootOffset) {
@@ -1262,8 +1284,8 @@ void mformat(int argc, char **argv, int dummy)
 
 #ifdef USE_XDF
 	if(format_xdf)
-		for(i=0; 
-		    i < (info.BadSectors+Fs.cluster_size-1)/Fs.cluster_size; 
+		for(i=0;
+		    i < (info.BadSectors+Fs.cluster_size-1)/Fs.cluster_size;
 		    i++)
 			fatEncode(&Fs, i+2, 0xfff7);
 #endif
@@ -1271,11 +1293,11 @@ void mformat(int argc, char **argv, int dummy)
 	format_root(&Fs, label, boot);
 	WRITES((Stream_t *)&Fs, (char *) boot, (mt_off_t) 0, Fs.sector_size);
 	if(Fs.fat_bits == 32 && WORD(ext.fat32.backupBoot) != MAX16) {
-		WRITES((Stream_t *)&Fs, (char *) boot, 
+		WRITES((Stream_t *)&Fs, (char *) boot,
 		       sectorsToBytes((Stream_t*)&Fs, WORD(ext.fat32.backupBoot)),
 		       Fs.sector_size);
 	}
-	FLUSH((Stream_t *)&Fs); /* flushes Fs. 
+	FLUSH((Stream_t *)&Fs); /* flushes Fs.
 				 * This triggers the writing of the FAT */
 	FREE(&Fs.Next);
 	Fs.Class->freeFunc((Stream_t *)&Fs);

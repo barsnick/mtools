@@ -1,4 +1,19 @@
 /*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ *
  * mdir.c:
  * Display an MSDOS directory
  */
@@ -11,6 +26,7 @@
 #include "mainloop.h"
 #include "fs.h"
 #include "codepage.h"
+#include "file_name.h"
 
 #ifdef TEST_SIZE
 #include "fsP.h"
@@ -24,7 +40,8 @@ static int fast=0;
 #if 0
 static int testmode = 0;
 #endif
-static char *dirPath;
+static const char *dirPath;
+static char *dynDirPath;
 static char currentDrive;
 static Stream_t *currentDir;
 
@@ -280,7 +297,7 @@ static int enterDrive(Stream_t *Dir, char drive)
 	return 0;
 }
 
-static char *emptyString="<out-of-memory>";
+static const char *emptyString="<out-of-memory>";
 
 static void leaveDirectory(int haveError)
 {
@@ -289,7 +306,7 @@ static void leaveDirectory(int haveError)
 
 	if (!haveError) {
 		if(dirPath && dirPath != emptyString)
-			free(dirPath);
+			free(dynDirPath);
 		if(wide)
 			putchar('\n');
 		
@@ -314,11 +331,14 @@ static int enterDirectory(Stream_t *Dir)
 		return r;
 	currentDir = COPY(Dir);
 
-	dirPath = getPwd(getDirentry(Dir));
-	if(!dirPath)
+	dynDirPath = getPwd(getDirentry(Dir));
+	if(!dynDirPath)
 		dirPath=emptyString;
-	if(!dirPath[3] && concise)
-		dirPath[2]='\0';
+	else {
+		if(!dynDirPath[3] && concise)
+			dynDirPath[2]='\0';
+		dirPath=dynDirPath;
+	}
 
 	/* print directory title */
 	if(!concise)
@@ -340,10 +360,14 @@ static int list_file(direntry_t *entry, MainParam_t *mp)
 	int Case;
 	int r;
 
+	wchar_t ext[4];
+	wchar_t name[9];
+	doscp_t *cp;
+
 	if(!all && (entry->dir.attr & 0x6))
 		return 0;
 
-	if(concise && isSpecial(entry->name))
+	if(concise && isSpecialW(entry->name))
 		return 0;
 
 	r=enterDirectory(entry->Dir);
@@ -366,16 +390,19 @@ static int list_file(direntry_t *entry, MainParam_t *mp)
 	   mtools_ignore_short_case)
 		Case |= BASECASE | EXTCASE;
 	
+	cp = GET_DOSCONVERT(entry->Dir);
+	dos_to_wchar(cp, entry->dir.ext, ext, 3);
 	if(Case & EXTCASE){
 		for(i=0; i<3;i++)
-			entry->dir.ext[i] = tolower(entry->dir.ext[i]);
+			ext[i] = towlower(ext[i]);
 	}
-	to_unix(entry->dir.ext,3);
+	ext[3] = '\0';
+	dos_to_wchar(cp, entry->dir.name, name, 8);
 	if(Case & BASECASE){
 		for(i=0; i<8;i++)
-			entry->dir.name[i] = tolower(entry->dir.name[i]);
+			name[i] = towlower(name[i]);
 	}
-	to_unix(entry->dir.name,8);
+	name[8]='\0';
 	if(wide){
 		if(IS_DIR(entry))
 			printf("[%s]%*s", global_shortname,
@@ -383,13 +410,16 @@ static int list_file(direntry_t *entry, MainParam_t *mp)
 		else
 			printf("%-15s", global_shortname);
 	} else if(!concise) {				
+		char tmpBasename[4*8+1];
+		char tmpExt[4*8+1];
+		wchar_to_native(name,tmpBasename,8);
+		wchar_to_native(ext,tmpExt,3);
+
 		/* is a subdirectory */
 		if(mtools_dotted_dir)
-			printf("%-13s", global_shortname);
+			printf("%s", global_shortname);
 		else
-			printf("%-8.8s %-3.3s ",
-			       entry->dir.name, 
-			       entry->dir.ext);
+			printf("%s %s ", tmpBasename, tmpExt);
 		if(IS_DIR(entry))
 			printf("<DIR>    ");
 		else
@@ -400,13 +430,16 @@ static int list_file(direntry_t *entry, MainParam_t *mp)
 		print_time(&entry->dir);
 
 		if(debug)
-			printf(" %s %d ", entry->dir.name, START(&entry->dir));
+			printf(" %s %d ", tmpBasename, START(&entry->dir));
 		
 		if(*global_longname)
 			printf(" %s", global_longname);
 		printf("\n");
 	} else {
-		printf("%s/%s", dirPath, entry->name);
+		char tmp[4*MAX_VNAMELEN+1];
+		wchar_to_native(entry->name,tmp,MAX_VNAMELEN);
+
+		printf("%s/%s", dirPath, tmp);
 		if(IS_DIR(entry))
 			putchar('/');
 		putchar('\n');
@@ -499,8 +532,8 @@ void mdir(int argc, char **argv, int type)
 	MainParam_t mp;
 	int faked;
 	int c;
-	char *fakedArgv[] = { "." };
-	
+	const char *fakedArgv[] = { "." };
+
 	concise = 0;
 	recursive = 0;
 	wide = all = 0;
@@ -544,7 +577,7 @@ void mdir(int argc, char **argv, int type)
 	/* fake an argument */
 	faked = 0;
 	if (optind == argc) {
-		argv = fakedArgv;
+		argv = (char **)fakedArgv;
 		argc = 1;
 		optind = 0;
 	}

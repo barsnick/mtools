@@ -1,6 +1,23 @@
 #ifndef MTOOLS_NAMECLASH_H
 #define MTOOLS_NAMECLASH_H
 
+/*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "stream.h"
 
 typedef enum clash_action {
@@ -34,12 +51,13 @@ typedef struct ClashHandling_t {
 	int source; /* to prevent the source from overwriting itself */
 	int source_entry; /* to account for the space freed up by the original 
 					   * name */
-	char * (*name_converter)(char *filename, int verbose, 
-				 int *mangled, char *ans);
+	void (*name_converter)(doscp_t *cp,
+			       const char *filename, int verbose, 
+			       int *mangled, dos_name_t *ans);
 } ClashHandling_t;
 
 /* write callback */
-typedef int (write_data_callback)(char *,char *, void *, struct direntry_t *);
+typedef int (write_data_callback)(dos_name_t *,char *, void *, struct direntry_t *);
 
 int mwrite_one(Stream_t *Dir,
 	       const char *argname,

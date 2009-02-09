@@ -1,3 +1,20 @@
+/*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "sysincludes.h"
 #include "msdos.h"
 #include "mtools.h"
@@ -42,8 +59,15 @@ static const struct dispatch {
 
 int main(int argc,char **argv)
 {
-	const char *name;
 	unsigned int i;
+	const char *name;
+
+#ifdef HAVE_SETLOCALE
+	char *locale;
+	locale=setlocale(LC_ALL, "");
+	if(locale == NULL || !strcmp(locale, "C"))
+		setlocale(LC_ALL, "en_US");
+#endif
 
 	init_privs();
 #ifdef __EMX__

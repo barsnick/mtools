@@ -1,6 +1,23 @@
 #ifndef MTOOLS_VFAT_H
 #define MTOOLS_VFAT_H
 
+/*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "msdos.h"
 
 /*
@@ -9,9 +26,9 @@
 #define VFAT_SUPPORT
 
 struct unicode_char {
-	char lchar;
-	char uchar;
-} PACKED;
+	unsigned char lchar;
+	unsigned char uchar;
+};
 
 
 /* #define MAX_VFAT_SUBENTRIES 32 */ /* Theoretical max # of VSEs */
@@ -26,14 +43,14 @@ struct unicode_char {
 
 struct vfat_subentry {
 	unsigned char id;		/* 0x40 = last; & 0x1f = VSE ID */
-	struct unicode_char text1[VSE1SIZE] PACKED;
+	struct unicode_char text1[VSE1SIZE];
 	unsigned char attribute;	/* 0x0f for VFAT */
 	unsigned char hash1;		/* Always 0? */
 	unsigned char sum;		/* Checksum of short name */
-	struct unicode_char text2[VSE2SIZE] PACKED;
+	struct unicode_char text2[VSE2SIZE];
 	unsigned char sector_l;		/* 0 for VFAT */
 	unsigned char sector_u;		/* 0 for VFAT */
-	struct unicode_char text3[VSE3SIZE] PACKED;
+	struct unicode_char text3[VSE3SIZE];
 };
 
 /* Enough size for a worst case number of full VSEs plus a null */
@@ -47,7 +64,7 @@ struct vfat_subentry {
 #define VSE_MASK 0x1f
 
 struct vfat_state {
-	char name[VBUFSIZE];
+	wchar_t name[VBUFSIZE];
 	int status; /* is now a bit map of 32 bits */
 	int subentries;
 	unsigned char sum; /* no need to remember the sum for each entry,
@@ -71,10 +88,10 @@ struct scan_state {
 #include "mtoolsDirentry.h"
 
 void clear_vfat(struct vfat_state  *);
-int unicode_write(char *, struct unicode_char *, int num, int *end);
+int unicode_write(wchar_t *, struct unicode_char *, int num, int *end);
 
 int clear_vses(Stream_t *, int, size_t);
-void autorename_short(char *, int);
+void autorename_short(struct dos_name_t *, int);
 void autorename_long(char *, int);
 
 #define DO_OPEN 1 /* open all files that are found */

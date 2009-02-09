@@ -1,21 +1,19 @@
-/* Copyright (C) 1991 Free Software Foundation, Inc.
-This file contains excerpts of the GNU C Library.
-
-The GNU C Library is free software; you can redistribute it and/or
-modify it under the terms of the GNU Library General Public License as
-published by the Free Software Foundation; either version 2 of the
-License, or (at your option) any later version.
-
-The GNU C Library is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-Library General Public License for more details.
-
-You should have received a copy of the GNU Library General Public
-License along with the GNU C Library; see the file COPYING.LIB.  If
-not, write to the Free Software Foundation, Inc., 675 Mass Ave,
-Cambridge, MA 02139, USA.  */
-
+/*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ */
 #include "sysincludes.h"
 #include "mtools.h"
 
@@ -44,6 +42,30 @@ char *strdup(const char *str)
 }
 #endif /* HAVE_STRDUP */
 
+#ifdef HAVE_WCHAR_H
+#ifndef HAVE_WCSDUP
+wchar_t *wcsdup(const wchar_t *wcs)
+{
+    wchar_t *nwcs;
+
+    if (wcs == (wchar_t*)0)
+        return 0;
+
+    nwcs = (wchar_t*)calloc(wcslen(wcs) + 1, sizeof(wchar_t));
+
+    if (nwcs == (wchar_t*)0)
+    {
+        (void)fprintf(stderr, "wcsdup(): not enough memory to duplicate `%ls'\n",
+		      wcs);
+	exit(1);
+    }
+
+    (void)wcscpy(nwcs, wcs);
+
+    return nwcs;
+}
+#endif /* HAVE_WCSDUP */
+#endif
 
 #ifndef HAVE_MEMCPY
 /*
@@ -280,6 +302,33 @@ int strcasecmp(const char *s1, const char *s2)
 }
 #endif
 
+#ifdef HAVE_WCHAR_H
+#ifndef HAVE_WCSCASECMP
+/* Compare S1 and S2, ignoring case, returning less than, equal to or
+   greater than zero if S1 is lexiographically less than,
+   equal to or greater than S2.  */
+int wcscasecmp(const wchar_t *s1, const wchar_t *s2)
+{
+  register const wchar_t *p1 = s1;
+  register const wchar_t *p2 = s2;
+  wchar_t c1, c2;
+
+  if (p1 == p2)
+    return 0;
+
+  do
+    {
+      c1 = towlower (*p1++);
+      c2 = towlower (*p2++);
+      if (c1 == '\0')
+	break;
+    }
+  while (c1 == c2);
+
+  return c1 - c2;
+}
+#endif
+#endif
 
 
 #ifndef HAVE_STRCASECMP
@@ -397,3 +446,29 @@ void _stripexe(char *filename)
 	if(ptr && !strcasecmp(ptr, ".exe"))
 		*ptr = '\0';
 }
+
+#ifndef HAVE_STRNLEN
+size_t strnlen(const char *str, size_t l)
+{
+  size_t i;
+  for(i=0; i<l; i++) {
+    if(str[i] == 0)
+      break;
+  }
+  return i;
+}
+#endif /* HAVE_STRNLEN */
+
+#ifdef HAVE_WCHAR_H
+#ifndef HAVE_WCSNLEN
+size_t wcsnlen(const wchar_t *wcs, size_t l)
+{
+  size_t i;
+  for(i=0; i<l; i++) {
+    if(wcs[i] == 0)
+      break;
+  }
+  return i;
+}
+#endif /* HAVE_WCSNLEN */
+#endif

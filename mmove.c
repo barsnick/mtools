@@ -1,4 +1,19 @@
 /*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ *
  * mmove.c
  * Renames/moves an MSDOS file
  *
@@ -35,7 +50,7 @@ typedef struct Arg_t {
  * Open the named file for read, create the cluster chain, return the
  * directory structure or NULL on error.
  */
-static int renameit(char *dosname,
+static int renameit(dos_name_t *dosname,
 		    char *longname,
 		    void *arg0,
 		    direntry_t *targetEntry)
@@ -44,8 +59,7 @@ static int renameit(char *dosname,
 	int fat;
 
 	targetEntry->dir = arg->entry->dir;
-	strncpy(targetEntry->dir.name, dosname, 8);
-	strncpy(targetEntry->dir.ext, dosname + 8, 3);
+	dosnameToDirentry(dosname, &targetEntry->dir);
 
 	if(IS_DIR(targetEntry)) {
 		direntry_t *movedEntry;
@@ -275,7 +289,7 @@ void mmove(int argc, char **argv, int oldsyntax)
 	if (oldsyntax && (argc - optind != 2 || strpbrk(":/", argv[argc-1])))
 		oldsyntax = 0;
 
-	arg.mp.lookupflags = 
+	arg.mp.lookupflags =
 	  ACCEPT_PLAIN | ACCEPT_DIR | DO_OPEN_DIRS | NO_DOTS | NO_UNIX;
 
 	if (!oldsyntax){

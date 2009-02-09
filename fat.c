@@ -1,8 +1,26 @@
+/*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "sysincludes.h"
 #include "msdos.h"
 #include "stream.h"
 #include "mtools.h"
 #include "fsP.h"
+#include "file_name.h"
 
 #ifdef HAVE_LONG_LONG
 typedef long long fatBitMask;
@@ -976,5 +994,7 @@ int fs_free(Stream_t *Stream)
 				free(This->FatMap[i].data);		
 		free(This->FatMap);
 	}
+	if(This->cp)
+		cp_close(This->cp);
 	return 0;
 }

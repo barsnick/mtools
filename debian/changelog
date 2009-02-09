@@ -1,0 +1,38 @@
+mtools (4.0.3) stable; urgency=low
+
+  * Fix multipart pathname parsing bug in vfat.c (forgot limited length)
+  * Supplied fallback define for putwc
+  * Copyright notices in all sources
+
+ -- Alain Knaff <alain@knaff.lu>  Mon,  9 Feb 2009 21:46:01 +0100
+mtools (4.0.2) stable; urgency=low
+
+  * Fixed off-by-2 error in unix_name in file_name.c
+
+ -- Alain Knaff <alain@knaff.lu>  Mon, 26 Jan 2009 22:58:06 +0100
+mtools (4.0.1) stable; urgency=low
+
+  * Missing functions on Solaris 
+
+ -- Alain Knaff <alain@knaff.lu>  Sun,  7 Dec 2008 21:38:55 +0100
+mtools (4.0.0) stable; urgency=low
+
+  * Offset for -i-specified image files
+
+ -- Alain Knaff <alain@knaff.lu>  Sat, 29 Nov 2008 09:20:30 +0100
+mtools (4.0.0-pre2) stable; urgency=low
+
+  * Use transliteration to represent characters which don't exist in
+  target set
+
+ -- Alain Knaff <alain@knaff.lu>  Tue, 18 Nov 2008 22:42:23 +0100
+mtools (4.0.0-pre1) stable; urgency=low
+
+  * Unicode support
+
+ -- Alain Knaff <alain@knaff.lu>  Sat,  1 Nov 2008 20:52:58 +0100
+mtools (3.9.11-20071226) stable; urgency=low
+
+  * first release of debian package
+
+ -- Alain Knaff <alain@knaff.lu>  Tue, 28 Aug 2007 23:23:37 +0100

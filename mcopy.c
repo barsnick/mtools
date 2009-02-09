@@ -1,4 +1,19 @@
 /*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ *
  * mcopy.c
  * Copy an MSDOS files to and from Unix
  *
@@ -134,7 +149,7 @@ static int _unix_write(direntry_t *entry, MainParam_t *mp, int needfilter,
 			}
 
 			if( ask_confirmation("File \"%s\" exists, overwrite (y/n) ? ",
-					     unixFile,0)) {
+					     unixFile)) {
 				return ERROR_ONE;
 			}
 			
@@ -270,7 +285,7 @@ static int directory_dos_to_unix(direntry_t *entry, MainParam_t *mp)
  * Open the named file for read, create the cluster chain, return the
  * directory structure or NULL on error.
  */
-static int writeit(char *dosname,
+static int writeit(struct dos_name_t *dosname,
 		   char *longname,
 		   void *arg0,
 		   direntry_t *entry)
@@ -372,7 +387,7 @@ static int dos_write(direntry_t *entry, MainParam_t *mp, int needfilter)
 
 static Stream_t *subDir(Stream_t *parent, const char *filename)
 {
-	direntry_t entry;		
+	direntry_t entry;
 	initializeDirentry(&entry, parent);
 
 	switch(vfat_lookup(&entry, filename, -1, ACCEPT_DIR, 0, 0)) {

@@ -1,4 +1,19 @@
 /*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ *
  * mmd.c
  * Makes an MSDOS directory
  */
@@ -42,7 +57,7 @@ typedef struct CreateArg_t {
  * Open the named file for read, create the cluster chain, return the
  * directory structure or NULL on error.
  */
-static int makeit(char *dosname,
+static int makeit(dos_name_t *dosname,
 		  char *longname,
 		  void *arg0,
 		  direntry_t *targetEntry)
@@ -72,16 +87,16 @@ static int makeit(char *dosname,
 	if (fat == fat32RootCluster(targetEntry->Dir)) {
 	    fat = 0;
 	}
-	mk_entry("..         ", ATTR_DIR, fat, 0, arg->mtime, &subEntry.dir);
+	mk_entry_from_base("..      ", ATTR_DIR, fat, 0, arg->mtime, &subEntry.dir);
 	dir_write(&subEntry);
 
 	FLUSH((Stream_t *) Target);
 	subEntry.entry = 0;
 	GET_DATA(Target, 0, 0, 0, &fat);
-	mk_entry(".          ", ATTR_DIR, fat, 0, arg->mtime, &subEntry.dir);
+	mk_entry_from_base(".       ", ATTR_DIR, fat, 0, arg->mtime, &subEntry.dir);
 	dir_write(&subEntry);
 
-	mk_entry(dosname, ATTR_DIR | arg->attr, fat, 0, arg->mtime, 
+	mk_entry(dosname, ATTR_DIR | arg->attr, fat, 0, arg->mtime,
 		 &targetEntry->dir);
 	arg->NewDir = Target;
 	return 0;
@@ -95,12 +110,12 @@ static void usage(void)
 	fprintf(stderr,
 		"Usage: %s [-D clash_option] file targetfile\n", progname);
 	fprintf(stderr,
-		"       %s [-D clash_option] file [files...] target_directory\n", 
+		"       %s [-D clash_option] file [files...] target_directory\n",
 		progname);
 	exit(1);
 }
 
-Stream_t *createDir(Stream_t *Dir, const char *filename, ClashHandling_t *ch, 
+Stream_t *createDir(Stream_t *Dir, const char *filename, ClashHandling_t *ch,
 					unsigned char attr, time_t mtime)
 {
 	CreateArg_t arg;
@@ -113,7 +128,7 @@ Stream_t *createDir(Stream_t *Dir, const char *filename, ClashHandling_t *ch,
 	if (!getfreeMinClusters(Dir, 1))
 		return NULL;
 
-	ret = mwrite_one(Dir, filename,0, makeit, &arg, ch);
+	ret = mwrite_one(Dir, filename, 0, makeit, &arg, ch);
 	if(ret < 1)
 		return NULL;
 	else
@@ -125,7 +140,7 @@ static int createDirCallback(direntry_t *entry, MainParam_t *mp)
 	Stream_t *ret;
 	time_t now;
 
-	ret = createDir(mp->File, mp->targetName, &((Arg_t *)(mp->arg))->ch, 
+	ret = createDir(mp->File, mp->targetName, &((Arg_t *)(mp->arg))->ch,
 					ATTR_DIR, getTimeNow(&now));
 	if(ret == NULL)
 		return ERROR_ONE;

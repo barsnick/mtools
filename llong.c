@@ -1,16 +1,25 @@
+/*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 #include "sysincludes.h"
 #include "stream.h"
 #include "fsP.h"
 #include "llong.h"
 #include "mtools.h"
-
-/* Warnings about integer overflow in expression can be ignored.  These are
- * due to the way that maximal values for those integers are computed: 
- * intentional overflow from smallest negative number (1000...) to highest 
- * positive number (0111...) by substraction of 1 */
-#ifdef __GNUC__
-#warning "The following warnings about integer overflow in expression can be safely ignored"
-#endif
 
 #if 1
 const mt_off_t max_off_t_31 = MAX_OFF_T_B(31); /* Floppyd */

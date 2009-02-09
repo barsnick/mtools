@@ -1,3 +1,21 @@
+/*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <stdarg.h>
 #include "sysincludes.h"
 #include "mtools.h"
 
@@ -174,15 +192,18 @@ FILE *opentty(int mode)
 	return tty;
 }
 
-int ask_confirmation(const char *format, const char *p1, const char *p2)
+int ask_confirmation(const char *format, ...)
 {
 	char ans[10];
+	va_list ap;
 
 	if(!opentty(-1))
 		return 0;
 
 	while (1) {
-		fprintf(stderr, format, p1, p2);
+		va_start(ap, format);
+		vfprintf(stderr, format, ap);
+		va_end(ap);
 		fflush(stderr);
 		fflush(opentty(-1));
 		if (mtools_raw_tty) {

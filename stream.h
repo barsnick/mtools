@@ -1,6 +1,23 @@
 #ifndef MTOOLS_STREAM_H
 #define MTOOLS_STREAM_H
 
+/*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 typedef struct Stream_t {
 	struct Class_t *Class;
 	int refs;
@@ -13,6 +30,8 @@ typedef struct Stream_t {
 
 #include "llong.h"
 
+doscp_t *get_dosConvert_pass_through(Stream_t *Stream);
+
 typedef struct Class_t {
 	int (*read)(Stream_t *, char *, mt_off_t, size_t);
 	int (*write)(Stream_t *, char *, mt_off_t, size_t);
@@ -22,6 +41,8 @@ typedef struct Class_t {
 					struct bootsector *);
 	int (*get_data)(Stream_t *, time_t *, mt_size_t *, int *, int *);
 	int (*pre_allocate)(Stream_t *, mt_size_t);
+
+	doscp_t *(*get_dosConvert)(Stream_t *);
 } Class_t;
 
 #define READS(stream, buf, address, size) \
@@ -38,6 +59,9 @@ typedef struct Class_t {
 
 #define PRE_ALLOCATE(stream, size) \
 (stream)->Class->pre_allocate((stream), (size))
+
+#define GET_DOSCONVERT(stream)			\
+	(stream)->Class->get_dosConvert((stream))
 
 int flush_stream(Stream_t *Stream);
 Stream_t *copy_stream(Stream_t *Stream);

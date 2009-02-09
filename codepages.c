@@ -1,32 +1,24 @@
-#include "codepage.h"
-
-/* MS-DOS doesn't use the same ASCII code as Unix does. The appearance
- * of the characters is defined using code pages. These code pages
- * aren't the same for all countries. For instance, some code pages
- * don't contain upper case accented characters. This affects two
- * things, relating to filenames:
-
- * 1. upper case characters. In short names, only upper case
- * characters are allowed.  This also holds for accented characters.
- * For instance, in a code page which doesn't contain accented
- * uppercase characters, the accented lowercase characters get
- * transformed into their unaccented counterparts. This is very bad
- * design. Indeed, stuff like national language support should never
- * affect filesystem integrity. And it does: A filename which is legal
- * in one country could be illegal in another one. Bad News for
- * frequent travellers.
-
- * 2. long file names: Micro$oft has finally come to their senses and
- * uses a more standard mapping for the long file names.  They use
- * Unicode, which is basically a 32 bit version of ASCII. Its first
- * 256 characters are identical to Unix ASCII. Thus, the code page
- * also affects the correspondence between the codes used in long
- * names and those used in short names.
-
- * Such a bad design is rather unbelievable. That's why I quoted the
- * translation tables. BEGIN FAIR USE EXCERPT:
+/*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
+#include "config.h"
 
+#ifndef HAVE_ICONV_H
+#include "codepage.h"
 
 Codepage_t codepages[]= {
 	{ 437,
@@ -73,7 +65,7 @@ Codepage_t codepages[]= {
 	  "­~.~~§÷¸°¨·¹uRr_"
 	},
 	
-	{ 860,      
+	{ 860,
 	  "ÇüéâãàåçêëèÍõìÃÂ"
 	  "ÉÀÈôõòÚùÌÕÜ¢£ÙPÓ"
 	  "áíóúñÑªº¿Ò¬½¼¡«»"
@@ -84,7 +76,7 @@ Codepage_t codepages[]= {
 	  "=±<>||÷~°··Vn²__"
 	},
 	
-	{ 863,      
+	{ 863,
 	  "ÇüéâÂà¶çêëèïî_À§"
 	  "ÉÈÊôËÏûù¤ÔÜ¢£ÙÛf"
 	  "|´óú¨ ³¯Îr¬½¼¾«»"
@@ -122,4 +114,4 @@ Codepage_t codepages[]= {
 	{ 0 }
 };
 
-/* END FAIR USE EXCERPT */
+#endif

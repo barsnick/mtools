@@ -1,4 +1,21 @@
-/* System includes for mtools */
+/*
+ *  This file is part of mtools.
+ *
+ *  Mtools is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Mtools is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * System includes for mtools
+ */
 
 #ifndef SYSINCLUDES_H
 #define SYSINCLUDES_H
@@ -277,6 +294,32 @@ typedef unsigned int uid_t;
 # endif
 #endif
 
+#ifdef HAVE_WCHAR_H
+# include <wchar.h>
+#else
+# define wcscmp strcmp
+# define wcscasecmp strcasecmp
+# define wcsdup strdup
+# define wcslen strlen
+# define wcschr strchr
+# define wcspbrk strpbrk
+# define wchar_t char
+# define putwc putc
+#endif
+
+#ifdef HAVE_WCTYPE_H
+# include <wctype.h>
+#else
+# define towupper(x) toupper(x)
+# define towlower(x) tolower(x)
+# define iswupper(x) isupper(x)
+# define iswlower(x) islower(x)
+# define iswcntrl(x) iscntrl(x)
+#endif
+
+#ifdef HAVE_LOCALE_H
+# include <locale.h>
+#endif
 
 #ifdef USE_FLOPPYD
 
@@ -407,6 +450,22 @@ int strncasecmp(const char *s1, const char *s2, size_t n);
 
 #ifndef HAVE_GETPASS
 char *getpass(const char *prompt);
+#endif
+
+#ifdef HAVE_WCHAR_H
+
+# ifndef HAVE_WCSDUP
+wchar_t *wcsdup(const wchar_t *wcs);
+# endif
+
+# ifndef HAVE_WCSCASECMP
+int wcscasecmp(const wchar_t *s1, const wchar_t *s2);
+# endif
+
+# ifndef HAVE_WCSNLEN
+size_t wcsnlen(const wchar_t *wcs, size_t l);
+# endif
+
 #endif
 
 #if 0
