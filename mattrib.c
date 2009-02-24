@@ -1,4 +1,4 @@
-/*
+/*  Copyright 2009 Alain Knaff.
  *  This file is part of mtools.
  *
  *  Mtools is free software: you can redistribute it and/or modify
@@ -131,15 +131,15 @@ static int recursive_attrib(direntry_t *entry, MainParam_t *mp)
 }
 
 
-static void usage(void) NORETURN;
-static void usage(void)
+static void usage(int ret) NORETURN;
+static void usage(int ret)
 {
 	fprintf(stderr, "Mtools version %s, dated %s\n", 
 		mversion, mdate);
 	fprintf(stderr, 
 		"Usage: %s [-p] [-a|+a] [-h|+h] [-r|+r] [-s|+s] msdosfile [msdosfiles...]\n",
 		progname);
-	exit(1);
+	exit(ret);
 }
 
 static int letterToCode(int letter)
@@ -154,7 +154,7 @@ static int letterToCode(int letter)
 		case 'S':
 			return ATTR_SYSTEM;
 		default:
-			usage();
+			usage(1);
 	}
 }
 
@@ -176,7 +176,9 @@ void mattrib(int argc, char **argv, int type)
 	concise = 0;
 	replay = 0;
 	
-	while ((c = getopt(argc, argv, "i:/ahrsAHRSXp")) != EOF) {
+	if(helpFlag(argc, argv))
+		usage(0);
+	while ((c = getopt(argc, argv, "i:/ahrsAHRSXph")) != EOF) {
 		switch (c) {
 			default:
 				arg.remove &= ~letterToCode(c);
@@ -193,8 +195,10 @@ void mattrib(int argc, char **argv, int type)
 			case 'X':
 				concise = 1;
 				break;
+			case 'h':
+				usage(0);
 			case '?':
-				usage();
+				usage(1);
 		}
 	}
 
@@ -216,7 +220,7 @@ void mattrib(int argc, char **argv, int type)
 		view = 1;
 
 	if (optind >= argc)
-		usage();
+		usage(1);
 
 	init_mp(&arg.mp);
 	if(view){
