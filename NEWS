@@ -1,3 +1,20 @@
+v4_0_7
+	Fixed conversion to native on OS/2
+	Fix parsing of --help flag
+v4_0_6
+	Fallback for missing wchar_t iconv codepage on OS/2
+	Fixes for LSEEK64 support
+	Support for --help that returns a 0 exit status
+v4_0_5
+	Make setpgrp() usage in floppyd conditional
+	Re-instate PACKED around structure (ARM)
+	LSEEK64
+	
+v4_0_4
+	BSD support: SCSI, use getuserid/getgroupid in floppyd
+	Another attempt at putwc fix for OS/2
+	Further GNU fixes
+	Fallback for putwc if there is wchar (OS/2)
 v4_0_3
 	Fix multipart pathname parsing bug in vfat.c (forgot limited length)
 	Supplied fallback define for putwc

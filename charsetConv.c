@@ -1,4 +1,4 @@
-/*
+/*  Copyright 2009 Alain Knaff.
  *  This file is part of mtools.
  *                              
  *  Mtools is free software: you can redistribute it and/or modify
@@ -20,7 +20,6 @@
 #include "msdos.h"
 #include "mtools.h"
 
-#include <iconv.h>
 #include <stdio.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -35,6 +34,60 @@ struct doscp_t {
 	iconv_t to;
 };
 
+static char *wcharCp=NULL;
+
+static char* wcharTries[] = {
+	"WCHAR_T",
+	"UTF-32BE", "UTF-32LE",
+	"UTF-16BE", "UTF-16LE",
+	"UTF-32", "UTF-16",
+	"UCS-4BE", "UCS-4LE",
+	"UCS-2BE", "UCS-2LE",
+	"UCS-4", "UCS-2"
+};
+
+static wchar_t *testString = L"ab";
+
+static int try(char *testCp) {
+	size_t res;
+	char *inbuf = (char *)testString;
+	size_t inbufLen = 2*sizeof(wchar_t);
+	char outbuf[3];
+	char *outbufP = outbuf;
+	size_t outbufLen = 2*sizeof(char);
+	iconv_t test = iconv_open("ASCII", testCp);
+
+	if(test == (iconv_t) -1)
+		goto fail0;
+	res = iconv(test,
+		    &inbuf, &inbufLen,
+		    &outbufP, &outbufLen);
+	if(res != 0 || outbufLen != 0 || inbufLen != 0)
+		goto fail;
+	if(memcmp(outbuf, "ab", 2))
+		goto fail;
+	/* fprintf(stderr, "%s ok\n", testCp); */
+	return 1;
+ fail:
+	iconv_close(test);
+ fail0:
+	/*fprintf(stderr, "%s fail\n", testCp);*/
+	return 0;
+}
+
+static const char *getWcharCp() {
+	int i;
+	if(wcharCp != NULL)
+		return wcharCp;	
+	for(i=0; i< sizeof(wcharTries) / sizeof(wcharTries[0]); i++) {
+		if(try(wcharTries[i]))
+			return (wcharCp=wcharTries[i]);
+	}
+	fprintf(stderr, "No codepage found for wchar_t\n");
+	return NULL;
+}
+
+
 doscp_t *cp_open(int codepage)
 {
 	char dosCp[17];
@@ -48,15 +101,29 @@ doscp_t *cp_open(int codepage)
 		fprintf(stderr, "Bad codepage %d\n", codepage);
 		return NULL;
 	}
-	sprintf(dosCp, "CP%d", codepage);
 
-	from = iconv_open("WCHAR_T", dosCp);
+	if(getWcharCp() == NULL)
+		return NULL;
+
+	sprintf(dosCp, "CP%d", codepage);
+	from = iconv_open(wcharCp, dosCp);
+	if(from == (iconv_t)-1) {
+		fprintf(stderr, "Error converting to codepage %d %s\n",
+			codepage, strerror(errno));
+		return NULL;
+	}
 
 	sprintf(dosCp, "CP%d//TRANSLIT", codepage);
-	to   =  iconv_open(dosCp, "WCHAR_T");
-	if(from == (iconv_t)-1 || to == (iconv_t)-1) {
-		fprintf(stderr, "Bad codepage %d %s\n", codepage,
-			strerror(errno));
+	to   =  iconv_open(dosCp, wcharCp);
+	if(to == (iconv_t)-1) {
+		/* Transliteration not supported? */
+		sprintf(dosCp, "CP%d", codepage);
+		to   =  iconv_open(dosCp, wcharCp);
+	}
+	if(to == (iconv_t)-1) {
+		iconv_close(from);
+		fprintf(stderr, "Error converting to codepage %d %s\n",
+			codepage, strerror(errno));
 		return NULL;
 	}
 
@@ -258,14 +325,18 @@ static void initialize_to_native(void)
 		return;
 	li = nl_langinfo(CODESET);
 	len = strlen(li) + 11;
+	if(getWcharCp() == NULL)
+		exit(1);
 	cp = safe_malloc(len);
 	strcpy(cp, li);
 	strcat(cp, "//TRANSLIT");
-	to_native = iconv_open(cp, "WCHAR_T");
-	if(to_native == NULL)
+	to_native = iconv_open(cp, wcharCp);
+	if(to_native == (iconv_t) -1)
+		to_native = iconv_open(li, wcharCp);
+	if(to_native == (iconv_t) -1)
 		fprintf(stderr, "Could not allocate iconv for %s\n", cp);
 	free(cp);
-	if(to_native == NULL)
+	if(to_native == (iconv_t) -1)
 		exit(1);
 }
 

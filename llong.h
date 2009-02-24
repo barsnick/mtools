@@ -1,7 +1,7 @@
 #ifndef MTOOLS_LLONG_H
 #define MTOOLS_LLONG_H
 
-/*
+/*  Copyright 2009 Alain Knaff.
  *  This file is part of mtools.
  *
  *  Mtools is free software: you can redistribute it and/or modify
@@ -29,7 +29,7 @@
 #endif
 
 #ifndef MT_OFF_T
-# ifdef HAVE_LLSEEK
+# if defined(HAVE_LLSEEK) || defined(HAVE_LSEEK64)
 /* we have llseek. Now, what's its type called? loff_t or offset_t ? */
 #  ifdef HAVE_LOFF_T
 #   define MT_OFF_T loff_t
@@ -52,9 +52,14 @@
 #  define MT_OFF_T long long
 #  define MT_SIZE_T unsigned long long
 # else
+#  ifdef HAVE_OFF64_T
+#   define MT_OFF_T off64_t
+#   define MT_SIZE_T off64_t
+#  else
 /* ... and if that fails, fall back on good ole' off_t */
-#  define MT_OFF_T off_t
-#  define MT_SIZE_T size_t
+#   define MT_OFF_T off_t
+#   define MT_SIZE_T size_t
+#  endif
 # endif
 #endif
 
@@ -80,7 +85,7 @@ typedef struct {
 #define MAX_OFF_T_B(bits) \
 	((((mt_off_t) 1 << min(bits-1, sizeof(mt_off_t)*8 - 2)) -1) << 1 | 1)
 
-#ifdef HAVE_LLSEEK
+#if defined(HAVE_LLSEEK) || defined(HAVE_LSEEK64)
 # define SEEK_BITS 63
 #else
 # define SEEK_BITS (sizeof(off_t) * 8 - 1)

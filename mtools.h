@@ -1,6 +1,6 @@
 #ifndef MTOOLS_MTOOLS_H
 #define MTOOLS_MTOOLS_H
-/*
+/*  Copyright 2009 Alain Knaff.
  *  This file is part of mtools.
  *
  *  Mtools is free software: you can redistribute it and/or modify
@@ -252,6 +252,8 @@ char getDrive(Stream_t *Stream);
 
 void printOom(void);
 int ask_confirmation(const char *, ...)  __attribute__ ((format (printf, 1, 2)));
+
+int helpFlag(int, char **);
 
 char *get_homedir(void);
 #define EXPAND_BUF 2048

@@ -1,4 +1,4 @@
-/*
+/*  Copyright 2009 Alain Knaff.
  *  This file is part of mtools.
  *
  *  Mtools is free software: you can redistribute it and/or modify
@@ -39,13 +39,14 @@ typedef struct Arg_t {
 	MainParam_t mp;
 } Arg_t;
 
-static void usage(void)
+static void usage(int ret) NORETURN;
+static void usage(int ret)
 {
 		fprintf(stderr, "Mtools version %s, dated %s\n",
 			mversion, mdate);
 		fprintf(stderr, "Usage: %s: msdosdirectory\n",
 			progname);
-		exit(1);
+		exit(ret);
 }
 
 static int file_mdu(direntry_t *entry, MainParam_t *mp)
@@ -100,7 +101,9 @@ void mdu(int argc, char **argv, int type)
 	arg.all = 0;
 	arg.inDir = 0;
 	arg.summary = 0;
-	while ((c = getopt(argc, argv, "i:as")) != EOF) {
+	if(helpFlag(argc, argv))
+		usage(0);
+	while ((c = getopt(argc, argv, "i:ash")) != EOF) {
 		switch (c) {
 			case 'i':
 				set_cmd_line_image(optarg, 0);
@@ -111,17 +114,19 @@ void mdu(int argc, char **argv, int type)
 			case 's':
 				arg.summary = 1;
 				break;
+			case 'h':
+				usage(0);
 			case '?':
-				usage();
+				usage(1);
 		}
 	}
 
 	if (optind >= argc)
-		usage();
+		usage(1);
 
 	if(arg.summary && arg.all) {
 		fprintf(stderr,"-a and -s options are mutually exclusive\n");
-		usage();
+		usage(1);
 	}
 
 	init_mp(&arg.mp);

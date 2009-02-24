@@ -5657,13 +5657,18 @@ _ACEOF
 
 
 
+
+
+
+
 for ac_func in strerror random srandom strchr strrchr lockf flock \
 strcasecmp strncasecmp strnlen atexit on_exit getpass memmove \
 strdup strcspn strspn strtoul strtol memcpy strpbrk memset setenv \
-seteuid setresuid \
+seteuid setresuid setpgrp \
 tcsetattr tcflush basename fchdir media_oldaliases llseek lseek64 \
 snprintf stat64 setlocale \
-wcsdup wcscasecmp wcsnlen
+wcsdup wcscasecmp wcsnlen putwc \
+getuserid getgroupid
 do
 as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $ac_func" >&5
@@ -5827,6 +5832,7 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
 fi
+
 
 
 
