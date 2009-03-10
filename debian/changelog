@@ -1,3 +1,20 @@
+mtools (4.0.10) stable; urgency=low
+
+  * More copyright stuff
+  * Fixed issues with max filesize (was 2GB instead of 4GB, and
+    warned only after copying the beginning)
+	
+ -- Alain Knaff <alain@knaff.lu>  Tue,  3 Mar 2009 22:14:04 +0100
+mtools (4.0.9) stable; urgency=low
+
+  * More copyright stuff
+
+ -- Alain Knaff <alain@knaff.lu>  Mon,  2 Mar 2009 22:15:54 +0100
+mtools (4.0.8) stable; urgency=low
+
+  * Copyright notices
+
+ -- Alain Knaff <alain@knaff.lu>  Sun,  1 Mar 2009 00:36:22 +0100
 mtools (4.0.7) stable; urgency=low
 
   * Fixed conversion to native on OS/2

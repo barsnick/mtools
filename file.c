@@ -1,4 +1,4 @@
-/*  Copyright 2009 Alain Knaff.
+/*  Copyright 1996-1999,2001-2003,2007-2009 Alain Knaff.
  *  This file is part of mtools.
  *
  *  Mtools is free software: you can redistribute it and/or modify
@@ -87,6 +87,7 @@ static int recalcPreallocSize(File_t *This)
 	Fs_t *Fs = This->Fs;
 	int r;
 
+#if 0
 	if(This->FileSize & 0xc0000000) {
 		fprintf(stderr, "Bad filesize\n");
 	}
@@ -94,7 +95,7 @@ static int recalcPreallocSize(File_t *This)
 		fprintf(stderr, "Bad preallocated size %x\n",
 				(int) This->preallocatedSize);
 	}
-
+#endif
 	clus_size = Fs->cluster_size * Fs->sector_size;
 
 	currentClusters = (This->FileSize + clus_size - 1) / clus_size;

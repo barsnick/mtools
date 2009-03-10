@@ -1,9 +1,10 @@
 This is mtools.info, produced by makeinfo version 4.11 from mtools.texi.
 
-This manual is for Mtools (version 4.0.7, February 2009), which is a
+This manual is for Mtools (version 4.0.10, March 2009), which is a
 collection of tools to allow Unix systems to manipulate MS-DOS files.
 
-   Copyright (C) 2007, 2009 Free Software Foundation, Inc.
+   Copyright (C) 2007, 2009 Free Software Foundation, Inc.  Copyright
+(C) 1996-2005,2007-2009 Alain Knaff.
 
      Permission is granted to copy, distribute and/or modify this
      document under the terms of the GNU Free Documentation License,
@@ -41,10 +42,11 @@ any preliminary mounting or initialization (assuming the default
 `/etc/mtools.conf' works on your machine).  With mtools, one can change
 floppies too without unmounting and mounting.
 
-   This manual is for Mtools (version 4.0.7, February 2009), which is a
+   This manual is for Mtools (version 4.0.10, March 2009), which is a
 collection of tools to allow Unix systems to manipulate MS-DOS files.
 
-   Copyright (C) 2007, 2009 Free Software Foundation, Inc.
+   Copyright (C) 2007, 2009 Free Software Foundation, Inc.  Copyright
+(C) 1996-2005,2007-2009 Alain Knaff.
 
      Permission is granted to copy, distribute and/or modify this
      document under the terms of the GNU Free Documentation License,
@@ -74,12 +76,14 @@ File: mtools.info,  Node: Location,  Next: Common features,  Prev: Top,  Up: Top
 *********************
 
 Mtools can be found at the following places (and their mirrors):
-     http://mtools.linux.lu/mtools-4.0.7.tar.gz
-     ftp://www.tux.org/pub/knaff/mtools/mtools-4.0.7.tar.gz
-     ftp://ibiblio.unc.edu/pub/Linux/utils/disk-management/mtools-4.0.7.tar.gz
+     http://ftp.gnu.org/gnu/mtools/mtools-4.0.10.tar.gz
+     http://mtools.linux.lu/mtools-4.0.10.tar.gz
+     ftp://www.tux.org/pub/knaff/mtools/mtools-4.0.10.tar.gz
+     ftp://ibiblio.unc.edu/pub/Linux/utils/disk-management/mtools-4.0.10.tar.gz
 
    Before reporting a bug, make sure that it has not yet been fixed in
 the Alpha patches which can be found at:
+     http://ftp.gnu.org/gnu/mtools/
      http://mtools.linux.lu/
      ftp://www.tux.org/pub/knaff/mtools
 
@@ -94,7 +98,7 @@ tux.org . (N.B. Please remove the spaces around the "@" both times. I
 left them there in order to fool spambots.)  Announcements of new
 mtools versions will also be sent to the list, in addition to the linux
 announce newsgroups.  The mailing list is archived at
-http://www.tux.org/hypermail/mtools/latest
+http://lists.gnu.org/pipermail/info-mtools/
 
 
 File: mtools.info,  Node: Common features,  Next: Configuration,  Prev: Location,  Up: Top
@@ -2663,70 +2667,70 @@ Concept index
 
 
 Tag Table:
-Node: Top820
-Node: Location2850
-Node: Common features4140
-Node: arguments4904
-Node: drive letters6558
-Node: directory7910
-Node: long names8354
-Node: name clashes10900
-Node: case sensitivity13183
-Node: high capacity formats14407
-Node: more sectors15510
-Node: bigger sectors16559
-Node: 2m17281
-Node: XDF18452
-Node: exit codes19778
-Node: bugs20414
-Node: Configuration20946
-Node: config file location22070
-Node: general syntax22497
-Node: default values23317
-Node: global variables23844
-Node: per drive variables25924
-Node: general information26741
-Node: location information27182
-Node: geometry description28685
-Node: open flags32537
-Node: misc variables33127
-Node: misc flags35170
-Node: multiple descriptions38805
-Node: parsing order40466
-Node: old style config41638
-Node: Commands42326
-Node: floppyd44193
-Node: floppyd_installtest48977
-Node: mattrib49608
-Node: mbadblocks51401
-Node: mcat52040
-Node: mcd52850
-Node: mclasserase53710
-Node: mcopy54386
-Node: mdel57407
-Node: mdeltree57744
-Node: mdir58160
-Node: mdu59433
-Node: mformat59939
-Node: mkmanifest66506
-Node: minfo68478
-Node: mlabel69036
-Node: mmd70113
-Node: mmount70459
-Node: mmove71055
-Node: mpartition71857
-Node: mrd75379
-Node: mren75734
-Node: mshowfat76477
-Node: mtoolstest76695
-Node: mtype77265
-Node: mzip78116
-Ref: mzip-Footnote-180141
-Ref: mzip-Footnote-280217
-Node: Compiling mtools80503
-Node: Porting mtools81598
-Node: Command Index87513
-Node: Variable Index87661
-Node: Concept Index89126
+Node: Top866
+Node: Location2942
+Node: Common features4328
+Node: arguments5092
+Node: drive letters6746
+Node: directory8098
+Node: long names8542
+Node: name clashes11088
+Node: case sensitivity13371
+Node: high capacity formats14595
+Node: more sectors15698
+Node: bigger sectors16747
+Node: 2m17469
+Node: XDF18640
+Node: exit codes19966
+Node: bugs20602
+Node: Configuration21134
+Node: config file location22258
+Node: general syntax22685
+Node: default values23505
+Node: global variables24032
+Node: per drive variables26112
+Node: general information26929
+Node: location information27370
+Node: geometry description28873
+Node: open flags32725
+Node: misc variables33315
+Node: misc flags35358
+Node: multiple descriptions38993
+Node: parsing order40654
+Node: old style config41826
+Node: Commands42514
+Node: floppyd44381
+Node: floppyd_installtest49165
+Node: mattrib49796
+Node: mbadblocks51589
+Node: mcat52228
+Node: mcd53038
+Node: mclasserase53898
+Node: mcopy54574
+Node: mdel57595
+Node: mdeltree57932
+Node: mdir58348
+Node: mdu59621
+Node: mformat60127
+Node: mkmanifest66694
+Node: minfo68666
+Node: mlabel69224
+Node: mmd70301
+Node: mmount70647
+Node: mmove71243
+Node: mpartition72045
+Node: mrd75567
+Node: mren75922
+Node: mshowfat76665
+Node: mtoolstest76883
+Node: mtype77453
+Node: mzip78304
+Ref: mzip-Footnote-180329
+Ref: mzip-Footnote-280405
+Node: Compiling mtools80691
+Node: Porting mtools81786
+Node: Command Index87701
+Node: Variable Index87849
+Node: Concept Index89314
 
 End Tag Table

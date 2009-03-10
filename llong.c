@@ -1,4 +1,4 @@
-/*  Copyright 2009 Alain Knaff.
+/*  Copyright 1999-2003,2006,2008,2009 Alain Knaff.
  *  This file is part of mtools.
  *
  *  Mtools is free software: you can redistribute it and/or modify
@@ -23,6 +23,7 @@
 
 #if 1
 const mt_off_t max_off_t_31 = MAX_OFF_T_B(31); /* Floppyd */
+const mt_off_t max_off_t_32 = MAX_OFF_T_B(32); /* Directory */
 const mt_off_t max_off_t_41 = MAX_OFF_T_B(41); /* SCSI */
 const mt_off_t max_off_t_seek = MAX_OFF_T_B(SEEK_BITS); /* SCSI */
 #else
@@ -31,9 +32,13 @@ const mt_off_t max_off_t_41 = MAX_OFF_T_B(10); /* SCSI */
 const mt_off_t max_off_t_seek = MAX_OFF_T_B(10); /* SCSI */
 #endif
 
+int fileTooBig(mt_off_t off) {
+	return (off & ~max_off_t_32) != 0;
+}
+
 off_t truncBytes32(mt_off_t off)
 {
-	if (off & ~max_off_t_31) {
+	if (fileTooBig(off)) {
 		fprintf(stderr, "Internal error, offset too big\n");
 		exit(1);
 	}
