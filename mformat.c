@@ -1,4 +1,5 @@
-/*  Copyright 2009 Alain Knaff.
+/*  Copyright 1986-1992 Emmet P. Gray.
+ *  Copyright 1994,1996-2009 Alain Knaff.
  *  This file is part of mtools.
  *
  *  Mtools is free software: you can redistribute it and/or modify
@@ -141,7 +142,7 @@ static int init_geometry_boot(struct bootsector *boot, struct device *dev,
 			boot->jump[0] = 0xeb;
 			boot->jump[1] = 0;
 			boot->jump[2] = 0x90;
-			strncpy(boot->banner, "MTOOL407", 8);
+			strncpy(boot->banner, mformat_banner, 8);
 			/* It looks like some versions of DOS are
 			 * rather picky about this, and assume default
 			 * parameters without this, ignoring any
@@ -386,8 +387,8 @@ static void calc_fat_size(Fs_t *Fs, unsigned long tot_sectors)
 
 
 	/* See fat_size_calculation.tex or
-	   (http://www.mtools.linux.lu/fat_size_calculation.pdf) for an
-	   explantation about why the stuff below works...
+	   (http://ftp.gnu.org/software/mtools/manual/fat_size_calculation.pdf)
+	   for an explantation about why the stuff below works...
 	*/
 
 	fat_nybbles = Fs->fat_bits / 4;

@@ -1,4 +1,5 @@
-/*  Copyright 2009 Alain Knaff.
+/*  Copyright 1986-1992 Emmet P. Gray.
+ *  Copyright 1994,1996-2002,2007-2009 Alain Knaff.
  *  This file is part of mtools.
  *
  *  Mtools is free software: you can redistribute it and/or modify
@@ -303,6 +304,11 @@ static int writeit(struct dos_name_t *dosname,
 									  & date, &filesize, &type, 0) < 0 ){
 		fprintf(stderr, "Can't stat source file\n");
 		return -1;
+	}
+
+	if(fileTooBig(filesize)) {
+		fprintf(stderr, "File \"%s\" too big\n", longname);
+		return 1;
 	}
 
 	if (type){

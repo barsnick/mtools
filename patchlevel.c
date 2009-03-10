@@ -1,4 +1,4 @@
-/*  Copyright 2009 Alain Knaff.
+/*  Copyright 1999-2009 Alain Knaff.
  *  This file is part of mtools.
  *
  *  Mtools is free software: you can redistribute it and/or modify
@@ -15,8 +15,10 @@
  *  along with Mtools.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const char *mversion="4.0.7";
+const char *mversion="4.0.10";
 
 /* Multiple releases on same day should be marked with (b), (cd), (d) after
  * date string below */
-const char *mdate = "February 24th, 2009";
+const char *mdate = "March 10th, 2009";
+
+const char *mformat_banner = "MTOO4010";

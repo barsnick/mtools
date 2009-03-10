@@ -1,7 +1,7 @@
 #ifndef MTOOLS_LLONG_H
 #define MTOOLS_LLONG_H
 
-/*  Copyright 2009 Alain Knaff.
+/*  Copyright 1999,2001-2004,2007-2009 Alain Knaff.
  *  This file is part of mtools.
  *
  *  Mtools is free software: you can redistribute it and/or modify
@@ -96,6 +96,7 @@ extern const mt_off_t max_off_t_41;
 extern const mt_off_t max_off_t_seek;
 
 extern off_t truncBytes32(mt_off_t off);
+extern int fileTooBig(mt_off_t off);
 mt_off_t sectorsToBytes(Stream_t *This, off_t off);
 
 mt_size_t getfree(Stream_t *Stream);
